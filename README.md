@@ -1,4 +1,3 @@
-This is for CCC graduation project
 ## Elderly Fall Prevention & Posture Monitoring System
 
 ## Overview
