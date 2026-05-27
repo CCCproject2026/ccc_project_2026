@@ -4,19 +4,20 @@
 
 This system detects falls and posture deterioration in elderly individuals in real time using IoT sensors and a deep learning CNN model. When a fall is detected, an instant alert is pushed to a nurse dashboard via WebSocket.
 The architecture is designed to **minimize processing overhead and communication latency** by connecting components directly:
+
 ```
 IoT Device → AI Inference Server (FastAPI) → Web App (Next.js) → Nurse Dashboard
 ```
->Created: 2026-05-23 | Version: V1.0
 
-##  Team
+> Created: 2026-05-23 | Version: V1.0
 
-| Name                | Role               | Responsibilities 
+## Team
 
-| **Kyi Pyar Hlaing** | PM + Web Developer | Next.js dashboard, API integration, GitHub management 
-| **Kyaw Htin Hein**  | AI Lead            | PyTorch CNN model,API inference server, dataset processing , AWS deploy,
-| **Win Htut Oo**     | IoT Engineer       | Raspberry Pi Zero 2W, MPU6050 sensor, HTTP pipeline , AWS deploy
+| Name | Role | Responsibilities
 
+| **Kyi Pyar Hlaing** | PM + Web Developer | Next.js dashboard, API integration, GitHub management
+| **Kyaw Htin Hein** | AI Lead | PyTorch CNN model,API inference server, dataset processing , AWS deploy,
+| **Win Htut Oo** | IoT Engineer | Raspberry Pi Zero 2W, MPU6050 sensor, HTTP pipeline , AWS deploy
 
 ## System Architecture
 
@@ -76,7 +77,7 @@ IoT Device → AI Inference Server (FastAPI) → Web App (Next.js) → Nurse Das
 
 ---
 
-##  How Each Component Works
+## How Each Component Works
 
 ### ① IoT Device → FastAPI (Sensor Data)
 
@@ -105,6 +106,7 @@ After inference, FastAPI acts as a client and POSTs the result to the web applic
 - **Protocol:** HTTP POST
 - **Endpoint:** `http://localhost:3000/api/alert`
 - **Payload:**
+
 ```json
 {
   "status": "fallen",
@@ -123,18 +125,17 @@ Next.js receives the alert and immediately broadcasts it to all connected browse
 
 ---
 
-
 ## 🛠️ Tech Stack
 
-| Layer           | Technology
+| Layer | Technology
 
-| IoT Device      | Raspberry Pi Zero 2W + MPU6050
-| AI Inference    | FastAPI + PyTorch CNN + Matplotlib (in-memory) 
-| Web Backend     | Next.js API Routes + Socket.io 
-| Web Frontend    | Next.js (React) + Browser Audio API 
-| Deployment      | AWS EC2 — FastAPI + Next.js co-hosted on same instance 
-| Task Management | GitHub Projects 
-| Communication   | Microsoft Teams
+| IoT Device | Raspberry Pi Zero 2W + MPU6050
+| AI Inference | FastAPI + PyTorch CNN + Matplotlib (in-memory)
+| Web Backend | Next.js API Routes + Socket.io
+| Web Frontend | Next.js (React) + Browser Audio API
+| Deployment | AWS EC2 — FastAPI + Next.js co-hosted on same instance
+| Task Management | GitHub Projects
+| Communication | Microsoft Teams
 
 ---
 
@@ -175,17 +176,20 @@ elderly-fall-prevention-system/
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Python 3.10+
 - Node.js 18+
 - Raspberry Pi Zero 2W + MPU6050
 
 ### 1. Clone the repo
+
 ```bash
 git clone https://github.com/call-it-is/ccc_project_2026/
 cd elderly-fall-prevention-system
 ```
 
 ### 2. AI Server
+
 ```bash
 cd ai/server
 pip install -r requirements.txt
@@ -193,6 +197,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ### 3. Web App
+
 ```bash
 cd web
 npm install
@@ -200,6 +205,7 @@ npm run dev
 ```
 
 ### 4. IoT Device
+
 ```bash
 cd iot/raspberry_pi
 python sender.py
@@ -207,20 +213,19 @@ python sender.py
 
 ---
 
-##  Why This Architecture?
+## Why This Architecture?
 
-| Component      | Benefit
+| Component | Benefit
 
-| **IoT Device** | No heavy libraries needed on device → lower CPU, memory, battery usage 
-| **Network**    | Only lightweight JSON sent over Wi-Fi → minimal bandwidth 
-| **FastAPI**    | Direct data reception → no Next.js relay overhead; full Python data ecosystem available 
+| **IoT Device** | No heavy libraries needed on device → lower CPU, memory, battery usage
+| **Network** | Only lightweight JSON sent over Wi-Fi → minimal bandwidth
+| **FastAPI** | Direct data reception → no Next.js relay overhead; full Python data ecosystem available
 
->  **Key optimization:** FastAPI and Next.js are hosted on the **same AWS EC2 instance**. This means the ② AI → Next.js communication happens over `localhost` (loopback), reducing latency from hundreds of milliseconds to under 1ms. Total network hops = effectively **one** (IoT → EC2).
+> **Key optimization:** FastAPI and Next.js are hosted on the **same AWS EC2 instance**. This means the ② AI → Next.js communication happens over `localhost` (loopback), reducing latency from hundreds of milliseconds to under 1ms. Total network hops = effectively **one** (IoT → EC2).
 
 ---
 
-
-##  Branch Strategy
+## Branch Strategy
 
 ```
 main          ← stable, production-ready (PR + 1 review required)
@@ -233,4 +238,5 @@ feature/iot   ← Win Htut Oo
 > ⚠️ Never push directly to `main`. Always open a Pull Request.
 
 ## 📄 License
+
 Graduation project — Kyi Pyar Hlaing, Kyaw Htin Hein, Win Htut Oo. All rights reserved.
