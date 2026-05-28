@@ -129,7 +129,7 @@ Next.js receives the alert and immediately broadcasts it to all connected browse
 
 | Layer | Technology
 
-| IoT Device | Raspberry Pi Zero 2W + MPU6050
+| IoT Device | Raspberry Pi Zero pico + MPU6050
 | AI Inference | FastAPI + PyTorch CNN + Matplotlib (in-memory)
 | Web Backend | Next.js API Routes + Socket.io
 | Web Frontend | Next.js (React) + Browser Audio API
@@ -240,3 +240,14 @@ feature/iot   ← Win Htut Oo
 ## 📄 License
 
 Graduation project — Kyi Pyar Hlaing, Kyaw Htin Hein, Win Htut Oo. All rights reserved.
+
+---
+
+## Scaffold Update (2026-05-28)
+
+Feature-based baseline tree was created under `elderly-fall-prevention-system/` with:
+
+- `ai/features/inference/` for FastAPI inference encapsulation
+- `iot/raspberry_pi` and `iot/microbit` device scripts
+- `web/src/app` kept routing-thin and implementation colocation under `web/src/features/*`
+- `web/prisma/schema.prisma` initialized for PostgreSQL datasource
