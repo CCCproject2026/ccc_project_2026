@@ -1,0 +1,14 @@
+{
+  "name": "elderly-fall-prevention-web",
+  "private": true,
+  "packageManager": "pnpm@10",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  }
+}
