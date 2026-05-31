@@ -107,13 +107,12 @@ After inference, FastAPI acts as a client and POSTs the result to the web applic
 - **Endpoint:** `http://localhost:3000/api/alert`
 - **Payload:**
 
-```json
 {
-  "status": "fallen",
-  "sensor_id": "belt_01",
-  "timestamp": "2026-05-23T21:15:00Z"
+isfall :  0   or    1, 
+battery_per : 30.0,
+device_name :  testDev_1,
+status : active
 }
-```
 
 ### ④ Next.js → Dashboard (Real-time Alert)
 
