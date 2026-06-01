@@ -1,0 +1,13 @@
+# Ignore files for AI service
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+.DS_Store
+.git
+.gitignore
+.dockerignore

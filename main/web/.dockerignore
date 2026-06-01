@@ -1,0 +1,12 @@
+# Ignore files for Web service
+node_modules/
+.next/
+.git
+.gitignore
+.dockerignore
+.env
+.DS_Store
+dist/
+build/
+coverage/
+*.log
