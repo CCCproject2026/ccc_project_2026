@@ -1,0 +1,14 @@
+services:
+  ai-server:
+    build: ./main/ai
+    ports:
+      - "8000:8000"
+    command: ["sleep", "infinity"]
+    restart: "no"
+  web-app:
+    build: ./main/web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - ai-server
+    restart: "no"
