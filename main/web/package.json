@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "seed": "prisma db seed",
-    
+    "seed": "prisma db seed"
   },
   "dependencies": {
     "next": "15.0.0",
