@@ -5,10 +5,35 @@ services:
       - "8000:8000"
     command: ["sleep", "infinity"]
     restart: "no"
+
   web-app:
     build: ./main/web
     ports:
       - "3000:3000"
+    env_file:
+      - ./main/web/.env
+    environment:
+      DATABASE_URL: postgresql://ccc_project:ccc12345@db:5432/ccc_db
+  
+    volumes:
+      - ./main/web:/app           
+      - /app/node_modules     
     depends_on:
-      - ai-server
+      - db                       
     restart: "no"
+
+  db:
+    image: postgres:15-alpine
+    container_name: ccc_postgres_db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ccc_project
+      POSTGRES_PASSWORD: ccc12345
+      POSTGRES_DB: ccc_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: "no"
+  
+volumes:
+  postgres_data:

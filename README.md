@@ -198,12 +198,27 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ### 3. Web App
 
 ```bash
-cd web
-npm install
-npm run dev
+cd main/web
+pnpm install
+pnpm dev
 ```
 
-### 4. IoT Device
+### 4. Database / Prisma
+
+This project uses PostgreSQL with Prisma.
+
+For local development, Prisma Studio and Prisma CLI connect to Docker PostgreSQL through `localhost:5433`.
+Inside Docker Compose, the `web-app` container connects to the same database through the internal service name `db:5432`.
+
+```bash
+docker compose up -d db
+cd main/web
+pnpm prisma:push
+pnpm prisma:seed
+pnpm prisma:studio
+```
+
+### 5. IoT Device
 
 ```bash
 cd iot/raspberry_pi
@@ -250,3 +265,90 @@ Feature-based baseline tree was created under `elderly-fall-prevention-system/` 
 - `iot/raspberry_pi` and `iot/microbit` device scripts
 - `web/src/app` kept routing-thin and implementation colocation under `web/src/features/*`
 - `web/prisma/schema.prisma` initialized for PostgreSQL datasource
+
+---
+
+## Development Update (2026-06-04)
+
+Today the project setup was cleaned up for GitHub safety, local database development, and Prisma seed data.
+
+### GitHub Ignore Rules
+
+Updated `.gitignore` so local/private/generated files are not pushed to GitHub:
+
+- `.env`, `.env.*`, `main/web/.env`, `main/web/.env.*`
+- `node_modules/`, `main/web/node_modules/`, `.pnpm-store/`
+- Next.js build/cache output such as `main/web/.next/`
+- Python cache and virtual environment folders
+- Jupyter checkpoints
+- AI datasets and model artifacts such as `main/ai/data/`, `main/ai/models/`, `*.pt`, `*.pth`, `*.onnx`
+- local DB files, editor files, `.DS_Store`, `.codex/`, `.agents/`
+
+The already-tracked `main/web/.next/` files were removed from Git tracking with `git rm --cached`, while keeping local files on disk.
+
+### Web Package Manager
+
+Confirmed that the Web app uses pnpm:
+
+- `main/web/package.json` has `packageManager: "pnpm@9.15.0"`
+- `main/web/pnpm-lock.yaml` is the only package lockfile
+- `main/web/Dockerfile` uses `pnpm install` and `pnpm dev`
+
+### Prisma / PostgreSQL Setup
+
+Configured Prisma and PostgreSQL for both local development and Docker:
+
+- `main/web/prisma/schema.prisma` now reads `DATABASE_URL` through `env("DATABASE_URL")`
+- `main/web/prisma.config.ts` loads `main/web/.env` explicitly and defines the seed command
+- `main/web/package.json` includes Prisma scripts:
+  - `pnpm prisma:push`
+  - `pnpm prisma:generate`
+  - `pnpm prisma:seed`
+  - `pnpm prisma:studio`
+  - `pnpm prisma:validate`
+- `docker-compose.yml` includes PostgreSQL service `db`
+- Docker PostgreSQL is exposed to the host on `localhost:5433`
+- Docker containers use the internal URL `db:5432`
+
+Reason for using `localhost:5433`: on the local machine, port `5432` may already be used by another PostgreSQL instance. Prisma Studio was failing because it was connecting to the wrong database. Moving the Docker PostgreSQL host port to `5433` avoids that conflict.
+
+### Current Database Models
+
+The current Prisma schema contains:
+
+- `User`: staff users such as nurses and caregivers
+- `Elderly`: monitored elderly residents
+- `Device`: IoT wearable devices linked 1:1 with elderly residents
+- `AlertHistory`: fall and false-alarm history, including resolved/unresolved status
+
+### Seed Data
+
+Implemented `main/web/prisma/seed.ts` with development data suitable for the current schema:
+
+- 2 users: one admin nurse and one caregiver
+- 4 elderly residents
+- 4 devices:
+  - active devices
+  - one maintenance device
+  - one inactive unassigned device
+- 3 alert histories:
+  - one unresolved fall alert
+  - one resolved fall alert
+  - one resolved false alarm
+
+Seed was verified with:
+
+```bash
+cd main/web
+pnpm prisma:seed
+```
+
+Verification result:
+
+```text
+User: 2
+Elderly: 4
+Device: 4
+AlertHistory: 3
+Device.findMany: OK
+```
