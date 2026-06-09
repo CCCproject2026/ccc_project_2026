@@ -1,7 +1,7 @@
-import { config } from 'dotenv'
-import { defineConfig } from '@prisma/config'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { defineConfig } from '@prisma/config'
+import { config } from 'dotenv'
 
 config({ path: join(dirname(fileURLToPath(import.meta.url)), '.env') })
 

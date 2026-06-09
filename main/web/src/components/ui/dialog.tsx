@@ -1,3 +1,3 @@
 export function Dialog() {
-  return <div role="dialog">Dialog</div>;
+  return <dialog open>Dialog</dialog>
 }
