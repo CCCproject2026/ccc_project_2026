@@ -8,9 +8,9 @@ export default function HomePage() {
         <p className="text-gray-600 mb-6">
           Monitoring and alert system for enhanced safety.
         </p>
-        <button className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition">
+        <a href="/dashboard" className="block w-full bg-blue-600 text-white text-center py-2 px-4 rounded hover:bg-blue-700 transition">
           Go to Dashboard
-        </button>
+        </a>
       </div>
     </main>
   );
