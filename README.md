@@ -214,9 +214,13 @@ Inside Docker Compose, the `web-app` container connects to the same database thr
 docker compose up -d db
 cd main/web
 pnpm prisma:push
+pnpm prisma:generate
 pnpm prisma:seed
+pnpm prisma:erd
 pnpm prisma:studio
 ```
+
+Prisma Studio is for browsing and editing records. `pnpm prisma:generate` updates Prisma Client, and `pnpm prisma:erd` updates the schema diagram at `main/web/prisma/ERD.svg`.
 
 ### 5. IoT Device
 
@@ -303,6 +307,7 @@ Configured Prisma and PostgreSQL for both local development and Docker:
 - `main/web/package.json` includes Prisma scripts:
   - `pnpm prisma:push`
   - `pnpm prisma:generate`
+  - `pnpm prisma:erd`
   - `pnpm prisma:seed`
   - `pnpm prisma:studio`
   - `pnpm prisma:validate`

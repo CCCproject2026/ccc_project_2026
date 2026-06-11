@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+generator erd {
+  provider        = "prisma-erd-generator"
+  output          = "./ERD.svg"
+  puppeteerConfig = "./prisma/puppeteerConfig.json"
+}
+
 // 1. ユーザー管理（看護師・介護士）
 model User {
   id    String @id // Clerkの user_xxx などのIDをそのまま格納すると便利です
