@@ -108,9 +108,9 @@ After inference, FastAPI acts as a client and POSTs the result to the web applic
 - **Payload:**
 
 {
-isfall :  0   or    1, 
+isfall : 0 or 1,
 battery_per : 30.0,
-device_name :  testDev_1,
+device_name : testDev_1,
 status : active
 }
 
@@ -357,3 +357,32 @@ Device: 4
 AlertHistory: 3
 Device.findMany: OK
 ```
+
+---
+
+## Cloudflare Deployment Notes
+
+The Web app is deployed to Cloudflare Workers through OpenNext.
+
+In the Cloudflare dashboard, do not paste the `package.json` script definition itself.
+
+Use this as the deploy command:
+
+```bash
+pnpm run deploy
+```
+
+If the Cloudflare workflow requires `wrangler versions upload`, use this command instead:
+
+```bash
+pnpm run versions:upload
+```
+
+Do not use these values as Cloudflare commands:
+
+```bash
+npx wrangler versions upload
+"versions:upload": "opennextjs-cloudflare build && wrangler versions upload"
+```
+
+The direct `wrangler versions upload` command fails because `.open-next/worker.js` is generated only after `opennextjs-cloudflare build` runs.

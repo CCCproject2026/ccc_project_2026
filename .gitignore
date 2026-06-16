@@ -30,6 +30,10 @@ yarn-error.log*
 # Next.js / frontend build output
 .next/
 main/web/.next/
+.open-next/
+main/web/.open-next/
+.wrangler/
+main/web/.wrangler/
 out/
 main/web/out/
 dist/
