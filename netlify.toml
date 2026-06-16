@@ -1,5 +1,6 @@
 [build]
   base = "main/web"
+  publish = "main/web/.netlify"
   command = "npm run build"
 
 [[plugins]]
