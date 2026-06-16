@@ -11,7 +11,7 @@ export default function HomePage() {
         <a href="/dashboard" className="block w-full bg-blue-600 text-white text-center py-2 px-4 rounded hover:bg-blue-700 transition">
           Kyaw Htin Hein
         </a>
-      </div>
+      
     </main>
   );
 }
