@@ -11,8 +11,8 @@
     "prisma:studio": "prisma studio",
     "prisma:validate": "prisma validate",
     "build": "next build",
-    "build:cloudflare": "npx @cloudflare/next-on-pages",
-    "deploy": "wrangler pages deploy .vercel/output/static",
+    "build:cloudflare": "opennextjs-cloudflare build",
+    "deploy": "wrangler deploy",
     "start": "next start",
     "lint": "eslint .",
     "biome:check": "biome check ."
@@ -24,8 +24,8 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "^1.13.16",
     "@mermaid-js/mermaid-cli": "^11.15.0",
+    "@opennextjs/cloudflare": "^1.19.11",
     "@prisma/config": "^6.19.3",
     "@types/node": "^22.15.30",
     "@types/react": "^19.1.8",
