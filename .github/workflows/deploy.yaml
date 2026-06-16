@@ -16,3 +16,4 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
           app_name: elderfallingdetection
+          deploy_pr_preview: true  # 👈 ADD THIS LINE (Must be indented with two spaces)
