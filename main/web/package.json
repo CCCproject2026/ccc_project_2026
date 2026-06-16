@@ -12,7 +12,7 @@
     "prisma:validate": "prisma validate",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint src",
     "biome:check": "biome check ."
   },
   "dependencies": {
