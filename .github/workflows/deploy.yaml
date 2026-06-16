@@ -1,8 +1,6 @@
 name: Deploy Branch on Git Push
 on:
   push:
-    branches-ignore:
-      - 'main'
 
 jobs:
   deploy:
