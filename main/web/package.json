@@ -10,7 +10,7 @@
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
     "prisma:validate": "prisma validate",
-    "build": "next build && @cloudflare/next-on-pages",
+    "build": "next build && npx @cloudflare/next-on-pages",
     "deploy": "wrangler pages deploy .vercel/output/static",
     "start": "next start",
     "lint": "eslint .",
