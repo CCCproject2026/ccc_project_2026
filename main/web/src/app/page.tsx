@@ -9,7 +9,7 @@ export default function HomePage() {
           Monitoring and alert system for enhanced safety.
         </p>
         <a href="/dashboard" className="block w-full bg-blue-600 text-white text-center py-2 px-4 rounded hover:bg-blue-700 transition">
-          Go to Dashboard
+          Kyaw Htin Hein
         </a>
       </div>
     </main>
