@@ -11,8 +11,10 @@
     "prisma:studio": "prisma studio",
     "prisma:validate": "prisma validate",
     "build": "next build",
+    "build:cloudflare": "opennextjs-cloudflare build",
+    "deploy": "wrangler deploy",
     "start": "next start",
-    "lint": "eslint src",
+    "lint": "eslint .",
     "biome:check": "biome check ."
   },
   "dependencies": {
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "^11.15.0",
+    "@opennextjs/cloudflare": "^1.19.11",
     "@prisma/config": "^6.19.3",
     "@types/node": "^22.15.30",
     "@types/react": "^19.1.8",

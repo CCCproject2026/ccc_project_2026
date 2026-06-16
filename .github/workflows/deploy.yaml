@@ -1,0 +1,17 @@
+name: Deploy Branch on Git Push
+on:
+  push:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy New Branch to DigitalOcean
+        uses: digitalocean/app_action/deploy@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          app_name: elderfallingdetection
+          deploy_pr_preview: false  # 👈 ADD THIS LINE (Must be indented with two spaces)
