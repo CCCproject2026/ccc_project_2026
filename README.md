@@ -274,10 +274,6 @@ Feature-based baseline tree was created under `elderly-fall-prevention-system/` 
 
 ## Development Update (2026-06-04)
 
-Today the project setup was cleaned up for GitHub safety, local database development, and Prisma seed data.
-
-### GitHub Ignore Rules
-
 Updated `.gitignore` so local/private/generated files are not pushed to GitHub:
 
 - `.env`, `.env.*`, `main/web/.env`, `main/web/.env.*`

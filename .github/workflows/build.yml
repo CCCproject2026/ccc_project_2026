@@ -1,0 +1,26 @@
+name: Build Check
+
+on: [push]
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: main/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: main/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm run prisma:generate
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+      - run: pnpm run build
