@@ -14,60 +14,25 @@ generator erd {
 }
 
 // 1. ユーザー管理（看護師・介護士）
+// 新規のユーザーを作成する際に、ClerkのIDを保存する必要があります。ユーザーは、介護士、看護師、管理者のいずれかの役割を持つことができます。
+// Admin や Nurse は user 登録ができるが、Caregiver は自分で登録できないようにする必要があります。
+// user 登録時に admin や nuser が 登録する新規user の email 入力するとclerk に 一時的に招待メールが送信され、clerk の登録が完了すると、user 登録が完了するようにする必要があります。
+// password は 招待メールのリンクから設定するようにする必要があります。
+// Clerk側で一週間制限にする場合の、シンプルな設計
 model User {
-  id    String @id // Clerkの user_xxx などのIDをそのまま格納すると便利です
-  email String @unique
-  name  String // スタッフの名前（例: 山田 花子）
-
-  // 💡 ここで役割を区別します（初期値は介護士、あとから看護師に変更可能）
-  // admin = 看護師, member = 介護士
-  role String @default("member")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // アラート対応履歴との紐付け（1人のスタッフが複数のアラートを対応できる）
-  alerts AlertHistory[]
+  id        String     @id @default(cuid())
+  clerkId   String?    @unique // 招待中はNULL、登録完了したらClerkから同期する
+  firstName String
+  lastName  String
+  email     String     @unique
+  role      UserRole
+  status    UserStatus @default(PENDING) // PENDING or ACTIVE
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
-// 2. 見守り対象者（高齢者）
-model Elderly {
-  id         String   @id @default(cuid())
-  name       String // 例: 山田 太郎
-  age        Int
-  roomNumber String // 例: 301号室
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  device Device? // 高齢者1人に対してデバイスは1台 (1:1)
-  alerts AlertHistory[] // この高齢者に関するアラート履歴
-}
-
-// 3. IoTデバイス（ベルト）管理
-model Device {
-  id         String   @id @default(cuid())
-  macAddress String   @unique // Raspberry PiのMACアドレス
-  status     String   @default("active") // active, inactive, maintenance
-  battery    Int      @default(100) // バッテリー残量
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  elderlyId String?  @unique
-  elderly   Elderly? @relation(fields: [elderlyId], references: [id], onDelete: SetNull)
-}
-
-// 4. 転倒アラート発生履歴
-model AlertHistory {
-  id         String    @id @default(cuid())
-  status     String // fallen(転倒), false_alarm(誤検知)
-  createdAt  DateTime  @default(now())
-  resolvedAt DateTime? // 介護士・看護師が確認・対応完了した時間
-
-  // 高齢者との紐付け
-  elderlyId String
-  elderly   Elderly @relation(fields: [elderlyId], references: [id], onDelete: Cascade)
-
-  // 💡 対応したユーザー（看護師・介護士）との紐付け
-  resolvedById String?
-  resolvedBy   User?   @relation(fields: [resolvedById], references: [id])
+enum UserRole {
+  CAREGIVER
+  NURSE
+  ADMIN
 }
