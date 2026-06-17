@@ -19,5 +19,8 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: main/web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run prisma:generate
+      - name: Generate Prisma client
+        run: pnpm run prisma:generate
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
       - run: pnpm run build
