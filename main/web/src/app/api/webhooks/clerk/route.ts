@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { staffDb } from "@/lib/staff-db";
+import { staffDb } from "@/features/staff/data/staff-db";
 import { ClerkWebhookEvent } from "@/types/clerk";
 
 export async function POST(request: Request) {

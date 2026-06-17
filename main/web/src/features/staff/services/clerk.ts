@@ -1,5 +1,5 @@
-import { Role } from "@/types/staff";
-import { staffDb } from "@/lib/staff-db";
+import { Role } from "../types";
+import { staffDb } from "../data/staff-db";
 
 export async function inviteUser(email: string) {
   if (!process.env.CLERK_SECRET_KEY) {

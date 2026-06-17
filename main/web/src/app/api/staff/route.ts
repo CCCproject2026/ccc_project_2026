@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { staffDb } from "@/lib/staff-db";
+import { listStaff } from "@/features/staff/api";
 
 export async function GET() {
-  const staff = staffDb.getStaff();
-  return NextResponse.json(staff);
+  return NextResponse.json(listStaff());
 }

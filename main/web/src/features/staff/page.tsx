@@ -1,8 +1,8 @@
-import AddStaffModal from "@/components/staff/AddStaffModal";
-import StaffTable from "@/components/staff/StaffTable";
-import PendingInviteRow from "@/components/staff/PendingInviteRow";
+import AddStaffModal from "./components/AddStaffModal";
+import PendingInviteRow from "./components/PendingInviteRow";
+import StaffTable from "./components/StaffTable";
 
-export default function StaffManagementPage() {
+export default function StaffPage() {
   return (
     <main>
       <h1>Staff Management</h1>

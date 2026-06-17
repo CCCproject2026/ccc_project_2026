@@ -1,4 +1,4 @@
-import { Role, StaffMember } from "@/types/staff";
+import { Role, StaffMember } from "../types";
 
 interface Invitation {
   id: string;

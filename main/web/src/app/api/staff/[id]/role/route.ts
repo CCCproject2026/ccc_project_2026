@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { updateUserRole } from "@/lib/clerk";
+import { updateStaffRole } from "@/features/staff/api";
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const body = await request.json().catch(() => null);
@@ -7,6 +7,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "Missing role" }, { status: 400 });
   }
 
-  const updated = await updateUserRole(params.id, body.role);
+  const updated = await updateStaffRole(params.id, body.role);
   return NextResponse.json(updated);
 }

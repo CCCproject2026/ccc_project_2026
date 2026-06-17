@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { inviteUser } from "@/lib/clerk";
-import { staffDb } from "@/lib/staff-db";
+import { inviteStaff, listInvitations } from "@/features/staff/api";
 
 export async function GET() {
-  return NextResponse.json(staffDb.getInvitations());
+  return NextResponse.json(listInvitations());
 }
 
 export async function POST(request: Request) {
@@ -12,6 +11,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
-  const invite = await inviteUser(body.email);
+  const invite = await inviteStaff(body.email);
   return NextResponse.json(invite, { status: 201 });
 }
