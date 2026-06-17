@@ -3,9 +3,9 @@
 // Only use shared/types or a public interface.
 // uses shared/ui/Modal, shared/ui/Badge, shared/tokens/colors
 export interface AlarmDetectedModalProps {
-  open?: boolean
+	open?: boolean;
 }
 
 export function AlarmDetectedModal({ open = false }: AlarmDetectedModalProps) {
-  return open ? <div aria-label="alarm-detected-modal-placeholder" /> : null
+	return open ? <div aria-label="alarm-detected-modal-placeholder" /> : null;
 }

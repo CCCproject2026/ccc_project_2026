@@ -3,9 +3,9 @@
 // Only use shared/types or a public interface.
 // uses shared/ui/Badge, shared/ui/BatteryBar, shared/tokens/colors
 export interface ResidentCardProps {
-  variant?: 'normal' | 'alarm'
+	variant?: "normal" | "alarm";
 }
 
-export function ResidentCard({ variant = 'normal' }: ResidentCardProps) {
-  return <section aria-label="resident-card-placeholder">{variant}</section>
+export function ResidentCard({ variant = "normal" }: ResidentCardProps) {
+	return <section aria-label="resident-card-placeholder">{variant}</section>;
 }
