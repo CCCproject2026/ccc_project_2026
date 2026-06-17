@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "^11.15.0",
+    "@netlify/plugin-nextjs": "^5.15.11",
     "@prisma/config": "^6.19.3",
     "@types/node": "^22.15.30",
     "@types/react": "^19.1.8",
