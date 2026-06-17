@@ -19,4 +19,5 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: main/web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - run: pnpm run prisma:generate
       - run: pnpm run build
