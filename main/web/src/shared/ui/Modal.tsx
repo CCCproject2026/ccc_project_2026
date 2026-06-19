@@ -7,7 +7,7 @@ export interface ModalProps {
 
 export function Modal({ title, open = false }: ModalProps) {
 	return open ? (
-		<section aria-modal="true">
+		<section role="dialog" aria-modal="true">
 			<header>{title}</header>
 		</section>
 	) : null;

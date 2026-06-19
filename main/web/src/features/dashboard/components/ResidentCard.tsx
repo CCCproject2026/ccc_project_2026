@@ -7,5 +7,5 @@ export interface ResidentCardProps {
 }
 
 export function ResidentCard({ variant = "normal" }: ResidentCardProps) {
-	return <section aria-label="resident-card-placeholder">{variant}</section>;
+	return <section>{variant}</section>;
 }
