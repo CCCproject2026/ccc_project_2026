@@ -8,7 +8,7 @@
 		"moduleResolution": "Bundler",
 		"baseUrl": ".",
 		"paths": {
-			  "@/*": ["./src/*"]
+			"@/*": ["./src/*"]
 		},
 		"allowJs": true,
 		"skipLibCheck": true,

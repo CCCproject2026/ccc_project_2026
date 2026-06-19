@@ -7,5 +7,5 @@ export interface AlarmDetectedModalProps {
 }
 
 export function AlarmDetectedModal({ open = false }: AlarmDetectedModalProps) {
-	return open ? <div aria-label="alarm-detected-modal-placeholder" /> : null;
+	return open ? <div /> : null;
 }

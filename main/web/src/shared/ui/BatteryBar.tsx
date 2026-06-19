@@ -5,5 +5,5 @@ export interface BatteryBarProps {
 }
 
 export function BatteryBar({ level = 100 }: BatteryBarProps) {
-	return <div aria-label="battery-bar-placeholder">Battery {level}%</div>;
+	return <div>Battery {level}%</div>;
 }

@@ -1,11 +1,14 @@
 // src/app/staff/page.tsx
-import React from "react";
- 
+
+import { Sidebar } from "@/shared/layout/sidebar/Sidebar";
+
 export default function StaffPage() {
-  return (
-<div className="p-8">
-<h1 className="text-2xl font-bold mb-4">スタッフ管理画面</h1>
-<p>ここにスタッフの一覧や管理機能が表示されます。</p>
-</div>
-  );
+	return (
+		<div className="flex">
+			<Sidebar />
+			<main className="flex-1 bg-gray-50 p-6">
+				<h1>Staff</h1>
+			</main>
+		</div>
+	);
 }
