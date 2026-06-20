@@ -22,7 +22,6 @@ export function Sidebar() {
 				<SidebarItem
 					href="/dashboard"
 					label="ダッシュボード"
-					active
 					icon={<LayoutDashboard className="w-5 h-5" />}
 				/>
 				<SidebarItem
