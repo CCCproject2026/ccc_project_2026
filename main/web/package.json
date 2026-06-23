@@ -17,7 +17,7 @@
 		"biome:write": "biome check --write"
 	},
 	"dependencies": {
-		"@biomejs/biome": "^2.x.x",
+		
 		"@prisma/client": "^6.19.3",
 		"@tailwindcss/postcss": "^4.3.1",
 		"lucide-react": "^1.21.0",
@@ -27,7 +27,7 @@
 		"tailwindcss": "^4.3.1"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.x.x",
+		"@biomejs/biome": "^2.5.0",
 		"@mermaid-js/mermaid-cli": "^11.15.0",
 		"@netlify/plugin-nextjs": "^5.15.11",
 		"@prisma/config": "^6.19.3",
