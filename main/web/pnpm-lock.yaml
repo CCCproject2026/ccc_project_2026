@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@biomejs/biome':
-        specifier: ^2.x.x
+        specifier: ^2.5.0
         version: 2.5.0
       '@prisma/client':
         specifier: ^6.19.3
