@@ -5,6 +5,7 @@ export interface StatCardProps {
 	value: string | number;
 	icon?: React.ReactNode;
 	color?: string; // tailwind text color class
+	description: string; //
 }
 
 export function StatCard({
@@ -12,6 +13,7 @@ export function StatCard({
 	value,
 	icon,
 	color = "text-gray-900",
+	description,
 }: StatCardProps) {
 	return (
 		<article className="bg-white rounded-xl border border-gray-200 p-5">
@@ -20,6 +22,8 @@ export function StatCard({
 				{icon}
 			</div>
 			<p className={`text-2xl font-bold mt-2 ${color}`}>{value}</p>
+
+			<p className="text-sm text-gray-500 mt-2">{description}</p>
 		</article>
 	);
 }
