@@ -1,7 +1,7 @@
 // Alarm banner placeholder.
 // uses shared/ui/Badge, shared/tokens/colors, shared/tokens/spacing
 
-import { AlertTriangle, Icon } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 interface AlarmBannerProps {
 	count?: number;
@@ -27,7 +27,8 @@ export function AlarmBanner(alarmBannerProps: AlarmBannerProps) {
 						</h3>
 
 						<p className="mt-1 text-sm text-gray-600">
-							{alarmBannerProps.residentName}（{alarmBannerProps.room}） 検知時刻: {alarmBannerProps.time}
+							{alarmBannerProps.residentName}（{alarmBannerProps.room}）
+							検知時刻: {alarmBannerProps.time}
 						</p>
 					</div>
 				</div>
@@ -37,7 +38,7 @@ export function AlarmBanner(alarmBannerProps: AlarmBannerProps) {
 					onClick={alarmBannerProps.onRespond}
 					className="rounded-xl bg-red-500 px-5 py-3 font-medium text-white transition hover:bg-red-600"
 				>
-					対応する 
+					対応する
 				</button>
 			</div>
 		</section>

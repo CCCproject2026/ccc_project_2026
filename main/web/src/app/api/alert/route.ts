@@ -4,7 +4,7 @@
 //   const alarmData = await getAlarmDataFromDatabase();
 //   return Response.json(alarmData);
 // } ように　変える
-import { mockAlarmData } from './mock';
+import { mockAlarmData } from "./mock";
 export async function GET() {
 	return Response.json(mockAlarmData);
 }
