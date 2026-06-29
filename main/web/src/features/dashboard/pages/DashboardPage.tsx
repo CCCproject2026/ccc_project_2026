@@ -2,8 +2,12 @@ import { AlertTriangle, Cpu, UserCheck, Users } from "lucide-react";
 import { StatCard } from "@/shared/ui/StatCard";
 import { AlarmBanner } from "../components/AlarmBanner";
 import { ResidentCard } from "../components/ResidentCard";
+import { mockAlarmData } from "../../../app/api/alert/mock";
+///api/alert/mock.tsからモックデータを取得する
 
-export function DashboardPage() {
+
+export async function DashboardPage() {
+	
 	// TODO: Replace with real data from Prisma/API
 	const stats = [
 		{
@@ -74,12 +78,12 @@ export function DashboardPage() {
 
 	return (
 		<div className="space-y-6">
-			{/* Alarm Banner */}
+			
 			<AlarmBanner
-				count={1}
-				residentName="渡辺 富士子"
-				room="205号室"
-				time="09:15"
+				count={mockAlarmData.count}
+				residentName={mockAlarmData.residentName}
+				room={mockAlarmData.room}
+				time={mockAlarmData.time}
 			/>
 
 			{/* Stat Cards */}
