@@ -3,7 +3,6 @@ import { StatCard } from "@/shared/ui/StatCard";
 import { mockAlarmData } from "../../../app/api/alert/mock";
 import { AlarmBanner } from "../components/AlarmBanner";
 import { ResidentCard } from "../components/ResidentCard";
-import { count } from "console";
 ///api/alert/mock.tsからモックデータを取得する
 
 export async function DashboardPage() {
@@ -51,10 +50,11 @@ export async function DashboardPage() {
 			totalAlarms: 2,
 			variant: "normal" as const,
 		},
+
 		{
-			name: "中村 きみ",
+			name: "渡辺 富士子",
 			age: 87,
-			room: "102号室",
+			room: "205号室",
 			deviceName: "ESP32-102",
 			batteryLevel: 18,
 			falls: 1,
@@ -75,12 +75,10 @@ export async function DashboardPage() {
 		},
 	];
 	const count = mockAlarmData.count ?? 0;
- 	//const count=0;
-	//AlarmBanner の表示条件を追加し、アラート件数が 0 件の場合は非表示にしました。また JSX 内の不正な if 文を削除し、条件レンダリング（count > 0 &&）に修正しました。
+	//const count=0;
 	return (
 		<div className="space-y-6">
-			
-			{ count > 0 && (
+			{count > 0 && (
 				<AlarmBanner
 					count={mockAlarmData.count}
 					residentName={mockAlarmData.residentName}
