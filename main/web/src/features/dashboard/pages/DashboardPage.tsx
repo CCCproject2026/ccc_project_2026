@@ -3,6 +3,7 @@ import { StatCard } from "@/shared/ui/StatCard";
 import { mockAlarmData } from "../../../app/api/alert/mock";
 import { AlarmBanner } from "../components/AlarmBanner";
 import { ResidentCard } from "../components/ResidentCard";
+import { count } from "console";
 ///api/alert/mock.tsからモックデータを取得する
 
 export async function DashboardPage() {
@@ -73,15 +74,20 @@ export async function DashboardPage() {
 			variant: "normal" as const,
 		},
 	];
-
+	const count = mockAlarmData.count ?? 0;
+ 	//const count=0;
+	//AlarmBanner の表示条件を追加し、アラート件数が 0 件の場合は非表示にしました。また JSX 内の不正な if 文を削除し、条件レンダリング（count > 0 &&）に修正しました。
 	return (
 		<div className="space-y-6">
-			<AlarmBanner
-				count={mockAlarmData.count}
-				residentName={mockAlarmData.residentName}
-				room={mockAlarmData.room}
-				time={mockAlarmData.time}
-			/>
+			
+			{ count > 0 && (
+				<AlarmBanner
+					count={mockAlarmData.count}
+					residentName={mockAlarmData.residentName}
+					room={mockAlarmData.room}
+					time={mockAlarmData.time}
+				/>
+			)}
 
 			{/* Stat Cards */}
 			<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">

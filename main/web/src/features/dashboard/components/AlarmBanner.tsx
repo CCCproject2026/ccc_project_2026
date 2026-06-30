@@ -13,8 +13,8 @@ interface AlarmBannerProps {
 
 export function AlarmBanner(alarmBannerProps: AlarmBannerProps) {
 	return (
-		//レビューにより mb-6を消しました  <section className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-6">
-		<section className="rounded-2xl border border-red-200 bg-red-50 p-6">
+	
+		<section className="rounded-2xl border border-red-200 bg-red-50 p-6" role="status">
 			<div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 				<div className="flex items-center gap-4">
 					<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
@@ -22,9 +22,9 @@ export function AlarmBanner(alarmBannerProps: AlarmBannerProps) {
 					</div>
 
 					<div>
-						<h3 className="text-lg font-semibold text-red-600">
+						<div className="text-lg font-semibold text-red-600">
 							未対応のアラームがあります（{alarmBannerProps.count}件）
-						</h3>
+						</div>
 
 						<p className="mt-1 text-sm text-gray-600">
 							{alarmBannerProps.residentName}（{alarmBannerProps.room}）
