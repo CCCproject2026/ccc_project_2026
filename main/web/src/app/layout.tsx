@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Providers } from "./providers";
 
 export const metadata = {
 	title: "Elderly Fall Prevention",
@@ -12,7 +13,7 @@ export default function RootLayout({
 	return (
 		<html lang="ja">
 			<body>
-				<main style={{ padding: "24px" }}>{children}</main>
+				<Providers>{children}</Providers>
 			</body>
 		</html>
 	);
