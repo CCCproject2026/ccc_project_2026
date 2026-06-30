@@ -29,7 +29,7 @@ function LoginCard({ children }: { children: ReactNode }) {
 }
 
 function ClerkLoginForm() {
-	const { isLoaded, signIn, setActive } = useSignIn();
+	const { isLoaded, signIn, setActive } = useSignIn() as any;
 	const router = useRouter();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
