@@ -15,6 +15,16 @@ type SignInCreateResult = {
 	createdSessionId?: string | null;
 };
 
+interface ClerkSignIn {
+	create: (params: { identifier: string; password: string }) => Promise<SignInCreateResult>;
+}
+
+interface ClerkSignInResult {
+	isLoaded: boolean;
+	signIn: ClerkSignIn | undefined;
+	setActive: ((params: { session: string | null }) => Promise<void>) | undefined;
+}
+
 function LoginCard({ children }: { children: ReactNode }) {
 	return (
 		<div className="rounded-[20px] bg-white p-10 shadow-[0_24px_64px_rgba(0,0,0,0.3)]">
@@ -29,7 +39,7 @@ function LoginCard({ children }: { children: ReactNode }) {
 }
 
 function ClerkLoginForm() {
-	const { isLoaded, signIn, setActive } = useSignIn() as any;
+	const { isLoaded, signIn, setActive } = useSignIn() as unknown as ClerkSignInResult;
 	const router = useRouter();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
