@@ -15,7 +15,7 @@ export function AlarmBanner(alarmBannerProps: AlarmBannerProps) {
 	return (
 		//レビューにより mb-6を消しました  <section className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-6">
 		<section className="rounded-2xl border border-red-200 bg-red-50 p-6">
-			<div className="flex items-center justify-between">
+			<div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 				<div className="flex items-center gap-4">
 					<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
 						<AlertTriangle className="h-6 w-6 text-red-500" />
@@ -34,12 +34,12 @@ export function AlarmBanner(alarmBannerProps: AlarmBannerProps) {
 				</div>
 
 				<button
-					type="button"
-					onClick={alarmBannerProps.onRespond}
-					className="rounded-xl bg-red-500 px-5 py-3 font-medium text-white transition hover:bg-red-600"
-				>
-					対応する
-				</button>
+  type="button"
+  onClick={alarmBannerProps.onRespond}
+  className="w-full rounded-xl bg-red-500 px-5 py-3 font-medium text-white transition hover:bg-red-600 md:w-auto"
+>
+  対応する
+</button>
 			</div>
 		</section>
 	);
