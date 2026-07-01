@@ -3,13 +3,10 @@ import { StatCard } from "@/shared/ui/StatCard";
 import { mockAlarmData } from "../../../app/api/alert/mock";
 import { AlarmBanner } from "../components/AlarmBanner";
 import { ResidentCard } from "../components/ResidentCard";
-import { redirect } from "next/dist/server/api-utils";
 
 ///api/alert/mock.tsからモックデータを取得する
 
 export async function DashboardPage() {
-
-	
 	// TODO: Replace with real data from Prisma/API
 	const stats = [
 		{

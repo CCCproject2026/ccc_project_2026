@@ -1,43 +1,46 @@
 import { BatteryBar } from "@/shared/ui/BatteryBar";
 
 export interface ResidentCardProps {
+	//? って意味があってもなくてもいい/ 許しますって意味ですので本project では欠かせない情報になってますのでUI 側でも一応厳しくしておきましょう!!
 	name: string;
-	age?: number;
+	age: number;
 	room: string;
-	deviceName?: string;
-	batteryLevel?: number;
-	falls?: number;
-	falseAlarms?: number;
-	totalAlarms?: number;
-	variant?: "normal" | "alarm";
+	deviceName: string;
+	batteryLevel: number;
+	falls: number;
+	falseAlarms: number;
+	totalAlarms: number;
+	variant: "normal" | "alarm";
 }
 
 export function ResidentCard({
+	//props 定義で ? を抜けば ここの初期化がいらないです!
 	name,
 	age,
 	room,
 	deviceName,
-	batteryLevel = 100,
-	falls = 0,
-	falseAlarms = 0,
-	totalAlarms = 0,
-	variant = "normal",
+	batteryLevel,
+	falls,
+	falseAlarms,
+	totalAlarms,
+	variant,
 }: ResidentCardProps) {
 	const isAlarm = variant === "alarm";
-
+	// TailwindCSS のクラスを変数に入れると可読性が上がります!
+	const cardStyle = isAlarm
+		? "border-red-500 bg-red-50 shadow-lg shadow-red-100"
+		: "border-gray-200 bg-white";
 	return (
-		<section
-			className={`rounded-xl border-2 p-4 transition-all ${
-				isAlarm
-					? "border-red-500 bg-red-50 shadow-lg shadow-red-100"
-					: "border-gray-200 bg-white"
-			}`}
-		>
+		//HTML semantics が明確になるように article タグを使うのが良いです!
+		<article className={`rounded-xl border-2 p-4 transition-all ${cardStyle}`}>
 			{/* Header */}
 			<div className="flex items-start justify-between">
 				<div className="flex items-center gap-3">
-					<div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 font-bold text-sm text-violet-600">
-						{name.trim().charAt(0)}
+					<div
+						aria-hidden="true"
+						className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 font-bold text-sm text-violet-600"
+					>
+						{name.trim().slice(0, 1)}
 					</div>
 
 					<div>
@@ -96,6 +99,6 @@ export function ResidentCard({
 					</div>
 				</div>
 			</div>
-		</section>
+		</article>
 	);
 }
