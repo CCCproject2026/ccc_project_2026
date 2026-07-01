@@ -7,7 +7,7 @@ interface StatCardProps {
 	value: number;
 	icon: LucideIcon;
 	color: string;
-	description: string;
+	description?: string;
 }
 
 export function StatCard({
@@ -26,7 +26,9 @@ export function StatCard({
 			</div>
 			<p className={`text-2xl font-bold mt-2 ${color}`}>{value}</p>
 
-			<p className="text-sm text-gray-500 mt-2">{description}</p>
+			{description && (
+				<p className="text-sm text-gray-500 mt-2">{description}</p>
+			)}
 		</article>
 	);
 }
