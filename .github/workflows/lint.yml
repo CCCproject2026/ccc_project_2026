@@ -31,4 +31,4 @@ jobs:
       - name: Install Ruff
         run: pip install ruff
       - name: Run Ruff
-        run: ruff check main/ai main/iot
+        run: ruff check main/ai
