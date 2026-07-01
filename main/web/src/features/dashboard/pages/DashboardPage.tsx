@@ -1,4 +1,3 @@
-import { AlertTriangle, Cpu, UserCheck, Users } from "lucide-react";
 import { StatCard } from "@/shared/ui/StatCard";
 import { mockAlarmData } from "../../../app/api/alert/mock";
 import { AlarmBanner } from "../components/AlarmBanner";
@@ -8,7 +7,6 @@ import { residents, stats } from "../constants/mockDashboardData";
 ///api/alert/mock.tsからモックデータを取得する
 
 export async function DashboardPage() {
-	
 	const count = mockAlarmData.count ?? 0;
 	//const count=0;
 	return (
@@ -39,7 +37,7 @@ export async function DashboardPage() {
 				</div>
 			</section>
 
-		{/* Resident Section */}
+			{/* Resident Section */}
 			<section>
 				<h2 className="mb-4 text-lg font-semibold text-gray-800">
 					入居者モニタリング
