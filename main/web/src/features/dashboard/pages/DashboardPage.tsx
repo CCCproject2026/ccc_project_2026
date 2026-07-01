@@ -1,12 +1,9 @@
-// Dashboard page shell.
-// uses shared/ui/StatCard, shared/ui/Table, shared/tokens/colors
-
 import { AlertTriangle, Cpu, UserCheck, Users } from "lucide-react";
+import Link from "next/link";
+import { ResidentCard } from "@/shared/ui/ResidentCard";
 import { StatCard } from "@/shared/ui/StatCard";
-import { ResidentCard } from "../components/ResidentCard";
 
 export function DashboardPage() {
-	// TODO: Replace with real data from Prisma/API
 	const stats = [
 		{
 			title: "入居者数",
@@ -36,42 +33,61 @@ export function DashboardPage() {
 
 	const residents = [
 		{
-			name: "部屋 1",
-			room: "部屋 101",
+			id: "1",
+			name: "田中 一郎",
+			room: "301号室",
+			deviceName: "ESP32-101",
 			batteryLevel: 85,
 			variant: "normal" as const,
 		},
 		{
-			name: "部屋 2",
-			room: "部屋 102",
+			id: "2",
+			name: "鈴木 みやこ",
+			room: "302号室",
+			deviceName: "ESP32-102",
 			batteryLevel: 72,
 			variant: "normal" as const,
 		},
 		{
-			name: "部屋 3",
-			room: "部屋 103",
+			id: "3",
+			name: "小林 健二",
+			room: "305号室",
+			deviceName: "ESP32-103",
 			batteryLevel: 15,
 			variant: "alarm" as const,
 		},
-		// ... more
+		{
+			id: "4",
+			name: "渡辺 恵子",
+			room: "308号室",
+			deviceName: undefined,
+			batteryLevel: undefined,
+			variant: "normal" as const,
+		},
 	];
 
 	return (
 		<>
-			{/* Stat cards row */}
 			<div className="grid grid-cols-4 gap-4 mb-6">
 				{stats.map((s) => (
 					<StatCard key={s.title} {...s} />
 				))}
 			</div>
 
-			{/* Resident grid */}
 			<h2 className="text-lg font-semibold text-gray-800 mb-3">
 				入居者モニタリング
 			</h2>
 			<div className="grid grid-cols-3 gap-4">
 				{residents.map((r) => (
-					<ResidentCard key={r.name} {...r} />
+					<Link key={r.id} href={`/dashboard/${r.id}`}>
+						<ResidentCard
+							name={r.name}
+							room={r.room}
+							deviceName={r.deviceName}
+							batteryLevel={r.batteryLevel}
+							variant={r.variant}
+						/>
+					</Link>
 				))}
 			</div>
 		</>
