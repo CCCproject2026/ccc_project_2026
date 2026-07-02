@@ -4,7 +4,6 @@ import { useSignIn } from "@clerk/nextjs";
 import { Eye, EyeOff, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { DemoCredentialsHint } from "./DemoCredentialsHint";
 
 const isClerkConfigured = Boolean(
 	process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
@@ -33,7 +32,6 @@ function LoginCard({ children }: { children: ReactNode }) {
 				ご登録のアカウントでサインインしてください
 			</p>
 			{children}
-			<DemoCredentialsHint />
 		</div>
 	);
 }
