@@ -7,10 +7,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
-generator erd {
-  provider = "prisma-erd-generator"
-  output   = "./ERD.md" // どこに保存するか（.md や .pdf、.png などが選べます）
-}
+// generator erd {
+//   provider = "prisma-erd-generator"
+//   output   = "./ERD.md"
+// }
 
 // ==========================================
 // 1. ユーザー管理（看護師・介護士・管理者）
