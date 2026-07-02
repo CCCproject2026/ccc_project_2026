@@ -1,8 +1,6 @@
 import { ChevronLeft, Clock, FileText, User } from "lucide-react";
 import Link from "next/link";
-import { BatteryBar } from "@/shared/ui/BatteryBar";
 import { DeviceStatusPanel } from "../components/DeviceStatusPanel";
-import { Cpu } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

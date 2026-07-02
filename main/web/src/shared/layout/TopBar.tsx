@@ -1,7 +1,6 @@
 "use client";
 
 import { Bell } from "lucide-react";
-import { useEffect, useState } from "react";
 
 interface TopBarProps {
 	title: string;
@@ -12,16 +11,13 @@ interface TopBarProps {
 }
 
 function FormattedDate() {
-	const [label, setLabel] = useState("");
-	useEffect(() => {
-		const d = new Date();
-		const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-		const y = d.getFullYear();
-		const m = d.getMonth() + 1;
-		const day = d.getDate();
-		const w = weekdays[d.getDay()];
-		setLabel(`${y}年${m}月${day}日（${w}）`);
-	}, []);
+	const d = new Date();
+	const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+	const y = d.getFullYear();
+	const m = d.getMonth() + 1;
+	const day = d.getDate();
+	const w = weekdays[d.getDay()];
+	const label = `${y}年${m}月${day}日（${w}）`;
 	return (
 		<span className="text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg font-medium">
 			{label}
@@ -38,7 +34,7 @@ export function TopBar({ title, breadcrumb, notificationCount }: TopBarProps) {
 	return (
 		<header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6">
 			<h1 className="text-sm font-medium text-gray-700 flex items-center gap-1">
-				{crumbs.map((crumb, i) => (
+				{crumbs.map((crumb) => (
 					<span key={crumb} className="flex items-center gap-1">
 						<span className="text-gray-500">{crumb}</span>
 						<span className="text-gray-400 mx-0.5">›</span>
