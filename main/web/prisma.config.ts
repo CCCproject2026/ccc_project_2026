@@ -1,9 +1,11 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { config } from "dotenv";
 import { defineConfig, env } from "prisma/config";
 
-config({ path: join(dirname(fileURLToPath(import.meta.url)), ".env") });
+try {
+	const { config } = await import("dotenv");
+	config({ path: join(dirname(fileURLToPath(import.meta.url)), ".env") });
+} catch {}
 
 export default defineConfig({
 	schema: "prisma/schema.prisma",
