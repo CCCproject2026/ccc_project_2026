@@ -13,7 +13,11 @@ export default async function ResidentDetailRoute({
 		<div className="flex h-screen">
 			<Sidebar />
 			<div className="flex-1 flex flex-col overflow-hidden">
-				<TopBar title="入居者詳細" breadcrumb="ダッシュボード" />
+				<TopBar
+					title={`山田 太郎`}
+					breadcrumb={["ダッシュボード", "入所者一覧"]}
+					notificationCount={1}
+				/>
 				<main className="flex-1 bg-gray-50 p-6 overflow-auto">
 					<ResidentDetailPage id={id} />
 				</main>
