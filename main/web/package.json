@@ -19,28 +19,28 @@
 	"dependencies": {
 		"@clerk/nextjs": "^7.5.10",
 		"@prisma/client": "^6.19.3",
-		"@prisma/config": "^6.19.3",
 		"@tailwindcss/postcss": "^4.3.1",
-		"dotenv": "^16.6.1",
 		"lucide-react": "^1.21.0",
 		"next": "^15.3.3",
-		"prisma": "^6.19.3",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
-		"tailwindcss": "^4.3.1",
-		"tsx": "^4.19.3"
+		"tailwindcss": "^4.3.1"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.0",
 		"@mermaid-js/mermaid-cli": "^11.15.0",
 		"@netlify/plugin-nextjs": "^5.15.11",
+		"@prisma/config": "^6.19.3",
 		"@types/node": "^22.15.30",
 		"@types/react": "^19.1.8",
 		"@types/react-dom": "^19.1.6",
+		"dotenv": "^16.6.1",
 		"eslint": "^9.39.4",
 		"eslint-config-next": "^16.2.7",
+		"prisma": "^6.19.3",
 		"prisma-erd-generator": "^2.4.3",
 		"ts-node": "^10.9.2",
+		"tsx": "^4.19.3",
 		"typescript": "^5.8.3"
 	}
 }
