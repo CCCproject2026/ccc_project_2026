@@ -28,17 +28,23 @@ export function ResidentCard({
 	const isAlarm = variant === "alarm";
 	// TailwindCSS のクラスを変数に入れると可読性が上がります!
 	const cardStyle = isAlarm
-		? "border-red-500 bg-red-50 shadow-lg shadow-red-100"
-		: "border-gray-200 bg-white";
+		? "border-border-alarm bg-alarm-bg/40 shadow-sm"
+		: "border-transparent bg-white shadow-sm hover:border-primary/50 hover:shadow-md";
+
+	const avatarStyle = isAlarm
+		? "bg-alarm-bg text-alarm"
+		: "bg-primary-bg text-primary";
 	return (
 		//HTML semantics が明確になるように article タグを使うのが良いです!
-		<article className={`rounded-xl border-2 p-4 transition-all ${cardStyle}`}>
+		<article
+			className={`relative rounded-xl border-2 p-4 transition-all duration-200 ease-in-out cursor-pointer group flex flex-col justify-between ${cardStyle}`}
+		>
 			{/* Header */}
 			<div className="flex items-start justify-between">
 				<div className="flex items-center gap-3">
 					<div
 						aria-hidden="true"
-						className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 font-bold text-sm text-violet-600"
+						className={`flex h-10 w-10 items-center justify-center rounded-xl font-bold text-base ${avatarStyle}`}
 					>
 						{name.trim().slice(0, 1)}
 					</div>
