@@ -1,2 +1,2 @@
-release: DISABLE_ERD=true npx prisma@6.19.3 db push --skip-generate
+release: DISABLE_ERD=true npx --yes prisma@6.19.3 db push --skip-generate
 web: pnpm start
