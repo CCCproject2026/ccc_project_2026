@@ -6,10 +6,10 @@ RUN corepack enable
 
 COPY package.json pnpm-lock.yaml* ./
 
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install
 
 COPY . .
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "pnpm install --no-frozen-lockfile && pnpm dev"]
+CMD ["sh", "-c", "pnpm install && pnpm dev"]

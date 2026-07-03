@@ -9,7 +9,7 @@ generator client {
 
 generator erd {
   provider = "prisma-erd-generator"
-  output   = "./ERD.md"
+  output   = "./ERD.md" // どこに保存するか（.md や .pdf、.png などが選べます）
 }
 
 // ==========================================

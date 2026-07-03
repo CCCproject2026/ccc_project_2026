@@ -70,9 +70,6 @@ docker-compose.override.yml
 .idea/
 .vscode/
 
-# Clerk local state
-.clerk/
-
 # Local Codex/app state
 .codex/
 .agents/
