@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "pnpm install && pnpm dev"]
+CMD ["sh", "-c", "pnpm install && DISABLE_ERD=true pnpm prisma:generate && pnpm dev"]
