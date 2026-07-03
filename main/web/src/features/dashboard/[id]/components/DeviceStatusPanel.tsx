@@ -67,7 +67,14 @@ export function DeviceStatusPanel({
 								stroke="currentColor"
 								strokeWidth="1.2"
 							/>
-							<rect x="13" y="6.5" width="2" height="3" rx="0.5" fill="currentColor" />
+							<rect
+								x="13"
+								y="6.5"
+								width="2"
+								height="3"
+								rx="0.5"
+								fill="currentColor"
+							/>
 							<rect
 								x="2.5"
 								y="5.5"

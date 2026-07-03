@@ -150,7 +150,11 @@ const MOCK_RESIDENTS: Record<string, MockResident> = {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function FallJudgementBadge({ isActualFall }: { isActualFall: boolean | null }) {
+function FallJudgementBadge({
+	isActualFall,
+}: {
+	isActualFall: boolean | null;
+}) {
 	if (isActualFall === null)
 		return (
 			<span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-alarm-bg text-alarm">
@@ -178,13 +182,13 @@ export function ResidentDetailPage({ id }: { id: string }) {
 	return (
 		<>
 			{/* Back link */}
-			<div className="mb-5">
+			<div className="mb-4">
 				<Link
 					href="/dashboard"
-					className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-1.5 transition-colors hover:bg-gray-50"
+					className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
 				>
 					<ChevronLeft className="w-4 h-4" />
-					一覧に戻る
+					ダッシュボードに戻る
 				</Link>
 			</div>
 
@@ -208,28 +212,40 @@ export function ResidentDetailPage({ id }: { id: string }) {
 					<div className="text-sm space-y-3 border-t border-gray-100 pt-4 mb-5">
 						<div className="flex justify-between">
 							<span className="text-gray-500">居室番号</span>
-							<span className="text-gray-800 font-medium">{resident.roomNumber}</span>
+							<span className="text-gray-800 font-medium">
+								{resident.roomNumber}
+							</span>
 						</div>
 						<div className="flex justify-between">
 							<span className="text-gray-500">生年月日</span>
-							<span className="text-gray-800 font-medium">{resident.birthDate}</span>
+							<span className="text-gray-800 font-medium">
+								{resident.birthDate}
+							</span>
 						</div>
 						<div className="flex justify-between">
 							<span className="text-gray-500">年齢</span>
-							<span className="text-gray-800 font-medium">{resident.age}歳</span>
+							<span className="text-gray-800 font-medium">
+								{resident.age}歳
+							</span>
 						</div>
 					</div>
 					<div className="grid grid-cols-3 gap-2 border-t border-gray-100 pt-4">
 						<div className="flex flex-col items-center gap-0.5">
-							<span className="text-2xl font-bold text-alarm">{resident.totalFalls}</span>
+							<span className="text-2xl font-bold text-alarm">
+								{resident.totalFalls}
+							</span>
 							<span className="text-xs text-gray-500">転倒</span>
 						</div>
 						<div className="flex flex-col items-center gap-0.5">
-							<span className="text-2xl font-bold text-warning">{resident.falseDetections}</span>
+							<span className="text-2xl font-bold text-warning">
+								{resident.falseDetections}
+							</span>
 							<span className="text-xs text-gray-500">誤検知</span>
 						</div>
 						<div className="flex flex-col items-center gap-0.5">
-							<span className="text-2xl font-bold text-primary">{resident.totalAlerts}</span>
+							<span className="text-2xl font-bold text-primary">
+								{resident.totalAlerts}
+							</span>
 							<span className="text-xs text-gray-500">合計</span>
 						</div>
 					</div>
@@ -255,7 +271,9 @@ export function ResidentDetailPage({ id }: { id: string }) {
 					</span>
 				</h3>
 				{resident.logs.length === 0 ? (
-					<p className="text-sm text-gray-400 text-center py-8">対応履歴はありません</p>
+					<p className="text-sm text-gray-400 text-center py-8">
+						対応履歴はありません
+					</p>
 				) : (
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm table-fixed">
