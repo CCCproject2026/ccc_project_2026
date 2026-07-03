@@ -1,6 +1,4 @@
-import {
-	PrismaClient,
-} from "@prisma/client";
+import { PrismaClient, UserRole, UserStatus, ElderStatus } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -14,8 +12,8 @@ async function main() {
 			email: "nurse.admin@example.com",
 			firstName: "Hanako",
 			lastName: "Yamada",
-			role: "ADMIN",
-			status: "ACTIVE",
+			role: UserRole.ADMIN,
+			status: UserStatus.ACTIVE,
 		},
 		create: {
 			id: "user_nurse_admin_001",
@@ -23,8 +21,8 @@ async function main() {
 			email: "nurse.admin@example.com",
 			firstName: "Hanako",
 			lastName: "Yamada",
-			role: "ADMIN",
-			status: "ACTIVE",
+			role: UserRole.ADMIN,
+			status: UserStatus.ACTIVE,
 		},
 	});
 
@@ -34,8 +32,8 @@ async function main() {
 			email: "caregiver.one@example.com",
 			firstName: "Taro",
 			lastName: "Sato",
-			role: "CAREGIVER",
-			status: "ACTIVE",
+			role: UserRole.CAREGIVER,
+			status: UserStatus.ACTIVE,
 		},
 		create: {
 			id: "user_caregiver_001",
@@ -43,8 +41,8 @@ async function main() {
 			email: "caregiver.one@example.com",
 			firstName: "Taro",
 			lastName: "Sato",
-			role: "CAREGIVER",
-			status: "ACTIVE",
+			role: UserRole.CAREGIVER,
+			status: UserStatus.ACTIVE,
 		},
 	});
 
@@ -57,14 +55,14 @@ async function main() {
 			firstName: "Ichiro",
 			lastName: "Tanaka",
 			roomNumber: "301",
-			status: "ACTIVE",
+			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_001",
 			firstName: "Ichiro",
 			lastName: "Tanaka",
 			roomNumber: "301",
-			status: "ACTIVE",
+			status: ElderStatus.ACTIVE,
 			createdById: admin.id, // スキーマの「誰が登録したか」を満たす
 		},
 	});
@@ -75,14 +73,14 @@ async function main() {
 			firstName: "Miyako",
 			lastName: "Suzuki",
 			roomNumber: "302",
-			status: "ACTIVE",
+			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_002",
 			firstName: "Miyako",
 			lastName: "Suzuki",
 			roomNumber: "302",
-			status: "ACTIVE",
+			status: ElderStatus.ACTIVE,
 			createdById: admin.id,
 		},
 	});
@@ -93,14 +91,14 @@ async function main() {
 			firstName: "Kenji",
 			lastName: "Kobayashi",
 			roomNumber: "305",
-			status: "ACTIVE",
+			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_003",
 			firstName: "Kenji",
 			lastName: "Kobayashi",
 			roomNumber: "305",
-			status: "ACTIVE",
+			status: ElderStatus.ACTIVE,
 			createdById: admin.id,
 		},
 	});
@@ -111,14 +109,14 @@ async function main() {
 			firstName: "Keiko",
 			lastName: "Watanabe",
 			roomNumber: "308",
-			status: "ACTIVE",
+			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_004",
 			firstName: "Keiko",
 			lastName: "Watanabe",
 			roomNumber: "308",
-			status: "ACTIVE",
+			status: ElderStatus.ACTIVE,
 			createdById: admin.id,
 		},
 	});
