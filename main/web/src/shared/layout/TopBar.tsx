@@ -7,11 +7,17 @@ interface TopBarProps {
 	showNotification?: boolean;
 	notificationCount?: number;
 }
+const today = new Date().toLocaleDateString("ja-JP", {
+	weekday: "long",
+	year: "numeric",
+	month: "long",
+	day: "numeric",
+});
 
 export function TopBar({
 	title,
 	breadcrumb,
-	dateLabel,
+
 	showNotification,
 	notificationCount,
 }: TopBarProps) {
@@ -38,9 +44,9 @@ export function TopBar({
 			{/* shrink-0 を入れ、画面が狭くなっても右側のパーツが絶対に小さくならないようにガードします */}
 			<div className="flex items-center gap-3 md:gap-4 shrink-0">
 				{/* スマホのときは 日付を非表示にします。画面が狭くなるからです */}
-				{dateLabel && (
+				{today && (
 					<span className="hidden sm:inline-block text-xs font-bold text-gray-400 bg-gray-50/80 px-3 py-1.5 rounded-xl border border-gray-100">
-						{dateLabel}
+						{today}
 					</span>
 				)}
 

@@ -1,12 +1,13 @@
 // 相対パス「../../../app/api/alert/mock」からエイリアス表記に変更
+
+import { AlarmBanner } from "@/features/dashboard/components/AlarmBanner";
+import { ResidentCard } from "@/features/dashboard/components/ResidentCard";
 import {
 	mockAlarmData,
 	residents,
 	stats,
 } from "@/features/dashboard/constants/mockDashboardData";
 import { StatCard } from "@/shared/ui/StatCard";
-import { AlarmBanner } from "../components/AlarmBanner";
-import { ResidentCard } from "../components/ResidentCard";
 
 ///api/alert/mock.tsからモックデータを取得する
 
