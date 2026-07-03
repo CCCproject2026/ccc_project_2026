@@ -1,16 +1,64 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git"
+	},
 	"files": {
-		"includes": ["src/**", "!.next", "!node_modules"]
+		"includes": ["src/**", "!node_modules", "!.next"]
 	},
 	"formatter": {
-		"lineEnding": "crlf",
-		"indentStyle": "tab"
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineEnding": "crlf"
+	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
 	},
 	"linter": {
-		"enabled": true
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"a11y": {
+				"noSvgWithoutTitle": "off",
+				"useKeyWithClickEvents": "off",
+				"useMediaCaption": "off",
+				"useSemanticElements": "off"
+			},
+			"performance": {
+				"noImgElement": "off"
+			},
+			"security": {
+				"noDangerouslySetInnerHtml": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "off",
+				"noRestrictedImports": {
+					"level": "error",
+					"options": {
+						"paths": {
+							"next/cache": "キャッシュ処理や revalidate 系は、専用の actions.ts / queries.ts など責務が分かる場所で使用してください"
+						}
+					}
+				},
+				"noUselessElse": "off",
+				"useImportType": "off"
+			},
+			"suspicious": {
+				"noArrayIndexKey": "off",
+				"noAssignInExpressions": "off"
+			}
+		}
 	},
-
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	},
 	"css": {
 		"parser": {
 			"cssModules": true,
