@@ -4,8 +4,6 @@ import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 import { Sidebar } from "@/shared/layout/sidebar/Sidebar";
 import { TopBar } from "@/shared/layout/TopBar";
 
-export const dynamic = "force-dynamic";
-
 export default function DashboardRoute() {
 	const count = mockAlarmData.count ?? 0; // 仮の通知件数
 
