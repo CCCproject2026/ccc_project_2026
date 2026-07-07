@@ -1,6 +1,8 @@
 import { StaffManagementPage } from "@/features/staff-management/pages/StaffManagementPage";
 import { Sidebar } from "@/shared/layout/sidebar/Sidebar";
 
+export const dynamic = "force-dynamic";
+
 export default function StaffPage() {
 	return (
 		<div className="flex h-screen">

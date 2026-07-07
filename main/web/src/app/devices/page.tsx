@@ -1,6 +1,8 @@
 import { DeviceManagementPage } from "@/features/device-management/pages/DeviceManagementPage";
 import { Sidebar } from "@/shared/layout/sidebar/Sidebar";
 
+export const dynamic = "force-dynamic";
+
 export default function DevicesPage() {
 	return (
 		<div className="flex h-screen">
