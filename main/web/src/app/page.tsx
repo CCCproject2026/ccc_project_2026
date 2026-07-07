@@ -1,5 +1,5 @@
-import DashboardPage from "./dashboard/page";
+import DashboardRoute from "./dashboard/page";
 
 export default function HomePage() {
-	return <DashboardPage />;
+	return <DashboardRoute />;
 }
