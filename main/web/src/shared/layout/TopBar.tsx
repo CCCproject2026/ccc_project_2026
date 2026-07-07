@@ -2,7 +2,7 @@ import { Bell } from "lucide-react";
 
 interface TopBarProps {
 	title: string;
-	breadcrumb: string;
+	breadcrumb?: string | string[];
 	dateLabel?: string;
 	showNotification?: boolean;
 	notificationCount?: number;
@@ -21,17 +21,21 @@ export function TopBar({
 	showNotification,
 	notificationCount,
 }: TopBarProps) {
+	const crumbs = Array.isArray(breadcrumb)
+		? breadcrumb
+		: breadcrumb
+			? [breadcrumb]
+			: [];
 	return (
 		<header className="h-16 bg-white/90 backdrop-blur-xs border-b border-gray-100 flex items-center justify-between px-4 md:px-6 shrink-0 w-full sticky top-0 z-40 transition-all">
 			<div className="min-w-0 flex-1 mr-4">
 				<h1 className="text-sm md:text-base font-black text-gray-900 tracking-tight truncate">
-					{breadcrumb ? (
-						<span className="text-gray-400 font-medium mr-1">
-							{breadcrumb} /
+					{crumbs.map((crumb, idx) => (
+						<span key={idx} className="text-gray-400 font-medium mr-1">
+							{crumb}
+							{idx < crumbs.length - 1 ? " › " : " / "}
 						</span>
-					) : (
-						""
-					)}
+					))}
 					{title}
 				</h1>
 			</div>
