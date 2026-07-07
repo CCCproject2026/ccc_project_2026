@@ -1,12 +1,16 @@
+"use client";
+
 import { Cpu, LayoutDashboard, User, Users } from "lucide-react";
 import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { SiberHeader } from "./SiberHeader";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarItem } from "./SidebarItem";
+import { useClerk } from "@clerk/nextjs";
 
 //const alarmCount=0;
-const alarmCount = mockAlarmData.count ?? 0; // 仮のアラーム件数（後でAPIから取得する想定）
+const alarmCount = mockAlarmData.count ?? 0;
 export function Sidebar() {
+	const { signOut } = useClerk();
 	return (
 		<>
 			{/* パソコン用のUI：画面の左側に固定するサイドバー */}
@@ -92,16 +96,16 @@ export function Sidebar() {
 					</div>
 					<span>マイページ</span>
 				</a>
-				<a
-					href="/login"
+				<button
+					type="button"
+					onClick={() => signOut({ redirectUrl: "/login" })}
 					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
 				>
-					{/* パソコンと同じログアウトのアイコンを小さく（w-5 h-5）して使います */}
 					<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
 						<User className="w-3 h-3" />
 					</div>
 					<span>ログアウト</span>
-				</a>
+				</button>
 			</nav>
 		</>
 	);
