@@ -14,14 +14,12 @@ interface AlarmBannerProps {
 	time?: string;
 	// 変更点: アラーム中の一人だけではなく、アラーム中の住民全員の配列を受け取れるようにします
 	alarmedResidents?: readonly Resident[];
-	onRespond?: (residentName: string) => void; // 誰に対応したかわかるように名前を渡せるように変更
 }
 
 export function AlarmBanner({
 	count = 0,
 	time = "10:15",
 	alarmedResidents = [],
-	onRespond,
 }: AlarmBannerProps) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [elapsedText, setElapsedText] = useState("計算中...");
