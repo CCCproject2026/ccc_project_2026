@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Cpu, LayoutDashboard, User, Users } from "lucide-react";
 import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { SiberHeader } from "./SiberHeader";
@@ -52,13 +53,13 @@ export function Sidebar() {
 			{/* スマホのときだけ表示して、パソコン（mdサイズ以上）のときは非表示（hidden）にします */}
 			<nav className="fixed bottom-0 left-0 right-0 h-16 bg-sidebar-bg border-t border-white/10 flex md:hidden items-center justify-around px-2 z-50 shadow-xl">
 				{/* ダッシュボードのタブ */}
-				<a
+				<Link
 					href="/dashboard"
 					className="flex flex-col items-center gap-1 text-white text-xs font-medium py-1 w-20 text-center"
 				>
 					<LayoutDashboard className="w-5 h-5 text-primary" />
 					<span>ダッシュ</span>
-				</a>
+				</Link>
 
 				{/* デバイス管理のタブ */}
 				<a
@@ -82,7 +83,7 @@ export function Sidebar() {
 					<span>スタッフ</span>
 				</a>
 				{/* 修正：ユーザー情報は、他のボタンと同じサイズで「マイページ」のように並べると、画面が崩れません */}
-				<a
+				<Link
 					// href="/profile"  なったらいい　いまいち　dashboard　にいくようにしている
 					href="/dashboard"
 					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
@@ -91,7 +92,7 @@ export function Sidebar() {
 						田
 					</div>
 					<span>マイページ</span>
-				</a>
+				</Link>
 				<a
 					href="/login"
 					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
