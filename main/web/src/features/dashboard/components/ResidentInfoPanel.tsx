@@ -25,7 +25,7 @@ export function ResidentInfoPanel({ resident }: ResidentInfoPanelProps) {
 			{/* --- 入居者基本情報エリア --- */}
 			<div>
 				<div className="flex items-center gap-2 mb-4 text-gray-800 font-bold text-lg">
-					<span className="text-xl">👤</span>
+					
 					<h2>入居者情報</h2>
 				</div>
 

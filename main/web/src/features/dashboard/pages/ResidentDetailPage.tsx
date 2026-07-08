@@ -74,7 +74,7 @@ export function ResidentDetailPage({ initialData }: ResidentDetailPageProps) {
 						<div>
 							{/* パネルのタイトル */}
 							<div className="flex items-center gap-2 mb-5 text-gray-800 font-bold text-lg">
-								<span className="text-xl">📱</span>
+								
 								<h2>デバイス状態</h2>
 							</div>
 
