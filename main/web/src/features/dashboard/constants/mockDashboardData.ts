@@ -12,8 +12,10 @@ import { AlertTriangle, Cpu, UserCheck, Users } from "lucide-react";
 
 export const residents = [
 	{
+		id: "yamada-taro",
 		name: "山田 太郎",
 		age: 91,
+		birthday: "1935/03/15", // ← 生年月日を追加
 		room: "101号室",
 		deviceName: "ESP32-101",
 		batteryLevel: 87,
@@ -23,8 +25,10 @@ export const residents = [
 		variant: "normal",
 	},
 	{
+		id: "watanabe-fujiko",
 		name: "渡辺 富士子",
 		age: 87,
+		birthday: "1939/08/22",
 		room: "205号室",
 		deviceName: "ESP32-102",
 		batteryLevel: 18, // バッテリー低下テスト用
@@ -34,8 +38,10 @@ export const residents = [
 		variant: "alarm", // アラーム発生中
 	},
 	{
+		id: "ito-shigeru",
 		name: "伊藤 茂",
 		age: 89,
+		birthday: "1937/11/05",
 		room: "203号室",
 		deviceName: "ESP32-203",
 		batteryLevel: 65,
@@ -45,8 +51,10 @@ export const residents = [
 		variant: "normal",
 	},
 	{
+		id: "sato-kayo",
 		name: "佐藤 カヨ",
 		age: 94,
+		birthday: "1932/01/30",
 		room: "102号室",
 		deviceName: "ESP32-102B",
 		batteryLevel: 5, // バッテリー切れ寸前テスト用
@@ -56,8 +64,10 @@ export const residents = [
 		variant: "normal",
 	},
 	{
+		id: "suzuki-ichiro",
 		name: "鈴木 一郎",
 		age: 82,
+		birthday: "1944/05/12",
 		room: "301号室",
 		deviceName: "ESP32-301",
 		batteryLevel: 99,
@@ -67,8 +77,10 @@ export const residents = [
 		variant: "normal",
 	},
 	{
+		id: "takahashi-ume",
 		name: "高橋 ウメ",
 		age: 88,
+		birthday: "1938/04/18",
 		room: "202号室",
 		deviceName: "ESP32-202",
 		batteryLevel: 45,
@@ -78,8 +90,10 @@ export const residents = [
 		variant: "normal",
 	},
 	{
+		id: "tanaka-jiro",
 		name: "田中 次郎",
 		age: 85,
+		birthday: "1941/09/09",
 		room: "105号室",
 		deviceName: "ESP32-105",
 		batteryLevel: 12,
@@ -89,8 +103,10 @@ export const residents = [
 		variant: "alarm", // アラーム発生中（2人目）
 	},
 	{
+		id: "kobayashi-yoshiko",
 		name: "小林 よし子",
 		age: 90,
+		birthday: "1936/12/25",
 		room: "305号室",
 		deviceName: "ESP32-305",
 		batteryLevel: 75,
@@ -100,8 +116,10 @@ export const residents = [
 		variant: "normal",
 	},
 	{
+		id: "nakamura-saburo",
 		name: "中村 三郎",
 		age: 79,
+		birthday: "1947/02/14",
 		room: "206号室",
 		deviceName: "ESP32-206",
 		batteryLevel: 50,
@@ -111,8 +129,10 @@ export const residents = [
 		variant: "normal",
 	},
 	{
+		id: "kato-kiku",
 		name: "加藤 キク",
 		age: 92,
+		birthday: "1934/07/07",
 		room: "103号室",
 		deviceName: "ESP32-103",
 		batteryLevel: 80,
@@ -188,3 +208,53 @@ export const stats = [
 		description: "ただいま 全員 出勤しています",
 	},
 ] as const;
+
+// ==========================================
+// 2. 詳細画面用ヘルパー
+// ==========================================
+
+export type ResidentId = (typeof residents)[number]["id"];
+
+/**
+ * IDを基に特定の入居者の詳細データを取得する関数
+ */
+export function getResidentDetailById(id: string) {
+	const baseInfo = residents.find((r) => r.id === id);
+	if (!baseInfo) return null;
+
+	return {
+		...baseInfo,
+		device: {
+			name: baseInfo.deviceName,
+			id: `dev-${baseInfo.id.substring(0, 3)}-001`,
+			battery: baseInfo.batteryLevel,
+			lastCommunication: "2026/06/10 09:10",
+			status: baseInfo.variant === "alarm" ? "アラーム発生中" : "オンライン",
+		},
+		stats: {
+			fallCount: baseInfo.falls,
+			falseAlarmCount: baseInfo.falseAlarms,
+			totalCount: baseInfo.totalAlarms,
+		},
+		history: [
+			{
+				id: `${baseInfo.id}-h1`,
+				createdAt: "2026/06/09 14:15",
+				respondedAt: "2026/06/09 14:18",
+				duration: "3分",
+				judgment: "誤検知",
+				staff: "佐藤 美紀",
+				memo: "体位変換時の一時的な姿勢崩れ。実際の転倒なし。問題なし。",
+			},
+			{
+				id: `${baseInfo.id}-h2`,
+				createdAt: "2026/06/08 16:30",
+				respondedAt: "2026/06/08 16:34",
+				duration: "4分",
+				judgment: "誤検知",
+				staff: "佐藤 美紀",
+				memo: "体操中の大きな動作を誤検知。問題なし。",
+			},
+		],
+	};
+}
