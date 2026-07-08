@@ -54,8 +54,8 @@ export function ResidentDetailPage({ initialData }: ResidentDetailPageProps) {
 				<div>
 					<button
 						type="button"
-						onClick={() => router.push("/dashboard")} // クリックしたらダッシュボード（一覧画面）へ戻る
-						className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+						onClick={() => router.push("/dashboard")}
+						className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-blue-200 rounded-lg text-sm font-medium text-blue-600 shadow-sm transition-all hover:bg-blue-50/50 hover:border-blue-300 cursor-pointer"
 					>
 						一覧に戻る
 					</button>
@@ -74,7 +74,6 @@ export function ResidentDetailPage({ initialData }: ResidentDetailPageProps) {
 						<div>
 							{/* パネルのタイトル */}
 							<div className="flex items-center gap-2 mb-5 text-gray-800 font-bold text-lg">
-								
 								<h2>デバイス状態</h2>
 							</div>
 
