@@ -4,13 +4,49 @@
 		"includes": ["src/**", "!.next", "!node_modules"]
 	},
 	"formatter": {
-		"lineEnding": "crlf",
+		"lineEnding": "auto",
 		"indentStyle": "tab"
 	},
 	"linter": {
-		"enabled": true
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"a11y": {
+				"noSvgWithoutTitle": "off",
+				"useKeyWithClickEvents": "off",
+				"useMediaCaption": "off",
+				"useSemanticElements": "off"
+			},
+			"performance": {
+				"noImgElement": "off"
+			},
+			"security": {
+				"noDangerouslySetInnerHtml": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "off",
+				"noRestrictedImports": {
+					"level": "error",
+					"options": {
+						"paths": {
+							"next/cache": "キャッシュ処理や revalidate 系は、専用の actions.ts / queries.ts など責務が分かる場所で使用してください"
+						}
+					}
+				},
+				"noUselessElse": "off",
+				"useImportType": "off"
+			},
+			"suspicious": {
+				"noArrayIndexKey": "off",
+				"noAssignInExpressions": "off"
+			}
+		}
 	},
-
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	},
 	"css": {
 		"parser": {
 			"cssModules": true,

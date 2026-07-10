@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Providers } from "./providers";
 
 export const metadata = {
 	title: "Elderly Fall Prevention",
@@ -12,7 +13,9 @@ export default function RootLayout({
 	return (
 		<html lang="ja">
 			<body>
-				<main>{children}</main>
+				<Providers>
+					<main>{children}</main>
+				</Providers>
 			</body>
 		</html>
 	);
