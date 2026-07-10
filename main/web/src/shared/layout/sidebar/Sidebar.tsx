@@ -4,7 +4,7 @@ import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData"
 import { SiberHeader } from "./SiberHeader";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarItem } from "./SidebarItem";
-import { MobileSignOutButton } from "./MobileSignOutButton";
+
 
 const alarmCount = mockAlarmData.count ?? 0;
 export function Sidebar() {
@@ -55,24 +55,24 @@ export function Sidebar() {
 					<span>ダッシュ</span>
 				</Link>
 
-				<a
-					href="/devices"
-					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors relative"
-				>
-					<Cpu className="w-5 h-5" />
-					<span>デバイス</span>
-					{alarmCount > 0 && (
-						<span className="absolute top-1 right-5 w-2 h-2 rounded-full bg-alarm animate-pulse" />
-					)}
-				</a>
+			<Link
+				href="/devices"
+				className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors relative"
+			>
+				<Cpu className="w-5 h-5" />
+				<span>デバイス</span>
+				{alarmCount > 0 && (
+					<span className="absolute top-1 right-5 w-2 h-2 rounded-full bg-alarm animate-pulse" />
+				)}
+			</Link>
 
-				<a
-					href="/staff"
-					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors"
-				>
-					<Users className="w-5 h-5" />
-					<span>スタッフ</span>
-				</a>
+			<Link
+				href="/staff"
+				className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors"
+			>
+				<Users className="w-5 h-5" />
+				<span>スタッフ</span>
+			</Link>
 				{/* 修正：ユーザー情報は、他のボタンと同じサイズで「マイページ」のように並べると、画面が崩れません */}
 				<Link
 					// href="/profile"  なったらいい　いまいち　dashboard　にいくようにしている
@@ -84,16 +84,16 @@ export function Sidebar() {
 					</div>
 					<span>マイページ</span>
 				</Link>
-				<a
-					href="/login"
-					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
-				>
-					{/* パソコンと同じログアウトのアイコンを小さく（w-5 h-5）して使います */}
-					<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
-						<User className="w-3 h-3" />
-					</div>
-					<span>ログアウト</span>
-				</a>
+			<Link
+				href="/login"
+				className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
+			>
+				{/* パソコンと同じログアウトのアイコンを小さく（w-5 h-5）して使います */}
+				<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
+					<User className="w-3 h-3" />
+				</div>
+				<span>ログアウト</span>
+			</Link>
 			</nav>
 		</>
 	);
