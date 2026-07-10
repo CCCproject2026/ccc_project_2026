@@ -1,15 +1,12 @@
-"use client";
-
-import { Cpu, LayoutDashboard, User, Users } from "lucide-react";
+import { Cpu, LayoutDashboard, Users } from "lucide-react";
 import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { SiberHeader } from "./SiberHeader";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarItem } from "./SidebarItem";
-import { useClerk } from "@clerk/nextjs";
+import { MobileSignOutButton } from "./MobileSignOutButton";
 
 const alarmCount = mockAlarmData.count ?? 0;
 export function Sidebar() {
-	const { signOut } = useClerk();
 	return (
 		<>
 			<div className="hidden md:block w-64 h-screen shrink-0 bg-sidebar-bg">
@@ -83,16 +80,7 @@ export function Sidebar() {
 					</div>
 					<span>マイページ</span>
 				</a>
-				<button
-					type="button"
-					onClick={() => signOut({ redirectUrl: "/login" })}
-					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
-				>
-					<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
-						<User className="w-3 h-3" />
-					</div>
-					<span>ログアウト</span>
-				</button>
+				<MobileSignOutButton />
 			</nav>
 		</>
 	);
