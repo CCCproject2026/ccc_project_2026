@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Cpu, LayoutDashboard, User, Users } from "lucide-react";
+import { Cpu, LayoutDashboard, Users } from "lucide-react";
 import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { SiberHeader } from "./SiberHeader";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarItem } from "./SidebarItem";
+import { MobileSignOutButton } from "./MobileSignOutButton";
 
 
 const alarmCount = mockAlarmData.count ?? 0;
@@ -84,16 +85,7 @@ export function Sidebar() {
 					</div>
 					<span>マイページ</span>
 				</Link>
-			<Link
-				href="/login"
-				className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
-			>
-				{/* パソコンと同じログアウトのアイコンを小さく（w-5 h-5）して使います */}
-				<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
-					<User className="w-3 h-3" />
-				</div>
-				<span>ログアウト</span>
-			</Link>
+			<MobileSignOutButton />
 			</nav>
 		</>
 	);

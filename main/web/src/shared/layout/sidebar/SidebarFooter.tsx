@@ -1,12 +1,7 @@
-"use client";
-
-import { LogOut } from "lucide-react";
 import Link from "next/link";
-import { useClerk } from "@clerk/nextjs";
+import { DesktopSignOutButton } from "./DesktopSignOutButton";
 
 export function SidebarFooter() {
-	const { signOut } = useClerk();
-
 	return (
 		<div className="mt-auto md:w-full">
 			<Link
@@ -24,14 +19,7 @@ export function SidebarFooter() {
 				</div>
 			</Link>
 
-			<button
-				type="button"
-				onClick={() => signOut({ redirectUrl: "/login" })}
-				className="hidden md:flex items-center gap-3 px-4 py-3 w-full text-sm text-slate-300 hover:bg-slate-800 rounded-xl transition-colors"
-			>
-				<LogOut className="w-5 h-5" />
-				ログアウト
-			</button>
+			<DesktopSignOutButton />
 		</div>
 	);
 }
