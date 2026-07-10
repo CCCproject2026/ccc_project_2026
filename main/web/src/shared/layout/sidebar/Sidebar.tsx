@@ -1,4 +1,5 @@
-import { Cpu, LayoutDashboard, Users } from "lucide-react";
+import Link from "next/link";
+import { Cpu, LayoutDashboard, User, Users } from "lucide-react";
 import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { SiberHeader } from "./SiberHeader";
 import { SidebarFooter } from "./SidebarFooter";
@@ -45,13 +46,14 @@ export function Sidebar() {
 			</div>
 
 			<nav className="fixed bottom-0 left-0 right-0 h-16 bg-sidebar-bg border-t border-white/10 flex md:hidden items-center justify-around px-2 z-50 shadow-xl">
-				<a
+				{/* ダッシュボードのタブ */}
+				<Link
 					href="/dashboard"
 					className="flex flex-col items-center gap-1 text-white text-xs font-medium py-1 w-20 text-center"
 				>
 					<LayoutDashboard className="w-5 h-5 text-primary" />
 					<span>ダッシュ</span>
-				</a>
+				</Link>
 
 				<a
 					href="/devices"
@@ -71,7 +73,9 @@ export function Sidebar() {
 					<Users className="w-5 h-5" />
 					<span>スタッフ</span>
 				</a>
-				<a
+				{/* 修正：ユーザー情報は、他のボタンと同じサイズで「マイページ」のように並べると、画面が崩れません */}
+				<Link
+					// href="/profile"  なったらいい　いまいち　dashboard　にいくようにしている
 					href="/dashboard"
 					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
 				>
@@ -79,8 +83,17 @@ export function Sidebar() {
 						田
 					</div>
 					<span>マイページ</span>
+				</Link>
+				<a
+					href="/login"
+					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
+				>
+					{/* パソコンと同じログアウトのアイコンを小さく（w-5 h-5）して使います */}
+					<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
+						<User className="w-3 h-3" />
+					</div>
+					<span>ログアウト</span>
 				</a>
-				<MobileSignOutButton />
 			</nav>
 		</>
 	);

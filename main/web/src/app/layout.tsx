@@ -1,8 +1,6 @@
 import "./globals.css";
 import { Providers } from "./providers";
 
-export const dynamic = "force-dynamic";
-
 export const metadata = {
 	title: "Elderly Fall Prevention",
 };
