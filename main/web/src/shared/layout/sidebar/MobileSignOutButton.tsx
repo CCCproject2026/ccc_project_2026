@@ -1,7 +1,7 @@
 "use client";
 
-import { User } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
+import { User } from "lucide-react";
 
 export function MobileSignOutButton() {
 	const { signOut } = useClerk();
