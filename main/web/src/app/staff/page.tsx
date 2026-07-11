@@ -1,13 +1,12 @@
-// src/app/staff/page.tsx
-
+import { StaffManagementPage } from "@/features/staff-management/pages/StaffManagementPage";
 import { Sidebar } from "@/shared/layout/sidebar/Sidebar";
 
 export default function StaffPage() {
 	return (
-		<div className="flex">
+		<div className="flex h-screen">
 			<Sidebar />
-			<main className="flex-1 bg-gray-50 p-6">
-				<h1>Staff</h1>
+			<main className="flex-1 bg-surface p-6 overflow-auto">
+				<StaffManagementPage />
 			</main>
 		</div>
 	);

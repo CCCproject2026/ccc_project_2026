@@ -1,11 +1,12 @@
+import { DeviceManagementPage } from "@/features/device-management/pages/DeviceManagementPage";
 import { Sidebar } from "@/shared/layout/sidebar/Sidebar";
 
 export default function DevicesPage() {
 	return (
-		<div className="flex">
+		<div className="flex h-screen">
 			<Sidebar />
-			<main className="flex-1 bg-gray-50 p-6">
-				<h1>Devices</h1>
+			<main className="flex-1 bg-surface p-6 overflow-auto">
+				<DeviceManagementPage />
 			</main>
 		</div>
 	);
