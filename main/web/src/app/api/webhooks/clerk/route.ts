@@ -6,9 +6,6 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
 	try {
 		const payload = await request.json();
-		// 一旦受け取ったデータをログに出力（必要に応じて）
-		console.log("Clerk webhook received:", payload);
-
 		return NextResponse.json({ success: true, message: "Webhook received" });
 	} catch {
 		return NextResponse.json(

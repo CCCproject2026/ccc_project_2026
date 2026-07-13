@@ -15,9 +15,9 @@ export default function RootLayout({
 	return (
 		<html lang="ja">
 			<body>
-				<Providers>
-					<main>{children}</main>
-				</Providers>
+			<Providers clerkKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+				<main>{children}</main>
+			</Providers>
 			</body>
 		</html>
 	);

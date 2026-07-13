@@ -3,7 +3,6 @@ import { Bell } from "lucide-react";
 interface TopBarProps {
 	title: string;
 	breadcrumb?: string | string[];
-	dateLabel?: string;
 	showNotification?: boolean;
 	notificationCount?: number;
 }

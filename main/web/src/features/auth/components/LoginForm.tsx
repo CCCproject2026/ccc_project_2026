@@ -1,33 +1,9 @@
 "use client";
 
-import { useSignIn } from "@clerk/nextjs";
+import { useAuth, useClerk } from "@clerk/nextjs";
 import { Eye, EyeOff, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, type ReactNode, useState } from "react";
-
-const isClerkConfigured = Boolean(
-	process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-);
-
-type SignInCreateResult = {
-	status: string;
-	createdSessionId?: string | null;
-};
-
-interface ClerkSignIn {
-	create: (params: {
-		identifier: string;
-		password: string;
-	}) => Promise<SignInCreateResult>;
-}
-
-interface ClerkSignInResult {
-	isLoaded: boolean;
-	signIn: ClerkSignIn | undefined;
-	setActive:
-		| ((params: { session: string | null }) => Promise<void>)
-		| undefined;
-}
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 
 function LoginCard({ children }: { children: ReactNode }) {
 	return (
@@ -42,9 +18,18 @@ function LoginCard({ children }: { children: ReactNode }) {
 }
 
 function ClerkLoginForm() {
-	const { isLoaded, signIn, setActive } =
-		useSignIn() as unknown as ClerkSignInResult;
+	const { client, setActive, signOut } = useClerk();
+	const { isSignedIn, isLoaded } = useAuth();
 	const router = useRouter();
+	const mountChecked = useRef(false);
+
+	useEffect(() => {
+		if (!isLoaded || mountChecked.current) return;
+		mountChecked.current = true;
+		if (isSignedIn) {
+			signOut();
+		}
+	}, [isLoaded, isSignedIn, signOut]);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -75,16 +60,8 @@ function ClerkLoginForm() {
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 
-		if (!isLoaded || !signIn) {
-			// Dev mode fallback to allow testing the login UI flow when Clerk is loading/blocked
-			if (process.env.NODE_ENV === "development") {
-				setErrorMessage("");
-				setIsSubmitting(true);
-				await new Promise((resolve) => setTimeout(resolve, 1000));
-				router.push("/dashboard");
-				return;
-			}
-			setErrorMessage("Authentication is still loading. Please wait a moment.");
+		if (!client) {
+			setErrorMessage("認証システムを読み込んでいます。しばらくお待ちください。");
 			return;
 		}
 
@@ -92,13 +69,13 @@ function ClerkLoginForm() {
 		setIsSubmitting(true);
 
 		try {
-			const result = (await signIn.create({
+			const result = await client.signIn.create({
 				identifier: email,
 				password,
-			})) as SignInCreateResult;
+			});
 
 			if (result.status === "complete") {
-				await setActive?.({ session: result.createdSessionId ?? null });
+				await setActive({ session: result.createdSessionId });
 				router.push("/dashboard");
 				return;
 			}
@@ -185,10 +162,10 @@ function ClerkLoginForm() {
 
 				<button
 					type="submit"
-					disabled={
-						isSubmitting ||
-						(!isLoaded && !signIn && process.env.NODE_ENV !== "development")
-					}
+				disabled={
+					isSubmitting ||
+					!client
+				}
 					className="w-full cursor-pointer rounded-[10px] bg-[#7C3AED] p-[13px] text-[15px] font-semibold text-white tracking-[0.01em] transition-colors hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:bg-[#A78BFA]"
 				>
 					{isSubmitting ? "ログイン中..." : "ログイン"}
@@ -198,66 +175,6 @@ function ClerkLoginForm() {
 	);
 }
 
-function PreviewLoginForm() {
-	return (
-		<LoginCard>
-			<div className="mb-5 flex items-center gap-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-[14px] py-[10px] text-[13px] text-[#DC2626]">
-				<Shield size={15} />
-				<span>
-					Preview mode: set Clerk keys in <code>.env</code> to enable real
-					sign-in.
-				</span>
-			</div>
-
-			<form>
-				<div className="mb-5">
-					<label
-						htmlFor="preview-email"
-						className="mb-2 block text-sm font-medium text-[#374151]"
-					>
-						メールアドレス
-					</label>
-					<input
-						id="preview-email"
-						type="email"
-						placeholder="example@care.jp"
-						disabled
-						className="w-full cursor-not-allowed rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-[#FAFAFA] px-[14px] py-[11px] text-[15px] text-[#9CA3AF] outline-none opacity-80"
-					/>
-				</div>
-
-				<div className="mb-6">
-					<label
-						htmlFor="preview-password"
-						className="mb-2 block text-sm font-medium text-[#374151]"
-					>
-						パスワード
-					</label>
-					<input
-						id="preview-password"
-						type="password"
-						placeholder="••••••••"
-						disabled
-						className="w-full cursor-not-allowed rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-[#FAFAFA] px-[14px] py-[11px] text-[15px] text-[#9CA3AF] outline-none opacity-80"
-					/>
-				</div>
-
-				<button
-					type="button"
-					disabled
-					className="w-full cursor-not-allowed rounded-[10px] bg-[#A78BFA] p-[13px] text-[15px] font-semibold tracking-[0.01em] text-white"
-				>
-					ログイン
-				</button>
-			</form>
-		</LoginCard>
-	);
-}
-
 export function LoginForm() {
-	if (!isClerkConfigured) {
-		return <PreviewLoginForm />;
-	}
-
 	return <ClerkLoginForm />;
 }
