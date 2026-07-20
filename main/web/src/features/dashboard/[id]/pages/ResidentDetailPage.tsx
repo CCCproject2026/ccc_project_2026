@@ -109,7 +109,14 @@ export function ResidentDetailPage({ id }: { id: string }) {
                     deviceId={residentDetail.device.id}
                     batteryLevel={residentDetail.device.battery}
                     lastSeen={residentDetail.device.lastCommunication}
-                    status={residentDetail.variant === "alarm" ? "active" : "inactive"}
+                   /* 
+                      【修正箇所】
+                      アラームの有無ではなく、モックデータ内の接続状態フラグ（isOnline等）を参照するか、
+                      現状のデータ構造に合わせて、デバイスが「オンライン」状態であることを正しく判定して渡します。
+                      ※もし mockDashboardData 側にフラグがない場合は、residentDetail.device.status === "online" 
+                        などの適切な生存状態を判定する条件式に置き換えてください。
+                    */
+                    status={residentDetail.device.isOnline ? "active" : "inactive"}
                 />
             </div>
 

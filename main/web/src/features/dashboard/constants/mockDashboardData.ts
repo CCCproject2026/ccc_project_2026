@@ -369,13 +369,17 @@ export function getResidentDetailById(id: string) {
     return {
         ...baseInfo,
         // デバイス管理モジュール用オブジェクト
-        device: {
-            name: baseInfo.deviceName,
-            id: `dev-${baseInfo.id.substring(0, 3)}-001`,
-            battery: baseInfo.batteryLevel,
-            lastCommunication: "2026/07/11 14:00",
-            status: isAlarming ? "アラーム発生中" : "正常動作中",
-        },
+        //  AFTER (Updated implementation)
+device: {
+    name: baseInfo.deviceName,
+    id: `dev-${baseInfo.id.substring(0, 3)}-001`,
+    battery: baseInfo.batteryLevel,
+    lastCommunication: "2026/07/11 14:00",
+    // 1. Add the boolean flag Option A expects (Checking if battery is dead, otherwise true)
+    isOnline: baseInfo.batteryLevel > 0, 
+    // 2. Keep or remove the text status based on whether other components use it
+    status: isAlarming ? "アラーム発生中" : "正常動作中", 
+},
         // 集計数字バッジカード用オブジェクト
         stats: {
             fallCount: baseInfo.falls,
