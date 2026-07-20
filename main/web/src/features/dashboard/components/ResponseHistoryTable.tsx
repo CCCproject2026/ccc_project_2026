@@ -6,16 +6,17 @@ interface ResponseHistoryTableProps {
 		createdAt: string;
 		respondedAt: string;
 		duration: string;
-		judgment: string; // "転倒" | "誤検知" | "その他巡回" など
+		judgment: string; // "転倒" | "誤検知" | "バッテリー低下" など
 		staff: string;
 		memo: string;
 	}>;
 }
 
 export function ResponseHistoryTable({ data }: ResponseHistoryTableProps) {
-	// 💡 ロジック追加: 判定結果（judgment）が「転倒」または「誤検知」のデータのみに絞り込む
+	// ロジック追加: 判定結果（judgment）が「転倒」または「誤検知」のデータのみに絞り込む
 	const alarmHistoryOnly = data.filter(
-		(item) => item.judgment === "転倒" || item.judgment === "誤検知",
+		(item) => item.judgment === "転倒" || item.judgment === "誤検知" || 
+			item.judgment === "バッテリー低下",
 	);
 
 	// 絞り込んだ結果、データが空の場合の安全処理
@@ -42,7 +43,7 @@ export function ResponseHistoryTable({ data }: ResponseHistoryTableProps) {
 				</thead>
 
 				<tbody className="divide-y divide-gray-100 text-sm text-gray-600 bg-white">
-					{/* 💡 修正: 元の data ではなく、絞り込んだ alarmHistoryOnly でループを回す */}
+					{/* 修正: 元の data ではなく、絞り込んだ alarmHistoryOnly でループを回す */}
 					{alarmHistoryOnly.map((item) => (
 						<tr
 							key={item.id}
