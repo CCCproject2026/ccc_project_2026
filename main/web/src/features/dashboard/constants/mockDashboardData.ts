@@ -72,9 +72,9 @@ export const rawResidents = [
         room: "203号室",
         deviceName: "ESP32-203",
         batteryLevel: 65,
-        falls: 0,
+        falls: 1,
         falseAlarms: 1,
-        totalAlarms: 1,
+        totalAlarms: 2,
         hasActiveFallAlarm: false,
     },
     {
@@ -124,7 +124,7 @@ export const rawResidents = [
         room: "105号室",
         deviceName: "ESP32-105",
         batteryLevel: 12, // バッテリー低下（15%未満）かつ、リアルタイム転倒アラームが同時に発生している「複合アラーム」のテストケース
-        falls: 1,
+        falls: 0,
         falseAlarms: 1,
         totalAlarms: 2,
         hasActiveFallAlarm: true,

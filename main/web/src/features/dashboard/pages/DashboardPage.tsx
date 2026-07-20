@@ -58,7 +58,7 @@ export async function DashboardPage() {
 						<li key={resident.id} className="min-w-0 w-full">
 							{/* 3. Wrap the card with Link using the dynamic ID path */}
 							<Link
-								href={`/dashboard/residents/${resident.id}`}
+								href={`/dashboard/${resident.id}`}
 								className="block transition-transform hover:scale-[1.01] active:scale-[0.99]"
 							>
 								<ResidentCard {...resident} />
