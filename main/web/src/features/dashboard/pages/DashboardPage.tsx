@@ -1,5 +1,5 @@
 // 相対パス「../../../app/api/alert/mock」からエイリアス表記に変更
-
+import Link from "next/link";
 import { AlarmBanner } from "@/features/dashboard/components/AlarmBanner";
 import { ResidentCard } from "@/features/dashboard/components/ResidentCard";
 import {
@@ -55,8 +55,14 @@ export async function DashboardPage() {
 				{/* semantic: div → ul に変更（一覧構造の明確化） */}
 				<ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
 					{residents.map((resident) => (
-						<li key={resident.name} className="min-w-0 w-full">
-							<ResidentCard {...resident} />
+						<li key={resident.id} className="min-w-0 w-full">
+							{/* 3. Wrap the card with Link using the dynamic ID path */}
+							<Link
+								href={`/dashboard/${resident.id}`}
+								className="block transition-transform hover:scale-[1.01] active:scale-[0.99]"
+							>
+								<ResidentCard {...resident} />
+							</Link>
 						</li>
 					))}
 				</ul>
