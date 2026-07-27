@@ -3,7 +3,13 @@
 import { useAuth, useClerk } from "@clerk/nextjs";
 import { Eye, EyeOff, Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	type FormEvent,
+	type ReactNode,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 
 function LoginCard({ children }: { children: ReactNode }) {
 	return (
@@ -61,7 +67,9 @@ function ClerkLoginForm() {
 		event.preventDefault();
 
 		if (!client) {
-			setErrorMessage("認証システムを読み込んでいます。しばらくお待ちください。");
+			setErrorMessage(
+				"認証システムを読み込んでいます。しばらくお待ちください。",
+			);
 			return;
 		}
 
@@ -162,10 +170,7 @@ function ClerkLoginForm() {
 
 				<button
 					type="submit"
-				disabled={
-					isSubmitting ||
-					!client
-				}
+					disabled={isSubmitting || !client}
 					className="w-full cursor-pointer rounded-[10px] bg-[#7C3AED] p-[13px] text-[15px] font-semibold text-white tracking-[0.01em] transition-colors hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:bg-[#A78BFA]"
 				>
 					{isSubmitting ? "ログイン中..." : "ログイン"}
