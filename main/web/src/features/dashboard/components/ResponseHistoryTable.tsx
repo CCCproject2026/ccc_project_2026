@@ -1,6 +1,6 @@
 // src/features/dashboard/components/ResponseHistoryTable.tsx
 
-import { AlertCircle, Clock, User } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 interface HistoryItem {
     id: string;

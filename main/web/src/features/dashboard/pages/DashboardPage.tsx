@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AlarmBanner } from "@/features/dashboard/components/AlarmBanner";
 import { ResidentCard } from "@/features/dashboard/components/ResidentCard";
 import {
-	mockAlarmData,
+	getMockAlarmData,
 	residents,
 	stats,
 } from "@/features/dashboard/constants/mockDashboardData";
@@ -11,18 +11,18 @@ import { StatCard } from "@/shared/ui/StatCard";
 
 ///api/alert/mock.tsからモックデータを取得する
 
-export async function DashboardPage() {
+export function DashboardPage() {
 	// variant が "alarm" の住民をリスト化して直接渡す
 	const alarmedResidents = residents.filter((r) => r.variant === "alarm");
-	const count = mockAlarmData.count ?? 0;
-	//const count=0;
+	const alarmData = getMockAlarmData();
+	const count = alarmData.count ?? 0;
 	return (
 		<div className="flex flex-col gap-6 pb-6 max-w-[1600px] mx-auto w-full">
 			{/* 全体レイアウト間隔は layout 側に寄せるのが理想（ここでは最小限に） */}
 			{count > 0 && (
 				<AlarmBanner
-					count={mockAlarmData.count}
-					time={mockAlarmData.time}
+					count={alarmData.count}
+					time={alarmData.time}
 					alarmedResidents={alarmedResidents} // 配列をまるごと渡す！
 				/>
 			)}

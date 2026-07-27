@@ -233,13 +233,15 @@ const getMockTimeAgo = (minutesAgo: number): string => {
  * このオブジェクトは WebSocket や SSE（Server-Sent Events）のグローバルな通知イベントリスナーと紐づけ、
  * システム全体へブロードキャストするリアルタイム通知ステートに置き換えてください。
  */
-export const mockAlarmData = {
-    count: alarmedResidents.length, // 未対応の緊急アラート総数
-    residentName: firstAlarmed ? firstAlarmed.name : "対象者なし", // バナーに大きく表示する対象者氏名
-    room: firstAlarmed ? firstAlarmed.room : "-号室", // 駆けつけ先となる居室番号
-    reason: firstAlarmed ? firstAlarmed.alarmReason : "", // 表示理由（転倒 / バッテリー）
-    time: getMockTimeAgo(5), // 発生時刻シミュレーション（5分前固定）
-};
+export function getMockAlarmData() {
+	return {
+		count: alarmedResidents.length,
+		residentName: firstAlarmed ? firstAlarmed.name : "対象者なし",
+		room: firstAlarmed ? firstAlarmed.room : "-号室",
+		reason: firstAlarmed ? firstAlarmed.alarmReason : "",
+		time: getMockTimeAgo(5),
+	};
+}
 
 /**
  * ダッシュボード上部に並ぶ「4つの主要統計KPIカード」へ渡されるデータ構造。

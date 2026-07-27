@@ -1,6 +1,6 @@
 // src/app/dashboard/layout.tsx
 
-import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
+import { getMockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { Sidebar } from "@/shared/layout/sidebar/Sidebar";
 import { TopBar } from "@/shared/layout/TopBar";
 
@@ -9,7 +9,7 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-	const count = mockAlarmData.count ?? 0;
+	const count = getMockAlarmData().count ?? 0;
 
 	return (
 		<div className="flex h-screen w-screen overflow-hidden bg-gray-50/60 pb-16 md:pb-0">
