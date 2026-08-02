@@ -4,14 +4,22 @@ import {
 	HiOutlineTrash,
 	HiOutlineUser,
 } from "react-icons/hi2";
-import { StaffMember } from "../types/staff.types";
+import { RoleType, StaffMember } from "../types/staff.types";
+import { RolePicker } from "./RolePicker";
 
-interface Props {
+interface StaffTableProps {
 	staffList: StaffMember[];
+	onRoleChange: (id: string, newRole: RoleType) => void;
 	onDelete: (id: string) => void;
+	currentUserId: string;
 }
 
-export const StaffTable: React.FC<Props> = ({ staffList, onDelete }) => {
+export const StaffTable: React.FC<StaffTableProps> = ({
+	staffList,
+	onRoleChange,
+	onDelete,
+	currentUserId,
+}) => {
 	return (
 		<div className="bg-white rounded-2xl border border-purple-100/50 shadow-xs overflow-hidden">
 			<div className="px-6 py-4 border-b border-slate-100">
@@ -28,10 +36,12 @@ export const StaffTable: React.FC<Props> = ({ staffList, onDelete }) => {
 							<th className="py-4 px-6 text-right">操作</th>
 						</tr>
 					</thead>
+
 					<tbody className="divide-y divide-slate-50">
 						{staffList.map((staff) => {
 							const initial = staff.name.charAt(0);
 							const isAdmin = staff.role === "看護師（管理者）";
+							const isSelf = staff.id === currentUserId;
 
 							return (
 								<tr key={staff.id} className="hover:bg-purple-50/20 transition">
@@ -46,11 +56,13 @@ export const StaffTable: React.FC<Props> = ({ staffList, onDelete }) => {
 										>
 											{initial}
 										</div>
+
 										<div className="flex items-center space-x-2">
 											<span className="font-bold text-slate-900">
 												{staff.name}
 											</span>
-											{staff.isSelf && (
+
+											{isSelf && (
 												<span className="bg-purple-100 text-[#7c3aed] text-[10px] font-bold px-2 py-0.5 rounded-md">
 													自分
 												</span>
@@ -65,23 +77,18 @@ export const StaffTable: React.FC<Props> = ({ staffList, onDelete }) => {
 
 									{/* Role Badge */}
 									<td className="py-4 px-6">
-										{isAdmin ? (
-											<span className="inline-flex items-center space-x-1.5 bg-amber-100/70 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold">
-												<HiOutlineShieldCheck className="text-sm" />
-												<span>看護師（管理者）</span>
-											</span>
-										) : (
-											<span className="inline-flex items-center space-x-1.5 bg-purple-100/60 text-[#7c3aed] px-3 py-1 rounded-full text-xs font-semibold">
-												<HiOutlineUser className="text-sm" />
-												<span>介護士</span>
-											</span>
-										)}
+										<RolePicker
+											value={staff.role}
+											onChange={(newRole) => onRoleChange(staff.id, newRole)}
+											disabled={isSelf}
+										/>
 									</td>
 
 									{/* Delete Action */}
 									<td className="py-4 px-6 text-right">
-										{!staff.isSelf && (
+										{!isSelf && (
 											<button
+												type="button"
 												onClick={() => onDelete(staff.id)}
 												className="bg-rose-50 text-rose-600 hover:bg-rose-100 px-3 py-1.5 rounded-lg font-bold flex items-center space-x-1 ml-auto transition cursor-pointer"
 											>
