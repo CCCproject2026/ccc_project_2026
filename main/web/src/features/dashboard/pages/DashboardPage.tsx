@@ -11,7 +11,7 @@ import { StatCard } from "@/shared/ui/StatCard";
 
 ///api/alert/mock.tsからモックデータを取得する
 
-export function DashboardPage() {
+export async function DashboardPage() {
 	// variant が "alarm" の住民をリスト化して直接渡す
 	const alarmedResidents = residents.filter((r) => r.variant === "alarm");
 	const alarmData = getMockAlarmData();
