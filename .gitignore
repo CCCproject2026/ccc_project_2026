@@ -76,3 +76,9 @@ docker-compose.override.yml
 # Local Codex/app state
 .codex/
 .agents/
+
+# ESP32 secrets — never commit WiFi credentials!
+main/iot/esp32/src/config.h
+
+# PlatformIO build artifacts & downloaded libraries
+main/iot/esp32/.pio/
