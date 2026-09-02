@@ -1,9 +1,5 @@
 import React from "react";
-import {
-	HiOutlineShieldCheck,
-	HiOutlineTrash,
-	HiOutlineUser,
-} from "react-icons/hi2";
+import { HiOutlineTrash } from "react-icons/hi2";
 import { RoleType, StaffMember } from "../types/staff.types";
 import { RolePicker } from "./RolePicker";
 
