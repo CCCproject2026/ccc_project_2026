@@ -5,14 +5,19 @@
 #  Then check: http://localhost:8000/docs  (Swagger UI)
 # =============================================================
 
+import math
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
-from datetime import datetime
-import math
 
 app = FastAPI(title="ESP32 Fall Detection Test Server", version="1.0.0")
+
+
+def now_iso() -> str:
+    """Current UTC time as ISO string with timezone offset."""
+    return datetime.now(timezone.utc).isoformat()
 
 # Allow requests from any origin (for testing)
 app.add_middleware(
@@ -34,7 +39,7 @@ class Sample(BaseModel):
 
 class SensorBatch(BaseModel):
     device_id: str
-    samples:   List[Sample]
+    samples:   list[Sample]
 
 class FallResult(BaseModel):
     device_id:   str = ""
@@ -46,7 +51,7 @@ class FallResult(BaseModel):
     peak_accel:  float
 
 # ── Simple fall detection logic (threshold based) ─────────────
-def detect_fall(samples: List[Sample]) -> FallResult:
+def detect_fall(samples: list[Sample]) -> FallResult:
     """
     Basic threshold fall detection for testing.
     Real AI model will replace this logic later.
@@ -58,7 +63,7 @@ def detect_fall(samples: List[Sample]) -> FallResult:
     if not samples:
         return FallResult(
             device_id="", fall_detected=False, confidence=0.0,
-            reason="No samples", received_at=datetime.now().isoformat(),
+            reason="No samples", received_at=now_iso(),
             sample_count=0, peak_accel=0.0
         )
 
@@ -86,7 +91,7 @@ def detect_fall(samples: List[Sample]) -> FallResult:
         fall_detected=fall_detected,
         confidence=round(confidence, 3),
         reason=reason,
-        received_at=datetime.now().isoformat(),
+        received_at=now_iso(),
         sample_count=len(samples),
         peak_accel=round(peak, 3)
     )
@@ -107,7 +112,7 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "time": datetime.now().isoformat()}
+    return {"status": "ok", "time": now_iso()}
 
 @app.post("/sensor", response_model=FallResult)
 def receive_sensor_data(batch: SensorBatch):
@@ -118,7 +123,7 @@ def receive_sensor_data(batch: SensorBatch):
     if not batch.samples:
         raise HTTPException(status_code=400, detail="Empty sample batch")
 
-    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] "
+    print(f"\n[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] "
           f"Received {len(batch.samples)} samples from '{batch.device_id}'")
 
     # Print sample summary
