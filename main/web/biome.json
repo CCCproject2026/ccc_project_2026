@@ -4,7 +4,7 @@
 		"includes": ["src/**", "!.next", "!node_modules"]
 	},
 	"formatter": {
-		"lineEnding": "auto",
+		"lineEnding": "lf",
 		"indentStyle": "tab"
 	},
 	"linter": {
