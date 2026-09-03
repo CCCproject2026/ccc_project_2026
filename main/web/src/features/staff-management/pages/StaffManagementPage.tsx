@@ -5,7 +5,7 @@ import { HiOutlinePlus } from "react-icons/hi2";
 import { AddStaffModal } from "../components/AddStaffModal";
 import { StaffSummaryCards } from "../components/StaffSummaryCards";
 import { StaffTable } from "../components/StaffTable";
-import { INITIAL_STAFF_LIST } from "../constants/staff.constans";
+import { INITIAL_STAFF_LIST } from "../constants/staff.constanst";
 import { RoleType, StaffMember } from "../types/staff.types";
 
 export function StaffManagementPage() {
@@ -13,6 +13,7 @@ export function StaffManagementPage() {
 	const [openAddModal, setOpenAddModal] = useState(false);
 
 	const handleDelete = (id: string) => {
+		if (id === currentUserId) return; // 自分は削除不可（ロジック側ガード）
 		setStaffList((prev) => prev.filter((staff) => staff.id !== id));
 	};
 
@@ -49,10 +50,6 @@ export function StaffManagementPage() {
 			<div className="flex items-center justify-between">
 				<div>
 					<h2 className="text-2xl font-bold text-slate-900">スタッフ管理</h2>
-
-					<p className="text-xs text-slate-500 mt-1">
-						システムにアクセスできるスタッフの一覧と権限を管理します
-					</p>
 				</div>
 
 				<button
