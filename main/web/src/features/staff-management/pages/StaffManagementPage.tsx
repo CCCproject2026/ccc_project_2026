@@ -5,7 +5,7 @@ import { HiOutlinePlus } from "react-icons/hi2";
 import { AddStaffModal } from "@/features/staff-management/components/AddStaffModal";
 import { StaffSummaryCards } from "@/features/staff-management/components/StaffSummaryCards";
 import { StaffTable } from "@/features/staff-management/components/StaffTable";
-import { INITIAL_STAFF_LIST } from "@/features/staff-management/constants/staff.constans";
+import { INITIAL_STAFF_LIST } from "@/features/staff-management/constants/staff.constant";
 import {
 	RoleType,
 	StaffMember,

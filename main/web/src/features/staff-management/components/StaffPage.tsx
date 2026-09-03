@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AddStaffModal } from "@/features/staff-management/components/AddStaffModal";
 import { StaffHeader } from "@/features/staff-management/components/StaffHeader";
 import { StaffTable } from "@/features/staff-management/components/StaffTable";
-import { INITIAL_STAFF_LIST } from "@/features/staff-management/constants/staff.constans";
+import { INITIAL_STAFF_LIST } from "@/features/staff-management/constants/staff.constant";
 import {
 	RoleType,
 	StaffMember,
