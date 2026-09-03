@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { RoleType } from "../types/staff.types";
+import { RoleType } from "@/features/staff-management/types/staff.types";
 
 // 1. Define the validation schema with Zod
 const staffSchema = z.object({

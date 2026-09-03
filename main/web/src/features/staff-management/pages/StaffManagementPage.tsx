@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { HiOutlinePlus } from "react-icons/hi2";
-import { AddStaffModal } from "../components/AddStaffModal";
-import { StaffSummaryCards } from "../components/StaffSummaryCards";
-import { StaffTable } from "../components/StaffTable";
-import { INITIAL_STAFF_LIST } from "../constants/staff.constans";
-import { RoleType, StaffMember } from "../types/staff.types";
+import { AddStaffModal } from "@/features/staff-management/components/AddStaffModal";
+import { StaffSummaryCards } from "@/features/staff-management/components/StaffSummaryCards";
+import { StaffTable } from "@/features/staff-management/components/StaffTable";
+import { INITIAL_STAFF_LIST } from "@/features/staff-management/constants/staff.constans";
+import {
+	RoleType,
+	StaffMember,
+} from "@/features/staff-management/types/staff.types";
 
 export function StaffManagementPage() {
 	const [staffList, setStaffList] = useState<StaffMember[]>(INITIAL_STAFF_LIST);

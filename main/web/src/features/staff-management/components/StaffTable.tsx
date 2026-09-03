@@ -1,6 +1,9 @@
 import { HiOutlineTrash } from "react-icons/hi2";
-import { RoleType, StaffMember } from "../types/staff.types";
-import { RolePicker } from "./RolePicker";
+import { RolePicker } from "@/features/staff-management/components/RolePicker";
+import {
+	RoleType,
+	StaffMember,
+} from "@/features/staff-management/types/staff.types";
 
 interface StaffTableProps {
 	staffList: StaffMember[];

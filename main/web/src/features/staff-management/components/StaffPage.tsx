@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { AddStaffModal } from "@/features/staff-management/components/AddStaffModal";
 import { StaffHeader } from "@/features/staff-management/components/StaffHeader";
 import { StaffTable } from "@/features/staff-management/components/StaffTable";
@@ -15,7 +15,7 @@ export default function StaffPage() {
 	const [open, setOpen] = useState(false);
 
 	const handleAddStaff = (newStaff: { name: string; role: RoleType }) => {
-		const newId = "staff-" + String(staffList.length + 1).padStart(3, "0");
+		const newId = `staff-${String(staffList.length + 1).padStart(3, "0")}`;
 
 		const staff: StaffMember = {
 			id: newId,
