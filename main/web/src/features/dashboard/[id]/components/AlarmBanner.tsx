@@ -43,7 +43,7 @@ export function AlarmBanner({
 			const diffMs = now.getTime() - alarmDate.getTime();
 			const diffMins = Math.floor(diffMs / (1000 * 60));
 
-			if (diffMins < 1) setElapsedText("たった今");
+			if (diffMins <= 0) setElapsedText("たった今");
 			else if (diffMins < 60) setElapsedText(`${diffMins}分前`);
 			else setElapsedText(`${Math.floor(diffMins / 60)}時間前`);
 		}
@@ -113,11 +113,12 @@ export function AlarmBanner({
 					<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
 						<div className="relative w-[95%] max-w-2xl rounded-3xl bg-white p-6 md:p-8 shadow-2xl flex flex-col max-h-[90vh]">
 							{/* 閉じるボタン */}
-							<button
-								type="button"
-								onClick={() => setIsModalOpen(false)}
-								className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
-							>
+						<button
+							type="button"
+							onClick={() => setIsModalOpen(false)}
+							aria-label="閉じる"
+							className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+						>
 								✕
 							</button>
 

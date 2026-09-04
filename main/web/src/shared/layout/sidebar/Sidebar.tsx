@@ -1,13 +1,13 @@
 import { Cpu, LayoutDashboard, Users } from "lucide-react";
 import Link from "next/link";
-import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
+import { getMockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { MobileSignOutButton } from "./MobileSignOutButton";
 import { SiberHeader } from "./SiberHeader";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarItem } from "./SidebarItem";
 
-const alarmCount = mockAlarmData.count ?? 0;
 export function Sidebar() {
+	const alarmCount = getMockAlarmData().count ?? 0;
 	return (
 		<>
 			<div className="hidden md:block w-64 h-screen shrink-0 bg-sidebar-bg">
@@ -79,9 +79,9 @@ export function Sidebar() {
 					href="/dashboard"
 					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
 				>
-					<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
-						田
-					</div>
+				<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
+					?
+				</div>
 					<span>マイページ</span>
 				</Link>
 				<MobileSignOutButton />
