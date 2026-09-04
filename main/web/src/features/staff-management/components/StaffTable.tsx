@@ -1,7 +1,10 @@
 import React from "react";
 import { HiOutlineTrash } from "react-icons/hi2";
-import { RoleType, StaffMember } from "../types/staff.types";
-import { RolePicker } from "./RolePicker";
+import { RolePicker } from "@/features/staff-management/components/RolePicker";
+import {
+	RoleType,
+	StaffMember,
+} from "@/features/staff-management/types/staff.types";
 
 interface StaffTableProps {
 	staffList: StaffMember[];
@@ -10,17 +13,15 @@ interface StaffTableProps {
 	currentUserId: string;
 }
 
-export const StaffTable: React.FC<StaffTableProps> = ({
+export const StaffTable = ({
 	staffList,
 	onRoleChange,
 	onDelete,
 	currentUserId,
-}) => {
+}: StaffTableProps) => {
 	return (
-		<div className="bg-white rounded-2xl border border-purple-100/50 shadow-xs overflow-hidden">
-			<div className="px-6 py-4 border-b border-slate-100">
-				<h3 className="font-bold text-sm text-slate-800">スタッフ一覧</h3>
-			</div>
+		<div>
+			<h2 className="text-lg font-bold mb-4">スタッフ一覧</h2>
 
 			{/* Desktop Table */}
 			<div className="hidden md:block overflow-x-auto">

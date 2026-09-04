@@ -4,7 +4,7 @@ import {
 	HiOutlineUser,
 	HiOutlineUserGroup,
 } from "react-icons/hi2";
-import { StaffMember } from "../types/staff.types";
+import { StaffMember } from "@/features/staff-management/types/staff.types";
 
 interface Props {
 	staffList: StaffMember[];

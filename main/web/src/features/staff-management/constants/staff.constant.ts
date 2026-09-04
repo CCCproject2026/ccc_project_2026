@@ -1,4 +1,4 @@
-import { StaffMember } from "../types/staff.types";
+import { StaffMember } from "@/features/staff-management/types/staff.types";
 
 export const INITIAL_STAFF_LIST: StaffMember[] = [
 	{

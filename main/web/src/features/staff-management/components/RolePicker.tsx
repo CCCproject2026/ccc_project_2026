@@ -1,6 +1,6 @@
 "use client";
 
-import { RoleType } from "../types/staff.types";
+import { RoleType } from "@/features/staff-management/types/staff.types";
 
 interface RolePickerProps {
 	value: RoleType;
