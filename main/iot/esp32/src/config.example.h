@@ -21,7 +21,19 @@
 #define MPU_I2C_ADDR 0x68
 
 // ── Sensor Sample Rate ────────────────────────────────────────
-#define SAMPLE_INTERVAL_MS 100
+// 20 ms interval = 50 Hz, matching the AI model's input rate.
+#define SAMPLE_INTERVAL_MS 20
+
+// ── Batch Upload ──────────────────────────────────────────────
+// 100 samples at 50 Hz = a 2-second window = one model inference.
+#define BATCH_SIZE 100
+
+// ── Cloud Server (FastAPI test receiver) ──────────────────────
+// Set to your FastAPI server. For local testing, use your PC's
+// LAN IP (find with: ip addr | grep 192.168). e.g. "http://192.168.1.50:8000"
+#define SERVER_URL  "http://192.168.1.50:8000"  // <-- Change this
+#define SERVER_PATH "/sensor"
+#define DEVICE_ID   "esp32-mpu6050-01"
 
 // ── Web Server ────────────────────────────────────────────────
 #define WEB_SERVER_PORT 80

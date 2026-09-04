@@ -31,9 +31,12 @@ Adafruit_MPU6050 mpu;
 AsyncWebServer server(WEB_SERVER_PORT);
 
 // ── Sensor Data Structure ─────────────────────────────────────
+// Units follow the AI model's training data:
+//   accel in g       (resting Z ≈ 1.0 g)
+//   gyro  in deg/s
 struct SensorData {
-    float accel_x, accel_y, accel_z;   // m/s²
-    float gyro_x,  gyro_y,  gyro_z;    // rad/s
+    float accel_x, accel_y, accel_z;   // g
+    float gyro_x,  gyro_y,  gyro_z;    // deg/s
     float temperature;                  // °C
     unsigned long timestamp;
     bool  valid;
@@ -45,6 +48,12 @@ SensorData sensorData = {0};
 static bool  filterInitialized = false;
 static float f_ax, f_ay, f_az;
 static float f_gx, f_gy, f_gz;
+
+// ── Unit conversion (raw -> AI model units) ───────────────────
+// ACCEL_G_CONV: m/s² -> g (resting gravity ≈ 1.0)
+// GYRO_DPS_CONV: rad/s -> deg/s
+static const float ACCEL_G_CONV   = 1.0f / 9.80665f;   // ÷ 9.81
+static const float GYRO_DPS_CONV  = 180.0f / PI;       // × 57.2958
 
 // ── Batch buffer for HTTP POST ────────────────────────────────
 struct BatchSample {
@@ -198,12 +207,13 @@ void readSensor() {
         f_gz = FILTER_ALPHA * raw_gz + (1.0f - FILTER_ALPHA) * f_gz;
     }
 
-    sensorData.accel_x     = f_ax;
-    sensorData.accel_y     = f_ay;
-    sensorData.accel_z     = f_az;
-    sensorData.gyro_x      = f_gx;
-    sensorData.gyro_y      = f_gy;
-    sensorData.gyro_z      = f_gz;
+    // Store in AI model units: accel in g, gyro in deg/s
+    sensorData.accel_x     = f_ax * ACCEL_G_CONV;
+    sensorData.accel_y     = f_ay * ACCEL_G_CONV;
+    sensorData.accel_z     = f_az * ACCEL_G_CONV;
+    sensorData.gyro_x      = f_gx * GYRO_DPS_CONV;
+    sensorData.gyro_y      = f_gy * GYRO_DPS_CONV;
+    sensorData.gyro_z      = f_gz * GYRO_DPS_CONV;
     sensorData.temperature = temp_event.temperature;
     sensorData.timestamp   = millis();
     sensorData.valid       = true;
@@ -215,8 +225,8 @@ void readSensor() {
 void printSensorSerial() {
     if (!sensorData.valid) { Serial.println("[SENSOR] Read failed!"); return; }
     Serial.printf(
-        "[t=%lums] Accel(m/s²): X=%7.3f  Y=%7.3f  Z=%7.3f  | "
-        "Gyro(rad/s): X=%7.3f  Y=%7.3f  Z=%7.3f  | Temp: %.1f°C\n",
+        "[t=%lums] Accel(g):    X=%7.3f  Y=%7.3f  Z=%7.3f  | "
+        "Gyro(deg/s): X=%7.3f  Y=%7.3f  Z=%7.3f  | Temp: %.1f°C\n",
         sensorData.timestamp,
         sensorData.accel_x, sensorData.accel_y, sensorData.accel_z,
         sensorData.gyro_x,  sensorData.gyro_y,  sensorData.gyro_z,
@@ -236,13 +246,13 @@ String buildJsonResponse() {
     accel["x"]    = serialized(String(sensorData.accel_x, 4));
     accel["y"]    = serialized(String(sensorData.accel_y, 4));
     accel["z"]    = serialized(String(sensorData.accel_z, 4));
-    accel["unit"] = "m/s²";
+    accel["unit"] = "g";
 
     JsonObject gyro = doc["gyroscope"].to<JsonObject>();
     gyro["x"]    = serialized(String(sensorData.gyro_x, 4));
     gyro["y"]    = serialized(String(sensorData.gyro_y, 4));
     gyro["z"]    = serialized(String(sensorData.gyro_z, 4));
-    gyro["unit"] = "rad/s";
+    gyro["unit"] = "deg/s";
 
     doc["temperature"]["value"] = serialized(String(sensorData.temperature, 2));
     doc["temperature"]["unit"]  = "°C";

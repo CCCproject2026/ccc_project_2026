@@ -243,46 +243,44 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTMLEOF(
     </div>
   </header>
 
-  <p class="section-title">⚡ Accelerometer (m/s²)</p>
-  <div class="sensor-grid">
+  <p class="section-title">⚡ Accelerometer (g)</p>
     <div class="axis-card accel">
       <div class="card-label"><span class="card-label-dot"></span>Accel X</div>
       <div class="card-value" id="accel-x">—</div>
-      <div class="card-unit">m/s²</div>
+      <div class="card-unit">g</div>
       <div class="card-bar-wrap"><div class="card-bar" id="bar-ax" style="width:50%"></div></div>
     </div>
     <div class="axis-card accel">
       <div class="card-label"><span class="card-label-dot"></span>Accel Y</div>
       <div class="card-value" id="accel-y">—</div>
-      <div class="card-unit">m/s²</div>
+      <div class="card-unit">g</div>
       <div class="card-bar-wrap"><div class="card-bar" id="bar-ay" style="width:50%"></div></div>
     </div>
     <div class="axis-card accel">
       <div class="card-label"><span class="card-label-dot"></span>Accel Z</div>
       <div class="card-value" id="accel-z">—</div>
-      <div class="card-unit">m/s²</div>
+      <div class="card-unit">g</div>
       <div class="card-bar-wrap"><div class="card-bar" id="bar-az" style="width:50%"></div></div>
     </div>
   </div>
 
-  <p class="section-title">🔄 Gyroscope (rad/s)</p>
-  <div class="sensor-grid">
+  <p class="section-title">🔄 Gyroscope (deg/s)</p>
     <div class="axis-card gyro">
       <div class="card-label"><span class="card-label-dot"></span>Gyro X</div>
       <div class="card-value" id="gyro-x">—</div>
-      <div class="card-unit">rad/s</div>
+      <div class="card-unit">deg/s</div>
       <div class="card-bar-wrap"><div class="card-bar" id="bar-gx" style="width:50%"></div></div>
     </div>
     <div class="axis-card gyro">
       <div class="card-label"><span class="card-label-dot"></span>Gyro Y</div>
       <div class="card-value" id="gyro-y">—</div>
-      <div class="card-unit">rad/s</div>
+      <div class="card-unit">deg/s</div>
       <div class="card-bar-wrap"><div class="card-bar" id="bar-gy" style="width:50%"></div></div>
     </div>
     <div class="axis-card gyro">
       <div class="card-label"><span class="card-label-dot"></span>Gyro Z</div>
       <div class="card-value" id="gyro-z">—</div>
-      <div class="card-unit">rad/s</div>
+      <div class="card-unit">deg/s</div>
       <div class="card-bar-wrap"><div class="card-bar" id="bar-gz" style="width:50%"></div></div>
     </div>
   </div>
