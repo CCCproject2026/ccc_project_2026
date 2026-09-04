@@ -26,6 +26,9 @@ importers:
       next:
         specifier: ^15.3.3
         version: 15.5.19(@babel/core@7.29.7)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      prisma:
+        specifier: ^6.19.3
+        version: 6.19.3(typescript@5.9.3)
       react:
         specifier: ^19.0.0
         version: 19.2.6
@@ -69,9 +72,6 @@ importers:
       eslint-config-next:
         specifier: ^16.2.7
         version: 16.2.7(@typescript-eslint/parser@8.61.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
-      prisma:
-        specifier: ^6.19.3
-        version: 6.19.3(typescript@5.9.3)
       prisma-erd-generator:
         specifier: ^2.4.3
         version: 2.4.3(@babel/core@7.29.7)(@babel/template@7.29.7)(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(@types/react@19.2.15)(puppeteer@24.43.1(typescript@5.9.3))(tailwindcss@4.3.1)
@@ -2118,6 +2118,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
