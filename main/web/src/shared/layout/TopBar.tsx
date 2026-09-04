@@ -6,13 +6,6 @@ interface TopBarProps {
 	showNotification?: boolean;
 	notificationCount?: number;
 }
-const today = new Date().toLocaleDateString("ja-JP", {
-	weekday: "long",
-	year: "numeric",
-	month: "long",
-	day: "numeric",
-});
-
 export function TopBar({
 	title,
 	breadcrumb,
@@ -20,6 +13,12 @@ export function TopBar({
 	showNotification,
 	notificationCount,
 }: TopBarProps) {
+	const today = new Date().toLocaleDateString("ja-JP", {
+		weekday: "long",
+		year: "numeric",
+		month: "long",
+		day: "numeric",
+	});
 	const crumbs = Array.isArray(breadcrumb)
 		? breadcrumb
 		: breadcrumb
@@ -40,17 +39,15 @@ export function TopBar({
 			</div>
 
 			<div className="flex items-center gap-3 md:gap-4 shrink-0">
-				{today && (
-					<span className="hidden sm:inline-block text-xs font-bold text-gray-400 bg-gray-50/80 px-3 py-1.5 rounded-xl border border-gray-100">
-						{today}
-					</span>
-				)}
+				<span className="hidden sm:inline-block text-xs font-bold text-gray-400 bg-gray-50/80 px-3 py-1.5 rounded-xl border border-gray-100">
+					{today}
+				</span>
 
 				{showNotification && (
 					<button
 						type="button"
 						className="relative p-2 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors border border-transparent sm:border-gray-100 cursor-pointer"
-						aria-label="Notifications"
+						aria-label="通知"
 					>
 						<Bell className="w-5 h-5 text-gray-500" />
 
