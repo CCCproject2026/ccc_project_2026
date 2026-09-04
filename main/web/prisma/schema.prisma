@@ -18,8 +18,8 @@ generator erd {
 model User {
   id        String     @id @default(cuid())
   clerkId   String?    @unique // 招待中はNULL。Clerkでの登録完了後にWebhookで保存
-  firstName String
-  lastName  String
+  firstName String?
+  lastName  String?
   email     String     @unique
   role      UserRole // CAREGIVER, NURSE, ADMIN
   status    UserStatus @default(PENDING) // 招待状態の管理（PENDING or ACTIVE）
