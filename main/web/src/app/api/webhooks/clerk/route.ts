@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 // あとで実際のロジック（署名検証やユーザー同期など）を実装してください。
 export async function POST(request: Request) {
 	try {
-		await request.json();
+		const _payload = await request.json();
 		return NextResponse.json({ success: true, message: "Webhook received" });
 	} catch {
 		return NextResponse.json(
