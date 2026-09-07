@@ -28,13 +28,22 @@ export function StaffManagementPage() {
 		);
 	};
 
-	const handleAddStaff = (newStaff: { name: string; role: RoleType }) => {
-		const newId = `staff-${String(staffList.length + 1).padStart(3, "0")}`;
+	const handleAddStaff = (newStaff: {
+		name: string;
+		role: RoleType;
+		mail: string;
+	}) => {
+		const maxId = Math.max(
+			...staffList.map((s) => Number(s.id.replace("staff-", ""))),
+		);
+
+		const newId = `staff-${String(maxId + 1).padStart(3, "0")}`;
 
 		const staff: StaffMember = {
 			id: newId,
 			name: newStaff.name,
 			role: newStaff.role,
+			mail: newStaff.mail || "", // Assuming mail is optional in the form, default to empty string if not provided,
 			isSelf: false,
 		};
 
