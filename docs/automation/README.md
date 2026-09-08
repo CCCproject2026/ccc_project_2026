@@ -1,5 +1,11 @@
 # 開発準備の自動化
 
+## 追加実装：Linear ↔ GitHubのTask作成
+
+CCCチームの新規TaskとGitHub Issueを相互作成するActionsを追加しました。[設定・動作・復旧手順](task-sync.md) を参照してください。GitHubは作成イベント、Linearは10分間隔の取得で同期します。稼働にはLinear APIキー、CCCチームUUID、固定開始日時、有効化変数の設定が必要です。
+
+追加ファイルは `.github/workflows/task-sync.yml`、`scripts/task-sync/{linear,sync,run}.cjs`、`scripts/task-sync/sync.test.cjs`、`docs/automation/task-sync.md`。既存Task Preparationは同期処理と競合しないよう直列化し、検証CIに同期テストを追加しました。以下の分析は初期導入時の記録です。
+
 ## A. Repository分析（2026-09-08）
 
 | 対象 | 確認結果 |
@@ -31,7 +37,10 @@ flowchart TD
   T --> F[Task番号別Markdown生成]
   F --> R[Artifact保存・案内コメント更新]
   R --> H[担当者が取得・記入]
-  L[Linear Task / AI Agent] --> C[同じCLIでローカル生成]
+  L[Linear CCCの新規Task] --> S[10分間隔のTask Sync]
+  S --> G
+  G --> M[Task SyncでLinearに対応Task作成]
+  C[AI Agent / 手動CLI] --> T
   C --> H
   H --> B[既存作業ブランチでdocs/tasksをGit管理]
   B --> I[実装・Test・既存PR運用]
@@ -45,7 +54,7 @@ flowchart TD
 | --- | --- |
 | GitHub Issue Form + Actions + API | 既存GitHub/CIを利用。追加サービス・APIキー不要のため採用 |
 | Repository内CLI | GitHub／Linear／Agentが同じ書式を生成でき、オフラインでも使えるため採用 |
-| Linear API / Webhook | 現行接続を確認できず未導入。将来は署名検証・イベント重複排除・GitHubとの正本を決めてから接続 |
+| Linear API / Webhook | Task Sync ActionsでAPIによる相互作成を追加。Webhookサーバーは設置せず定期取得 |
 | LLMによる領域判定 | 明示選択で足りるため未導入。将来は候補提案のみとし、曖昧な場合は人が確認 |
 | 自動branch / PR | 書込権限と再実行時の競合管理が増えるため初期版では不要 |
 
@@ -68,7 +77,7 @@ flowchart TD
 4. Artifact保存と単一のbotコメント更新をActionsに接続。
 5. 担当者手順とローカル自動テストを追加。
 6. 通常のPRレビュー後、GitHubのデフォルトブランチに導入。Issueイベントworkflowはデフォルトブランチへの配置が必要。
-7. Actionsが許可され、`contents: read` と `issues: write` が使えることを確認。新しいPATやLinear／AIキーは不要。
+7. Actionsが許可され、`contents: read` と `issues: write` が使えることを確認。テンプレート準備単体はAPIキー不要。双方向作成には [Task Syncの設定](task-sync.md) を追加。
 8. Web、AI Server、IoT、OtherのIssueを作成して生成物・コメントを確認。編集で案内コメントが更新され、記入済みローカルファイルが維持されることを確認。
 
 現時点の変更はローカル実装です。リモートへのpush、実際のIssueへのコメント、GitHub設定変更、Linearへの書込みは行っていません。GitHub上の受入確認は導入後に必要です。
@@ -79,19 +88,19 @@ flowchart TD
 | --- | --- |
 | 誤判定・領域横断 | 明示選択を優先。不明時は共通書式、複数領域は必要項目を追記 |
 | 再実行で設計が消える | ローカルは既存フォルダに上書きしない。Actionsは実行ごとのArtifact |
-| コメント重複 | Issue単位のconcurrency、ページング取得、bot専用マーカーで既存コメントを更新 |
+| コメント重複 | Task自動化共通のconcurrency、ページング取得、bot専用マーカーで既存コメントを更新 |
 | Issue本文の不正な指示 | 本文をシェル・パス・設計内容に埋め込まず、領域判定のデータとしてのみ扱う |
 | 権限不足・Actions停止 | 実行ログを確認。同じCLIで準備を継続 |
 | Artifact期限・取得権限 | 30日以内に取得してGit管理。期限切れならCLIで再生成 |
 | 更新頻度・古い実行結果 | 最新実行のArtifactを利用。コメントは最新Issueで再判定。実行履歴の失敗を確認 |
-| Linearとの二重管理 | 相互リンクと保存先１つを維持。現在の同期は未接続扱い |
+| Linearとの二重管理 | 専用マーカーと相互リンクで対応を追跡。設定後は新規Taskを相互作成。編集・状態同期は対象外 |
 
 停止時はGitHubでTask Preparation workflowを無効化します。ローカルCLIと既存の設計ファイルは継続利用できます。
 
 ## 検証
 
 ```bash
-node --test scripts/task-prep/*.test.cjs
+node --test scripts/task-prep/*.test.cjs scripts/task-sync/*.test.cjs
 ```
 
 明示選択・推定・曖昧判定、全領域の生成、危険なID拒否、記入済みファイル保護、コメント作成／更新を検証します。GitHub APIのテストはモックであり、実サービスでの権限確認を代替しません。

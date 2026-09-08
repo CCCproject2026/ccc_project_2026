@@ -9,7 +9,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: task-preparation-${{ github.event.issue.number }}
+  group: task-automation
   cancel-in-progress: false
 
 jobs:

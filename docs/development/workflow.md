@@ -25,7 +25,7 @@ Linearを利用する場合は [Taskフォーマット](../templates/task.md) �
 node scripts/task-prep/prepare.cjs --id CCC-112 --area web
 ```
 
-Linear作成イベントからの自動起動は未接続です。GitHubにも対応Issueを作る場合は相互リンクを残し、設計の保存先は１つにします。移行済みIssueではGitHub側を使い、重複生成を避けます。
+[双方向Task作成の連携](../automation/task-sync.md) を有効化すると、GitHubの新規IssueはLinearのCCCチームに、CCCの新規TaskはGitHubに自動作成されます。Linearからの反映は10分間隔の定期実行です。Linearの「GitHub Issue・開発準備」リンクから生成物へ進めます。設定が未完了の場合は上記CLIを利用してください。設計の保存先は対応するGitHub Issue番号のフォルダ１つにします。
 
 自動化が動かない場合はActions実行履歴で失敗を確認し、ローカル生成で作業を続けられます。導入前から存在するIssueは本文編集・再オープン・領域ラベル変更で起動できます。コメント本文の編集だけでは起動しません。
 
