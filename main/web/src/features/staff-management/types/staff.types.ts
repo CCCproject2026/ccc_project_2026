@@ -4,5 +4,6 @@ export interface StaffMember {
 	id: string;
 	name: string;
 	role: RoleType;
+	mail: string;
 	isSelf?: boolean;
 }
