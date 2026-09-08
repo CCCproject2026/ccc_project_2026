@@ -8,11 +8,13 @@ export function SidebarFooter() {
 	const { user } = useUser();
 	const firstName = user?.firstName ?? "";
 	const lastName = user?.lastName ?? "";
-	const displayName = [firstName, lastName].filter(Boolean).join(" ") || "未設定";
+	const displayName =
+		[firstName, lastName].filter(Boolean).join(" ") || "未設定";
 	const initial = lastName?.charAt(0) || firstName?.charAt(0) || "?";
-	const role = user?.publicMetadata?.role === "nurse_admin"
-		? "看護師（管理者）"
-		: "介護士";
+	const role =
+		user?.publicMetadata?.role === "nurse_admin"
+			? "看護師（管理者）"
+			: "介護士";
 
 	return (
 		<div className="mt-auto md:w-full">
