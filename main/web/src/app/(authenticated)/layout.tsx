@@ -1,4 +1,4 @@
-import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
+import { getMockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { Sidebar } from "@/shared/layout/sidebar/Sidebar";
 import { TopBarClient } from "@/shared/layout/TopBarClient";
 
@@ -7,7 +7,7 @@ export default function AuthenticatedLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const count = mockAlarmData.count ?? 0;
+	const count = getMockAlarmData().count ?? 0;
 
 	return (
 		<div className="flex h-screen w-screen overflow-hidden bg-gray-50/60 pb-16 md:pb-0">
