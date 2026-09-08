@@ -1,0 +1,38 @@
+name: Task Preparation
+
+on:
+  issues:
+    types: [opened, edited, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: task-preparation-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Generate blank task documents
+        run: node scripts/task-prep/prepare.cjs --event "$GITHUB_EVENT_PATH" --output "$RUNNER_TEMP/task-preparation"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: task-${{ github.event.issue.number }}-designs
+          path: ${{ runner.temp }}/task-preparation/
+          retention-days: 30
+          if-no-files-found: error
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = require('./scripts/task-prep/comment.cjs');
+            await comment({ github, context });

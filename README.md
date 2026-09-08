@@ -2,6 +2,8 @@
 
 ## Overview
 
+開発Taskの準備: [開発手順](docs/development/workflow.md) · [設計Template](docs/templates/README.md) · [自動化の構成・導入](docs/automation/README.md)
+
 This system detects falls and posture deterioration in elderly individuals in real time using IoT sensors and a deep learning CNN model. When a fall is detected, an instant alert is pushed to a nurse dashboard via WebSocket.
 The architecture is designed to **minimize processing overhead and communication latency** by connecting components directly:
 

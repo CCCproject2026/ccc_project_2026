@@ -1,0 +1,22 @@
+name: Task Preparation Check
+
+on:
+  push:
+    paths: ['scripts/task-prep/**', 'docs/templates/**', '.github/workflows/task-preparation*.yml', '.github/ISSUE_TEMPLATE/**']
+  pull_request:
+    paths: ['scripts/task-prep/**', 'docs/templates/**', '.github/workflows/task-preparation*.yml', '.github/ISSUE_TEMPLATE/**']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --test scripts/task-prep/*.test.cjs
