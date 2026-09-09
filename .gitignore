@@ -20,6 +20,10 @@ node_modules/
 main/web/node_modules/
 .pnpm-store/
 
+# PlatformIO build artifacts
+.pio/
+main/iot/esp32/
+
 # Logs
 *.log
 pnpm-debug.log*
