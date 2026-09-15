@@ -3,6 +3,8 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { RoleType } from "@/features/staff-management/types/staff.types";
+import { FormField } from "@/shared/ui/FormField";
+import { Modal } from "@/shared/ui/Modal";
 
 // 1. Define the validation schema with Zod
 const staffSchema = z.object({
@@ -69,22 +71,41 @@ export const AddStaffModal = ({
 	};
 
 	return (
-		<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+		<Modal
+			open={open}
+			onClose={onClose}
+			title="スタッフを追加"
+			footer={
+				<>
+					<button
+						type="button"
+						onClick={onClose}
+						className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition"
+					>
+						キャンセル
+					</button>
+
+					<button
+						type="submit"
+						form="add-staff-form"
+						disabled={isSubmitting}
+						className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-200 transition"
+					>
+						追加する
+					</button>
+				</>
+			}
+		>
 			<form
+				id="add-staff-form"
 				onSubmit={handleSubmit(handleFormSubmit)}
 				noValidate
-				className="bg-white p-6 rounded-2xl shadow-xl w-[420px]"
 			>
-				<h2 className="text-lg font-bold mb-5">スタッフを追加</h2>
-
-				{/* Name Field */}
-				<div className="mb-5">
-					<label
-						htmlFor="staff-name"
-						className="block mb-2 text-sm font-bold text-slate-700"
-					>
-						氏名
-					</label>
+				<FormField
+					label="氏名"
+					htmlFor="staff-name"
+					error={errors.name?.message}
+				>
 					<input
 						id="staff-name"
 						type="text"
@@ -96,19 +117,13 @@ export const AddStaffModal = ({
 								: "border-slate-200 focus:ring-purple-300"
 						}`}
 					/>
-					{errors.name && (
-						<p className="text-xs text-red-500 mt-1">{errors.name.message}</p>
-					)}
-				</div>
+				</FormField>
 
-				{/* Email Field */}
-				<div className="mb-5">
-					<label
-						htmlFor="staff-mail"
-						className="block mb-2 text-sm font-bold text-slate-700"
-					>
-						メールアドレス
-					</label>
+				<FormField
+					label="メールアドレス"
+					htmlFor="staff-mail"
+					error={errors.mail?.message}
+				>
 					<input
 						id="staff-mail"
 						type="email"
@@ -120,13 +135,10 @@ export const AddStaffModal = ({
 								: "border-slate-200 focus:ring-purple-300"
 						}`}
 					/>
-					{errors.mail && (
-						<p className="text-xs text-red-500 mt-1">{errors.mail.message}</p>
-					)}
-				</div>
+				</FormField>
 
 				{/* Role Field */}
-				<div className="mb-6">
+				<div>
 					<p className="block mb-2 text-sm font-bold text-slate-700">
 						権限ロール
 					</p>
@@ -166,26 +178,7 @@ export const AddStaffModal = ({
 						<p className="text-xs text-red-500 mt-1">{errors.role.message}</p>
 					)}
 				</div>
-
-				{/* Footer Buttons */}
-				<div className="flex justify-end gap-3 mt-8">
-					<button
-						type="button"
-						onClick={onClose}
-						className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition"
-					>
-						キャンセル
-					</button>
-
-					<button
-						type="submit"
-						disabled={isSubmitting}
-						className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-200 transition"
-					>
-						追加する
-					</button>
-				</div>
 			</form>
-		</div>
+		</Modal>
 	);
 };
