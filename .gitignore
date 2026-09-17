@@ -76,3 +76,6 @@ docker-compose.override.yml
 # Local Codex/app state
 .codex/
 .agents/
+
+# Ignore IoT folder leftovers on non-IoT branches
+main/iot/
