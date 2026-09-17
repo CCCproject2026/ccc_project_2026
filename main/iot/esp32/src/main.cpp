@@ -1,5 +1,5 @@
 // =============================================================
-//  main.cpp — ESP32 + MPU6050 Web Dashboard Firmware
+//  main.cpp — ESP32 + MPU6050 Web Dashboard + MQTT Firmware
 //
 //  Features:
 //    - Reads Accelerometer (X/Y/Z), Gyroscope (X/Y/Z), Temperature
@@ -7,6 +7,8 @@
 //    - Serves a real-time web dashboard via WiFi
 //    - REST API: GET /api/sensor  → JSON data
 //    - REST API: GET /api/status  → device health
+//    - Publishes 100-sample batches (2s window) to MQTT broker
+//    - MQTT LWT on status topic for online/offline detection
 //
 //  Wiring:
 //    MPU6050 VCC → ESP32 3.3V
@@ -19,16 +21,19 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <WiFi.h>
-#include <HTTPClient.h>
+#include <PubSubClient.h>
 #include <ESPAsyncWebServer.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <ArduinoJson.h>
+#include <time.h>
 #include "config.h"
 
 // ── Global Objects ────────────────────────────────────────────
 Adafruit_MPU6050 mpu;
 AsyncWebServer server(WEB_SERVER_PORT);
+WiFiClient   mqttWiFiClient;
+PubSubClient mqttClient(mqttWiFiClient);
 
 // ── Sensor Data Structure ─────────────────────────────────────
 // Units follow the AI model's training data:
@@ -55,7 +60,7 @@ static float f_gx, f_gy, f_gz;
 static const float ACCEL_G_CONV   = 1.0f / 9.80665f;   // ÷ 9.81
 static const float GYRO_DPS_CONV  = 180.0f / PI;       // × 57.2958
 
-// ── Batch buffer for HTTP POST ────────────────────────────────
+// ── Batch buffer for MQTT publish ─────────────────────────────
 struct BatchSample {
     unsigned long t;
     float ax, ay, az;
@@ -67,11 +72,13 @@ static int batchIndex = 0;
 // ── Function Prototypes ───────────────────────────────────────
 bool    initMPU6050();
 bool    connectWiFi();
+bool    connectMQTT();
+void    syncTime();
 void    readSensor();
 void    setupRoutes();
 void    printSensorSerial();
 String  buildJsonResponse();
-void    sendToServer();
+void    publishToMqtt();
 
 extern const char DASHBOARD_HTML[] PROGMEM;
 
@@ -97,6 +104,7 @@ void setup() {
     if (!connectWiFi()) {
         Serial.println("[WARN]  Running in Serial-only mode.");
     } else {
+        syncTime();
         setupRoutes();
         server.begin();
         Serial.println("[WEB]  Server started!");
@@ -113,6 +121,20 @@ void setup() {
 void loop() {
     static unsigned long lastSampleTime = 0;
     unsigned long now = millis();
+
+    // Keep MQTT connection alive; reconnect if the link drops
+    // (throttled so retries never starve sensor sampling)
+    static unsigned long lastMqttAttempt = 0;
+    if (WiFi.status() == WL_CONNECTED) {
+        if (!mqttClient.connected()) {
+            if (millis() - lastMqttAttempt >= MQTT_RETRY_INTERVAL_MS) {
+                lastMqttAttempt = millis();
+                connectMQTT();
+            }
+        }
+        mqttClient.loop();
+    }
+
     if (now - lastSampleTime >= SAMPLE_INTERVAL_MS) {
         lastSampleTime = now;
         readSensor();
@@ -127,9 +149,9 @@ void loop() {
             };
             batchIndex++;
 
-            // When batch is full, send to server
+            // When batch is full, publish to broker
             if (batchIndex >= BATCH_SIZE) {
-                sendToServer();
+                publishToMqtt();
                 batchIndex = 0;
             }
         }
@@ -173,6 +195,27 @@ bool connectWiFi() {
     Serial.printf("[WiFi] IP Address: %s\n", WiFi.localIP().toString().c_str());
     Serial.printf("[WiFi] RSSI: %d dBm\n", WiFi.RSSI());
     return true;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  NTP TIME SYNC
+// ─────────────────────────────────────────────────────────────
+void syncTime() {
+    configTime(NTP_GMT_OFFSET_SEC, NTP_DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+    Serial.print("[NTP]  Syncing time");
+    struct tm timeinfo;
+    bool ok = false;
+    for (int i = 0; i < 20 && !ok; i++) {
+        ok = getLocalTime(&timeinfo, 500);
+        if (!ok) Serial.print(".");
+    }
+    if (ok) {
+        char buf[32];
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+        Serial.printf("\n[NTP]  Time synced: %s\n", buf);
+    } else {
+        Serial.println("\n[NTP]  Sync failed - batches fall back to uptime only.");
+    }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -267,17 +310,73 @@ String buildJsonResponse() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  SEND BATCH TO SERVER
+//  MQTT CONNECTION (with Last Will & Testament)
 // ─────────────────────────────────────────────────────────────
-void sendToServer() {
+bool connectMQTT() {
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[HTTP]  WiFi not connected, skipping send.");
+        Serial.println("[MQTT] WiFi not connected, cannot reach broker.");
+        return false;
+    }
+
+    mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+
+    // Batches are ~10 KB; PubSubClient's default 256 B buffer is too small.
+    mqttClient.setBufferSize(MQTT_BUFFER_SIZE);
+
+    Serial.printf("[MQTT] Connecting to broker %s:%d ...\n", MQTT_HOST, MQTT_PORT);
+    bool ok;
+    if (strlen(MQTT_USER) > 0) {
+        ok = mqttClient.connect(DEVICE_ID, MQTT_USER, MQTT_PASS,
+                                MQTT_TOPIC_STATUS, 1, true, "offline");
+    } else {
+        ok = mqttClient.connect(DEVICE_ID, MQTT_TOPIC_STATUS, 1, true, "offline");
+    }
+
+    if (ok) {
+        Serial.println("[MQTT] Connected!");
+        mqttClient.publish(MQTT_TOPIC_STATUS, "online", true);
+        Serial.printf("[MQTT] Publishing data to: %s\n", MQTT_TOPIC_DATA);
+        return true;
+    }
+
+    Serial.printf("[MQTT] Connect failed (rc=%d). Retrying in a few seconds...\n",
+                  mqttClient.state());
+    return false;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PUBLISH BATCH TO MQTT BROKER
+// ─────────────────────────────────────────────────────────────
+void publishToMqtt() {
+    if (WiFi.status() != WL_CONNECTED || !mqttClient.connected()) {
+        Serial.println("[MQTT] Not connected, skipping publish.");
         return;
     }
 
     // Build JSON payload
     JsonDocument doc;
     doc["device_id"] = DEVICE_ID;
+
+    // Absolute wall-clock time (NTP). ts = ISO-8601 (local, ms precision),
+    // ts_ms = Unix epoch milliseconds. Falls back to null if time is unsynced.
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    if (tv.tv_sec > 1600000000L) {          // sanity: later than Sep 2020
+        struct tm timeinfo;
+        time_t secs = tv.tv_sec;
+        localtime_r(&secs, &timeinfo);
+        char iso[32], full[40];
+        strftime(iso, sizeof(iso), "%Y-%m-%dT%H:%M:%S", &timeinfo);
+        snprintf(full, sizeof(full), "%s.%03ld", iso, tv.tv_usec / 1000);
+        doc["ts"]    = full;
+        doc["ts_ms"] = (uint64_t)tv.tv_sec * 1000ULL + tv.tv_usec / 1000;
+    } else {
+        doc["ts"]    = nullptr;
+        doc["ts_ms"] = nullptr;
+    }
+    doc["boot_ms"] = millis();
+    doc["tz_offset_sec"] = NTP_GMT_OFFSET_SEC;
+
     JsonArray samples = doc["samples"].to<JsonArray>();
 
     for (int i = 0; i < BATCH_SIZE; i++) {
@@ -294,39 +393,14 @@ void sendToServer() {
     String payload;
     serializeJson(doc, payload);
 
-    // Send HTTP POST
-    HTTPClient http;
-    String url = String(SERVER_URL) + SERVER_PATH;
-    http.begin(url);
-    http.addHeader("Content-Type", "application/json");
-    http.setTimeout(3000); // 3 second timeout
-
-    int httpCode = http.POST(payload);
-
-    if (httpCode == 200) {
-        String response = http.getString();
-
-        // Parse response
-        JsonDocument res;
-        if (deserializeJson(res, response) == DeserializationError::Ok) {
-            bool fall     = res["fall_detected"].as<bool>();
-            float conf    = res["confidence"].as<float>();
-            const char* reason = res["reason"].as<const char*>();
-
-            if (fall) {
-                Serial.printf("[SERVER] 🚨 FALL DETECTED! Confidence: %.0f%% | %s\n",
-                              conf * 100, reason);
-            } else {
-                Serial.printf("[SERVER] ✅ Normal | %s\n", reason);
-            }
-        }
-    } else if (httpCode < 0) {
-        Serial.printf("[HTTP]  Connection failed: %s\n", http.errorToString(httpCode).c_str());
+    // Publish to broker (PubSubClient uses QoS 0, not retained)
+    bool ok = mqttClient.publish(MQTT_TOPIC_DATA, payload.c_str());
+    if (ok) {
+        Serial.printf("[MQTT] Published %d samples (%d bytes) to %s\n",
+                      BATCH_SIZE, payload.length(), MQTT_TOPIC_DATA);
     } else {
-        Serial.printf("[HTTP]  Server error: HTTP %d\n", httpCode);
+        Serial.println("[MQTT] Publish FAILED.");
     }
-
-    http.end();
 }
 
 // ─────────────────────────────────────────────────────────────

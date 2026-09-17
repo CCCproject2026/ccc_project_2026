@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32 Orientation — live</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:#0b1120;
+               font-family: system-ui, sans-serif; color:#e2e8f0; }
+  #c { display:block; width:100%; height:100%; }
+  #hud { position:fixed; top:14px; left:14px; display:flex; flex-direction:column; gap:8px; }
+  .pill, .stat { padding:6px 12px; border-radius:8px; font-size:13px; background:#1e293bcc;
+                 backdrop-filter: blur(4px); }
+  .pill { font-weight:700; border-radius:999px; }
+  .off { background:#334155cc; color:#cbd5e1; } .online { background:#059669cc; color:#fff; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  #reset { position:fixed; bottom:16px; left:14px; padding:8px 14px; border-radius:8px;
+           border:1px solid #475569; background:#1e293bcc; color:#e2e8f0; cursor:pointer; }
+  #reset:hover { background:#334155; }
+  #hint { position:fixed; bottom:16px; right:14px; font-size:12px; color:#64748b; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div id="broker" class="pill off">connecting…</div>
+  <div class="row"><span class="stat" id="rp">roll —  pitch —</span><span class="stat" id="yaw">yaw —</span></div>
+  <div class="row"><span class="stat" id="rawa">accel —</span><span class="stat" id="rawg">gyro —</span></div>
+  <div class="row"><span class="stat" id="rate">50 Hz · buffer 0</span></div>
+</div>
+<button id="reset">Reset yaw</button>
+<div id="hint">tilt the board · yaw comes from gyro (drifts slowly)</div>
+
+<script>
+const SAMPLE_HZ = 50;
+const WS_URL = "ws://10.42.0.1:9001";
+
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b1120);
+scene.fog = new THREE.Fog(0x0b1120, 6, 16);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+camera.position.set(3.2, 2.6, 3.8);
+camera.lookAt(0, 0, 0);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(4, 6, 3); scene.add(key);
+const rim = new THREE.DirectionalLight(0x60a5fa, 0.5); rim.position.set(-5, -2, -4); scene.add(rim);
+
+const grid = new THREE.GridHelper(10, 20, 0x334155, 0x1e293b);
+grid.position.y = -1.6; scene.add(grid);
+
+// board = flat PCB: X right, Y up (thickness), Z forward
+const board = new THREE.Group();
+const geo = new THREE.BoxGeometry(1.8, 0.18, 1.1);
+const mats = [
+  new THREE.MeshStandardMaterial({ color:0x0ea5e9 }), // +x
+  new THREE.MeshStandardMaterial({ color:0x6366f1 }), // -x
+  new THREE.MeshStandardMaterial({ color:0x22c55e }), // +y (top)
+  new THREE.MeshStandardMaterial({ color:0x14532d }), // -y (bottom)
+  new THREE.MeshStandardMaterial({ color:0xf59e0b }), // +z
+  new THREE.MeshStandardMaterial({ color:0xb45309 }), // -z
+];
+board.add(new THREE.Mesh(geo, mats));
+board.add(new THREE.LineSegments(
+  new THREE.EdgesGeometry(geo),
+  new THREE.LineBasicMaterial({ color:0x0f172a })
+));
+// +X arrow
+const arrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0.9,0,0), 0.7, 0x38bdf8, 0.25, 0.15);
+board.add(arrow);
+// small chip marker on top
+const chip = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.12,0.4),
+  new THREE.MeshStandardMaterial({ color:0x111827 }));
+chip.position.set(-0.45, 0.14, 0); board.add(chip);
+scene.add(board);
+
+// world axes
+scene.add(new THREE.AxesHelper(1.8));
+
+function resize(){
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+
+// ---- state ----
+let yaw = 0;
+let roll = 0, pitch = 0;
+let buf = [];
+let acc = 0, lastT = performance.now();
+let gotAny = false;
+
+function setStatus(txt, cls){
+  const el = document.getElementById("broker");
+  el.textContent = txt; el.className = "pill " + cls;
+}
+
+const client = mqtt.connect(WS_URL);
+client.on("connect", () => { setStatus("broker: connected", "online"); client.subscribe("fall/+/data"); });
+client.on("error", () => setStatus("broker: error", "off"));
+client.on("message", (topic, payload) => {
+  if (!topic.endsWith("/data")) return;
+  try {
+    const d = JSON.parse(payload.toString());
+    if (Array.isArray(d.samples)) { buf.push(...d.samples); if (buf.length > 400) buf.splice(0, buf.length - 400); }
+    gotAny = true;
+  } catch {}
+});
+
+function updateOrientation(s, dt){
+  const ax = s.ax, ay = s.ay, az = s.az;
+  
+  // Accelerometer tilt (absolute but noisy)
+  const accelRoll  = Math.atan2(ay, az);
+  const accelPitch = Math.atan2(-ax, Math.sqrt(ay*ay + az*az));
+  
+  // Complementary filter: 95% smooth gyro integration, 5% absolute accelerometer
+  const alpha = 0.95;
+  roll  = alpha * (roll  + (s.gx * Math.PI/180) * dt) + (1 - alpha) * accelRoll;
+  pitch = alpha * (pitch + (s.gy * Math.PI/180) * dt) + (1 - alpha) * accelPitch;
+  
+  // Gyro Z integrated for heading (yaw drifts over time)
+  yaw += (s.gz * Math.PI/180) * dt;
+
+  board.rotation.order = "YXZ";
+  board.rotation.y = yaw;
+  board.rotation.x = pitch;
+  board.rotation.z = -roll;
+
+  const r2d = r => (r*180/Math.PI).toFixed(0);
+  document.getElementById("rp").textContent = `roll ${r2d(roll)}°  pitch ${r2d(pitch)}°`;
+  document.getElementById("yaw").textContent = `yaw ${r2d(yaw)}°`;
+  document.getElementById("rawa").textContent = `accel ${ax.toFixed(2)}, ${ay.toFixed(2)}, ${az.toFixed(2)} g`;
+  document.getElementById("rawg").textContent = `gyro ${s.gx.toFixed(1)}, ${s.gy.toFixed(1)}, ${s.gz.toFixed(1)} °/s`;
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min((now - lastT)/1000, 0.25); lastT = now;
+  acc += dt * SAMPLE_HZ;
+  let n = Math.min(Math.floor(acc), buf.length);
+  acc -= n;
+  for (let i = 0; i < n; i++) updateOrientation(buf.shift(), 1/SAMPLE_HZ);
+  if (!gotAny) setStatus("waiting for device…", "off");
+  document.getElementById("rate").textContent =
+    `50 Hz · buffer ${buf.length} · ${n} samples/frame`;
+  renderer.render(scene, camera);
+}
+animate();
+
+document.getElementById("reset").onclick = () => { yaw = 0; };
+</script>
+</body>
+</html>

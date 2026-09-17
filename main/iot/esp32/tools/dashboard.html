@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fall Detector — MQTT Live</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; background:#0f172a; color:#e2e8f0; margin:0; padding:16px; }
+  h1 { font-size:18px; margin:0 0 12px; }
+  .bar { display:flex; gap:12px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  .pill { padding:6px 12px; border-radius:999px; font-weight:700; font-size:14px; }
+  .off      { background:#334155; color:#cbd5e1; }
+  .online   { background:#059669; color:#fff; }
+  .fall     { background:#dc2626; color:#fff; animation:blink 1s infinite; }
+  @keyframes blink { 50% { opacity:.5; } }
+  .stat { padding:6px 12px; background:#1e293b; border-radius:8px; font-size:13px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .card { background:#1e293b; border-radius:12px; padding:12px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:#94a3b8; margin:0 0 8px; }
+  #lastBatch { font-size:12px; color:#94a3b8; margin-top:8px; }
+  .wrap { max-width:1200px; margin:0 auto; }
+  @media (max-width:800px){ .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <h1>ESP32 Fall Detector — live MQTT</h1>
+    <span id="broker" class="pill off">connecting…</span>
+    <span id="device" class="pill off">offline</span>
+    <span id="fall" class="pill off" hidden>FALL</span>
+    <span class="stat" id="batches">batches: 0</span>
+    <span class="stat" id="lastLine"></span>
+    <span class="stat" id="peak">peak: —</span>
+  </div>
+  <div class="grid">
+    <div class="card"><h2>Accelerometer (g)</h2><canvas id="accel"></canvas></div>
+    <div class="card"><h2>Gyroscope (°/s)</h2><canvas id="gyro"></canvas></div>
+  </div>
+  <div id="lastBatch"></div>
+</div>
+
+<script>
+const WS_URL = "ws://10.42.0.1:9001";
+const TOPICS = ["fall/+/data", "fall/+/status"];
+const MAX_POINTS = 100;
+
+const accelCtx = document.getElementById("accel").getContext("2d");
+const gyroCtx  = document.getElementById("gyro").getContext("2d");
+
+const common = {
+  type: "line",
+  options: {
+    animation: false, spanGaps: true,
+    scales: { x: { grid:{color:'#334155'}, ticks:{color:'#94a3b8'}, max:MAX_POINTS },
+              y: { grid:{color:'#334155'}, ticks:{color:'#94a3b8'} } },
+    plugins: { legend: { labels: { color: '#e2e8f0' } } }
+  }
+};
+
+const accel = new Chart(accelCtx, { ...common, data: mkData(["ax","ay","az"], ["#f87171","#4ade80","#60a5fa"]) });
+const gyro  = new Chart(gyroCtx,  { ...common, data: mkData(["gx","gy","gz"], ["#fbbf24","#c084fc","#22d3ee"]) });
+
+function mkData(keys, colors) {
+  const datasets = keys.map((k, i) => ({
+    label: k, data: [], borderColor: colors[i], borderWidth: 1.5,
+    pointRadius: 0, tension: 0.2,
+  }));
+  return { labels: [], datasets };
+}
+
+function shift(chart) {
+  const n = chart.data.labels.length;
+  if (n > MAX_POINTS) {
+    chart.data.labels.shift();
+    chart.data.datasets.forEach(d => d.data.shift());
+  }
+}
+
+const client = mqtt.connect(WS_URL);
+let batchCount = 0;
+
+client.on("connect", () => {
+  brokerEl("connected");
+  client.subscribe(TOPICS);
+});
+client.on("error", () => brokerEl("error"));
+
+function brokerEl(s) {
+  const el = document.getElementById("broker");
+  el.textContent = s === "connected" ? "broker: connected" : "broker: error";
+  el.className = "pill " + (s === "connected" ? "online" : "off");
+}
+
+client.on("message", (topic, payload) => {
+  const str = payload.toString();
+  if (topic.endsWith("/status")) {
+    const el = document.getElementById("device");
+    el.textContent = "device: " + str;
+    el.className = "pill " + (str === "online" ? "online" : "off");
+    return;
+  }
+  if (!topic.endsWith("/data")) return;
+
+  let data;
+  try { data = JSON.parse(str); } catch { return; }
+  batchCount++;
+  document.getElementById("batches").textContent = "batches: " + batchCount;
+
+  const samples = data.samples || [];
+  let minMag = 99, maxMag = 0;
+  for (const s of samples) {
+    const mag = Math.sqrt(s.ax*s.ax + s.ay*s.ay + s.az*s.az);
+    if (mag < minMag) minMag = mag;
+    if (mag > maxMag) maxMag = mag;
+    chart(accel, s, ["ax","ay","az"]);
+    chart(gyro,  s, ["gx","gy","gz"]);
+  }
+
+  document.getElementById("peak").textContent =
+    "peak: " + maxMag.toFixed(2) + " g   min: " + minMag.toFixed(2) + " g";
+
+  const el = document.getElementById("fall");
+  const isFall = minMag < 0.3 && maxMag > 2.5;
+  el.hidden = !isFall;
+  el.textContent = isFall ? "FALL" : "FALL";
+
+  const t = samples[0] ? samples[0].t : 0;
+  document.getElementById("lastBatch").textContent =
+    "last batch: device=" + (data.device_id || "-") + "  samples=" + samples.length +
+    "  device ms=" + t + "  received=" + new Date().toLocaleTimeString();
+});
+
+function chart(c, s, keys) {
+  c.data.labels.push(s.t);
+  keys.forEach((k, i) => c.data.datasets[i].data.push(s[k]));
+  shift(c);
+  c.update("none");
+}
+</script>
+</body>
+</html>

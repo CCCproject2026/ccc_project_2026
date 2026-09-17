@@ -28,12 +28,28 @@
 // 100 samples at 50 Hz = a 2-second window = one model inference.
 #define BATCH_SIZE 100
 
-// ── Cloud Server (FastAPI test receiver) ──────────────────────
-// Set to your FastAPI server. For local testing, use your PC's
-// LAN IP (find with: ip addr | grep 192.168). e.g. "http://192.168.1.50:8000"
-#define SERVER_URL  "http://192.168.1.50:8000"  // <-- Change this
-#define SERVER_PATH "/sensor"
+// ── MQTT Broker (Mosquitto) ───────────────────────────────────
+// Set to your broker. For local testing, use the machine running
+// Mosquitto (e.g. your PC's LAN IP). Change to EC2 IP for production.
+#define MQTT_HOST       "192.168.1.50"      // <-- Change this
+#define MQTT_PORT       1883
+#define MQTT_USER       ""                  // empty = no auth
+#define MQTT_PASS       ""
+#define MQTT_MAX_RETRIES 5                  // connect attempts before giving up
+#define MQTT_RETRY_INTERVAL_MS 3000         // min gap between reconnect attempts
+#define MQTT_BUFFER_SIZE        12000       // PubSubClient buffer (batch ~10 KB)
+
+// ── Time (NTP) ────────────────────────────────────────────────
+// Adds an absolute wall-clock timestamp to each MQTT batch.
+// Offsets in seconds; e.g. Japan UTC+9 = (9 * 3600).
+#define NTP_SERVER              "pool.ntp.org"
+#define NTP_GMT_OFFSET_SEC      0
+#define NTP_DAYLIGHT_OFFSET_SEC 0
+
+// ── MQTT Topics ───────────────────────────────────────────────
 #define DEVICE_ID   "esp32-mpu6050-01"
+#define MQTT_TOPIC_DATA   "fall/esp32-mpu6050-01/data"     // 100-sample batches
+#define MQTT_TOPIC_STATUS "fall/esp32-mpu6050-01/status"   // online/offline (LWT)
 
 // ── Web Server ────────────────────────────────────────────────
 #define WEB_SERVER_PORT 80
