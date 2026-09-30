@@ -22,6 +22,17 @@ services:
       - db                       
     restart: "no"
 
+  mqtt-broker:
+    image: eclipse-mosquitto:2
+    container_name: ccc_mqtt_broker
+    ports:
+      - "1883:1883"     # devices + AI server
+      - "9001:9001"     # browser (MQTT over WebSocket)
+    volumes:
+      - ./main/broker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt_data:/mosquitto/data
+    restart: "no"
+
   db:
     image: postgres:15-alpine
     container_name: ccc_postgres_db
@@ -37,3 +48,4 @@ services:
   
 volumes:
   postgres_data:
+  mqtt_data:
