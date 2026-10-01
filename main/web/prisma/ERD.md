@@ -4,7 +4,6 @@ erDiagram
         UserRole {
             CAREGIVER CAREGIVER
 NURSE NURSE
-ADMIN ADMIN
         }
     
 
@@ -12,6 +11,7 @@ ADMIN ADMIN
         UserStatus {
             PENDING PENDING
 ACTIVE ACTIVE
+INACTIVE INACTIVE
         }
     
 
@@ -21,13 +21,34 @@ ACTIVE ACTIVE
 INACTIVE INACTIVE
         }
     
+
+
+        DeviceStatus {
+            ACTIVE ACTIVE
+INACTIVE INACTIVE
+        }
+    
+
+
+        ServerLogLevel {
+            DEBUG DEBUG
+INFO INFO
+WARN WARN
+ERROR ERROR
+        }
+    
   "User" {
     String id "🗝️"
-    String clerkId "❓"
+    String clerkUserId "❓"
     String firstName 
     String lastName 
     String email 
     UserRole role 
+    DateTime startDate 
+    DateTime endDate "❓"
+    DateTime dateOfBirth 
+    String nationality 
+    String gender 
     UserStatus status 
     DateTime createdAt 
     DateTime updatedAt 
@@ -38,8 +59,10 @@ INACTIVE INACTIVE
     String id "🗝️"
     String firstName 
     String lastName 
-    String roomNumber "❓"
+    String roomNumber 
     ElderStatus status 
+    DateTime dateOfBirth 
+    String gender 
     DateTime createdAt 
     DateTime updatedAt 
     }
@@ -47,8 +70,9 @@ INACTIVE INACTIVE
 
   "Device" {
     String id "🗝️"
+    String deviceCode 
     String deviceName 
-    String serialCode 
+    DeviceStatus status 
     DateTime createdAt 
     DateTime updatedAt 
     }
@@ -56,27 +80,42 @@ INACTIVE INACTIVE
 
   "DeviceAssignment" {
     String id "🗝️"
-    Boolean is_active 
     DateTime assignedAt 
-    DateTime removedAt "❓"
+    DateTime unassignedAt "❓"
+    DateTime createdAt 
+    DateTime updatedAt 
     }
   
 
-  "FallLog" {
+  "ResponseRecord" {
     String id "🗝️"
-    DateTime alarmTime 
-    DateTime responseTime "❓"
-    Boolean isActualFall "❓"
-    String notes "❓"
+    String content 
+    Boolean isActualFall 
+    DateTime responseStartedAt 
+    DateTime completedAt 
+    DateTime createdAt 
+    DateTime updatedAt 
+    }
+  
+
+  "ServerLog" {
+    String id "🗝️"
+    ServerLogLevel level 
+    String source 
+    String message 
+    DateTime occurredAt 
+    DateTime receivedAt 
+    Json payload "❓"
+    DateTime createdAt 
     }
   
     "User" |o--|| "UserRole" : "enum:role"
     "User" |o--|| "UserStatus" : "enum:status"
     "Elder" |o--|| "ElderStatus" : "enum:status"
-    "Elder" }o--|| "User" : "createdBy"
+    "Device" |o--|| "DeviceStatus" : "enum:status"
     "DeviceAssignment" }o--|| "Elder" : "elder"
     "DeviceAssignment" }o--|| "Device" : "device"
-    "FallLog" }o--|| "Elder" : "elder"
-    "FallLog" }o--|| "Device" : "device"
-    "FallLog" }o--|o "User" : "staff"
+    "ResponseRecord" }o--|| "Elder" : "elder"
+    "ResponseRecord" }o--|| "User" : "staff"
+    "ServerLog" |o--|| "ServerLogLevel" : "enum:level"
 ```

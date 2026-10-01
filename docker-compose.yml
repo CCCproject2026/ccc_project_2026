@@ -10,6 +10,21 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  prisma:
+    build:
+      context: ./main/web
+      target: builder
+    env_file:
+      - ./main/web/.env.docker
+    volumes:
+      - ./main/web/prisma:/app/prisma
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - tools
+    restart: "no"
+
   mqtt-broker:
     image: eclipse-mosquitto:2
     container_name: ccc_mqtt_broker
