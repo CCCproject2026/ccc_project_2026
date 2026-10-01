@@ -1,2 +1,2 @@
-release: DISABLE_ERD=true pnpm exec prisma db push --skip-generate
+release: pnpm exec prisma migrate deploy
 web: pnpm start
