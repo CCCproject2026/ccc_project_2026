@@ -6,7 +6,6 @@ import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-
 DEVICE_ID = "esp32-mpu6050-01"
 PACKET_COUNT = 90
 SAMPLES_PER_PACKET = 100
