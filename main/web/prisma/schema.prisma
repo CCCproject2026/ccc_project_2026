@@ -1,3 +1,17 @@
+// =============================================================
+// データベース 詳細設計（Issue #126 / CCC-180）
+//
+// 基本設計  : docs/basic_design/database_basic.md
+// 詳細設計  : Issue #126 コメント（2026-09-23 v1.0）
+//
+// 方針:
+//  - 内部IDは cuid()、日時は timestamptz(3) で UTC 保存
+//  - 物理削除は行わない。User / Elder / Device は status で無効化する
+//  - 外部キーは RESTRICT。履歴データ(User, Elder)を消しても連鎖削除しない
+//  - Prismaで表現できない制約（部分一意インデックス・CHECK）は
+//    prisma/migrations/*/migration.sql で管理する
+// =============================================================
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -7,116 +21,182 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ERD generator は devDependencies のみにあるため client だけを生成する
 generator erd {
   provider = "prisma-erd-generator"
   output   = "./ERD.md"
 }
 
 // ==========================================
-// 1. ユーザー管理（看護師・介護士・管理者）
+// Enum定義
 // ==========================================
-model User {
-  id        String     @id @default(cuid())
-  clerkId   String?    @unique // 招待中はNULL。Clerkでの登録完了後にWebhookで保存
-  firstName String
-  lastName  String
-  email     String     @unique
-  role      UserRole // CAREGIVER, NURSE, ADMIN
-  status    UserStatus @default(PENDING) // 招待状態の管理（PENDING or ACTIVE）
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  // リレーション：1人のスタッフ（User）は、多くの高齢者（Elder）を登録する
-  createdElders Elder[] @relation("StaffCreatedElder")
-
-  // リレーション：1人のスタッフ（User）は、多くの転倒アラームに対応して記録（FallLog）を書く
-  handledLogs FallLog[] @relation("StaffHandledLog")
-}
 
 enum UserRole {
-  CAREGIVER
-  NURSE
-  ADMIN
+  CAREGIVER // 介護士
+  NURSE // 看護師
 }
 
 enum UserStatus {
   PENDING // 招待中（Clerk登録前）
-  ACTIVE // 登録完了（システム利用可能）
-}
-
-// ==========================================
-// 2. 高齢者管理（入所者）
-// ==========================================
-model Elder {
-  id         String      @id @default(cuid())
-  firstName  String
-  lastName   String
-  roomNumber String? // 駆けつけるための部屋番号
-  status     ElderStatus @default(ACTIVE) // 死亡・退所時は INACTIVE にしてデータを残す
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-
-  // リレーション：この高齢者を登録したスタッフのID
-  createdById String
-  createdBy   User   @relation("StaffCreatedElder", fields: [createdById], references: [id])
-
-  // リレーション：1人の高齢者は、付け替えの歴史の中で多くの「デバイス割当」を持つ
-  deviceAssignments DeviceAssignment[]
-
-  // リレーション：1人の高齢者は、何度も「転倒アラーム（FallLog）」が発生する可能性がある
-  fallLogs FallLog[]
+  ACTIVE // 登録完了（利用可能）
+  INACTIVE // 退職・利用終了（過去データは保持）
 }
 
 enum ElderStatus {
   ACTIVE // 在籍中
-  INACTIVE // 逝去・退所（過去のデータ保存用）
+  INACTIVE // 逝去・退所（過去データは保持）
+}
+
+enum DeviceStatus {
+  ACTIVE // 利用中
+  INACTIVE // 故障・回収（過去データは保持）
+}
+
+// ServerLog のログレベル。ONLINE / OFFLINE はAI側の接続状態であり、
+// DeviceStatus には含めない（詳細設計 §3）。
+enum ServerLogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
 }
 
 // ==========================================
-// 3. IoTデバイス・割当管理（使い回し対応）
+// 1. User（スタッフ）
 // ==========================================
-model Device {
-  id         String   @id @default(cuid())
-  deviceName String // 例: "センサーA-001"
-  serialCode String // ハードウェアのシリアル番号
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
 
-  // リレーション：1つのデバイスは、何度も違う人に割り当てられる
+model User {
+  id           String     @id @default(cuid())
+  clerkUserId  String?    @unique // ClerkのユーザーID。招待中はNULL可
+  firstName    String
+  lastName     String
+  email        String     @unique
+  role         UserRole
+  startDate    DateTime   @db.Date // 利用開始日・入職日
+  endDate      DateTime?  @db.Date // 利用終了日・退職日
+  dateOfBirth  DateTime   @db.Date
+  nationality  String
+  gender       String
+  status       UserStatus @default(PENDING)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
+
+  // このスタッフが作成した対応記録
+  records ResponseRecord[]
+
+  @@index([status])
+  @@index([role, status])
+}
+
+// ==========================================
+// 2. Elder（高齢者）
+// ==========================================
+
+model Elder {
+  id          String      @id @default(cuid())
+  firstName   String
+  lastName    String
+  roomNumber  String // 駆けつけるための部屋番号
+  status      ElderStatus @default(ACTIVE)
+  dateOfBirth DateTime    @db.Date // 年齢は表示時に算出するため保存しない
+  gender      String
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  deviceAssignments DeviceAssignment[]
+  records           ResponseRecord[]
+
+  @@index([status])
+  @@index([lastName, firstName])
+}
+
+// ==========================================
+// 3. Device（IoTデバイス）
+// ==========================================
+
+model Device {
+  id           String       @id @default(cuid())
+  deviceCode   String       @unique // MACアドレス等。デバイス固有コード（Web側の serialCode に対応）
+  deviceName   String // 画面表示用
+  status       DeviceStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
+
   assignments DeviceAssignment[]
 
-  // リレーション：1つのデバイスは、何度も転倒アラーム（FallLog）を発信する
-  fallLogs FallLog[]
+  @@index([status])
 }
+
+// ==========================================
+// 4. DeviceAssignment（高齢者とデバイスの割当履歴）
+//
+// 現在有効な割当は unassignedAt が NULL のレコード。
+// 解除後も削除せず、付け替えの履歴として残す。
+// 割当変更は旧割当の終了と新割当の作成を1トランザクションで行う。
+// ==========================================
 
 model DeviceAssignment {
-  id         String    @id @default(cuid())
-  elderId    String
-  deviceId   String
-  is_active  Boolean   @default(true) // 現在この高齢者が使っているか（使い回しを可能にする核心）
-  assignedAt DateTime  @default(now())
-  removedAt  DateTime? // 付け替え（回収）した日時
+  id           String    @id @default(cuid())
+  elderId      String
+  deviceId     String
+  assignedAt   DateTime  @db.Timestamptz(3)
+  unassignedAt DateTime? @db.Timestamptz(3) // NULLは現在有効な割当
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
-  // 各テーブルとのリレーション
-  elder  Elder  @relation(fields: [elderId], references: [id])
-  device Device @relation(fields: [deviceId], references: [id])
+  elder  Elder  @relation(fields: [elderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([elderId, assignedAt])
+  @@index([deviceId, assignedAt])
+  @@index([unassignedAt])
 }
 
 // ==========================================
-// 4. 転倒ログ・対応履歴（専門テーブル）
+// 5. ResponseRecord（対応記録）
+//
+// スタッフが現場対応完了後に作成する記録。
+// AI判定のMQTT受信だけでは作成しない。
+// deviceId は保持しない（対応対象は Elder であるため）。
 // ==========================================
-model FallLog {
-  id           String    @id @default(cuid())
-  elderId      String // 誰が倒れたか
-  deviceId     String // どのデバイスが検知したか
-  staffId      String? // 誰が対応して確認したか（アラーム発生時はNULL）
-  alarmTime    DateTime  @default(now()) // アラーム発生時刻
-  responseTime DateTime? // スタッフが「確認ボタン」を押した時刻
-  isActualFall Boolean? // ★本当の転倒かどうか（true: 本当に転倒, false: 誤検知, NULL: 未確認）
-  notes        String? // スタッフの状況記入メモ
 
-  // 各テーブルとのリレーション
-  elder  Elder  @relation(fields: [elderId], references: [id])
-  device Device @relation(fields: [deviceId], references: [id])
-  staff  User?  @relation("StaffHandledLog", fields: [staffId], references: [id])
+model ResponseRecord {
+  id                String   @id @default(cuid())
+  elderId           String
+  staffId           String // ログイン中のUserからサーバー側で設定する
+  content           String // 対応内容・メモ。空文字不可
+  isActualFall      Boolean // 実際の転倒だったか。false は誤検知
+  responseStartedAt DateTime @db.Timestamptz(3) // 対応開始
+  completedAt       DateTime @db.Timestamptz(3) // 記録完了。responseStartedAt 以降
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  elder Elder @relation(fields: [elderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staff User  @relation(fields: [staffId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([elderId, createdAt])
+  @@index([staffId, createdAt])
+  @@index([createdAt])
+}
+
+// ==========================================
+// 6. ServerLog（サーバーログ）
+//
+// AI Server / Log Worker の運用ログ。業務データとは関連付けない。
+// 転倒判定結果の履歴保存には使用しない。
+// ==========================================
+
+model ServerLog {
+  id         String          @id @default(cuid())
+  level      ServerLogLevel
+  source     String // ログ発生元（AI Server 等）
+  message    String
+  occurredAt DateTime        @db.Timestamptz(3) // ログ発生日時
+  receivedAt DateTime        @db.Timestamptz(3) // Log Worker受信日時
+  payload    Json? // 追加情報
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([source, occurredAt])
+  @@index([level, occurredAt])
+  @@index([createdAt])
 }
