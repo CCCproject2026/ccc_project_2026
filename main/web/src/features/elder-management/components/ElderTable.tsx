@@ -1,16 +1,23 @@
 "use client";
 
-import { HiOutlinePencil, HiOutlineTrash } from "react-icons/hi2";
+import { HiOutlineArrowPath, HiOutlinePencil, HiOutlineTrash } from "react-icons/hi2";
 import { ElderRow } from "@/features/elder-management/types/elder.types";
 
 interface ElderTableProps {
   elders: ElderRow[];
   onEdit: (elder: ElderRow) => void;
   onDelete: (id: string) => void;
+  onReactivate: (id: string) => void;
   loading?: boolean;
 }
 
-export function ElderTable({ elders, onEdit, onDelete, loading }: ElderTableProps) {
+export function ElderTable({
+  elders,
+  onEdit,
+  onDelete,
+  onReactivate,
+  loading,
+}: ElderTableProps) {
   if (loading) {
     return (
       <div className="space-y-3 p-6">
@@ -77,12 +84,22 @@ export function ElderTable({ elders, onEdit, onDelete, loading }: ElderTableProp
                     <HiOutlinePencil className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => onDelete(elder.id)}
-                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title={elder.status === "ACTIVE" ? "退所・無効化" : "復帰"}
-                    aria-label={`${elder.lastName} ${elder.firstName} を${elder.status === "ACTIVE" ? "退所・無効化" : "復帰"}`}
+                    onClick={() =>
+                      elder.status === "ACTIVE" ? onDelete(elder.id) : onReactivate(elder.id)
+                    }
+                    className={`p-2 rounded-lg transition-colors ${
+                      elder.status === "ACTIVE"
+                        ? "text-gray-500 hover:text-red-600 hover:bg-red-50"
+                        : "text-gray-500 hover:text-green-600 hover:bg-green-50"
+                    }`}
+                    title={elder.status === "ACTIVE" ? "退所・無効化" : "在籍に戻す"}
+                    aria-label={`${elder.lastName} ${elder.firstName} を${elder.status === "ACTIVE" ? "退所・無効化" : "在籍に戻す"}`}
                   >
-                    <HiOutlineTrash className="w-5 h-5" />
+                    {elder.status === "ACTIVE" ? (
+                      <HiOutlineTrash className="w-5 h-5" />
+                    ) : (
+                      <HiOutlineArrowPath className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </td>

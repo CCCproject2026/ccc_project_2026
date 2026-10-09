@@ -57,9 +57,14 @@ const handleEdit = async (data: UpdateElderInput) => {
 
   const handleDelete = (id: string) => {
     const elder = elders.find((e) => e.id === id);
-    const action = elder?.status === "ACTIVE" ? "退所・無効化" : "復帰";
-    if (!confirm(`${elder?.lastName} ${elder?.firstName} を${action}しますか？`)) return;
+    if (!window.confirm(`${elder?.lastName} ${elder?.firstName} を退所・無効化しますか？`)) return;
     deleteMutation.mutate(id);
+  };
+
+  const handleReactivate = (id: string) => {
+    const elder = elders.find((e) => e.id === id);
+    if (!window.confirm(`${elder?.lastName} ${elder?.firstName} を在籍に戻しますか？`)) return;
+    updateMutation.mutate({ id, data: { status: "ACTIVE" } });
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -140,6 +145,7 @@ const handleEdit = async (data: UpdateElderInput) => {
           elders={elders}
           onEdit={setEditingElder}
           onDelete={handleDelete}
+          onReactivate={handleReactivate}
           loading={isLoading}
         />
       </div>
