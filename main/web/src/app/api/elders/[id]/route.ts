@@ -38,11 +38,12 @@ async function checkNurseAuth() {
   if (!userId) return { error: "Unauthorized", status: 401 };
   const user = await prisma.user.findUnique({
     where: { clerkUserId: userId },
-    select: { role: true },
+    select: { role: true, status: true },
   });
-  if (!user || user.role !== "NURSE") {
+  if (!user || user.role !== "NURSE" || user.status !== "ACTIVE") {
     return { error: "Forbidden", status: 403 };
   }
+
   return { userId };
 }
 

@@ -73,7 +73,6 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.elder.count({ where }),
-      // サマリは検索・絞り込みの影響を受けない登録者数として集計する
       prisma.elder.count(),
       prisma.elder.groupBy({
         by: ["status"],
@@ -114,14 +113,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is NURSE
     const user = await prisma.user.findUnique({
       where: { clerkUserId: userId },
-      select: { role: true },
+      select: { role: true, status: true },
     });
-    if (!user || user.role !== "NURSE") {
+    if (!user || user.role !== "NURSE" || user.status !== "ACTIVE") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
 
     const body = await request.json();
     const { firstName, lastName, roomNumber, dateOfBirth, gender } = body as CreateElderInput;

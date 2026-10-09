@@ -13,7 +13,6 @@ export function ElderManagementPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [statusFilter, setStatusFilter] = useState<ElderStatus | "">("");
-  // 入力値は即時反映、検索条件を debounce してリクエスト回数を抑える
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
@@ -63,7 +62,6 @@ const handleEdit = async (data: UpdateElderInput) => {
     deleteMutation.mutate(id);
   };
 
-  // 検索ボタンで即時適用（debounce を待たない）
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSearchQuery(searchInput);

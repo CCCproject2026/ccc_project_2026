@@ -42,7 +42,6 @@ export interface ElderListParams {
 }
 
 export interface ElderSummary {
-  /** 検索・絞り込みの影響を受けない登録者数 */
   total: number;
   active: number;
   inactive: number;
@@ -50,7 +49,6 @@ export interface ElderSummary {
 
 export interface ElderListResponse {
   data: ElderRow[];
-  /** 現在のクエリ条件に一致する件数 */
   total: number;
   page: number;
   limit: number;
