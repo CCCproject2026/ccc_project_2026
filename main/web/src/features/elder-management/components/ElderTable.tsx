@@ -48,7 +48,7 @@ export function ElderTable({ elders, onEdit, onDelete, loading }: ElderTableProp
             <tr key={elder.id} className="hover:bg-gray-50 transition-colors">
               <td className="py-4 px-6">
                 <div className="font-medium">{elder.lastName} {elder.firstName}</div>
-                <div className="text-xs text-gray-500">{elder.id.slice(0, 8)}...</div>
+                <div className="text-xs text-gray-500 font-mono">{elder.id}</div>
               </td>
               <td className="py-4 px-6">{elder.roomNumber}</td>
               <td className="py-4 px-6">
@@ -72,6 +72,7 @@ export function ElderTable({ elders, onEdit, onDelete, loading }: ElderTableProp
                     onClick={() => onEdit(elder)}
                     className="p-2 text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
                     title="編集"
+                    aria-label={`${elder.lastName} ${elder.firstName} を編集`}
                   >
                     <HiOutlinePencil className="w-5 h-5" />
                   </button>
@@ -79,6 +80,7 @@ export function ElderTable({ elders, onEdit, onDelete, loading }: ElderTableProp
                     onClick={() => onDelete(elder.id)}
                     className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title={elder.status === "ACTIVE" ? "退所・無効化" : "復帰"}
+                    aria-label={`${elder.lastName} ${elder.firstName} を${elder.status === "ACTIVE" ? "退所・無効化" : "復帰"}`}
                   >
                     <HiOutlineTrash className="w-5 h-5" />
                   </button>

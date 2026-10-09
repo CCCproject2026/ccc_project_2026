@@ -10,14 +10,6 @@ export function useElders(params: ElderListParams = {}) {
   });
 }
 
-export function useElder(id: string) {
-  return useQuery({
-    queryKey: ["elders", id],
-    queryFn: () => elderApi.get(id),
-    enabled: !!id,
-  });
-}
-
 export function useCreateElder() {
   const queryClient = useQueryClient();
   return useMutation({

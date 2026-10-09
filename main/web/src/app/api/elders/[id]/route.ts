@@ -119,8 +119,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       gender: genderFromPrisma(elder.gender),
     });
   } catch (error) {
-    console.error("PATCH /api/elders/[id] error:", error);
-    if ((error as { code?: string }).code === "P2025") {
+    console.error("PATCH /api/elders/[id] error:", error);    if ((error as { code?: string }).code === "P2025") {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

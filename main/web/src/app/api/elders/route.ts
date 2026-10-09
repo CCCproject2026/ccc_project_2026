@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const [elders, total] = await Promise.all([
+    const [elders, total, allTotal, byStatus] = await Promise.all([
       prisma.elder.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -73,6 +73,12 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.elder.count({ where }),
+      // サマリは検索・絞り込みの影響を受けない登録者数として集計する
+      prisma.elder.count(),
+      prisma.elder.groupBy({
+        by: ["status"],
+        _count: { _all: true },
+      }),
     ]);
 
     const data = elders.map((e) => ({
@@ -82,11 +88,18 @@ export async function GET(request: NextRequest) {
       deviceAssignments: undefined,
     }));
 
+    const summary = {
+      total: allTotal,
+      active: byStatus.find((s) => s.status === "ACTIVE")?._count._all ?? 0,
+      inactive: byStatus.find((s) => s.status === "INACTIVE")?._count._all ?? 0,
+    };
+
     return NextResponse.json({
       data,
       total,
       page,
       limit,
+      summary,
     });
   } catch (error) {
     console.error("GET /api/elders error:", error);

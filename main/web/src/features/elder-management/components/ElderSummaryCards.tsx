@@ -1,22 +1,19 @@
 "use client";
 
-import { ElderRow } from "@/features/elder-management/types/elder.types";
+import { ElderSummary } from "@/features/elder-management/types/elder.types";
 
 interface ElderSummaryCardsProps {
-  elders: ElderRow[];
+  summary: ElderSummary;
 }
 
-export function ElderSummaryCards({ elders }: ElderSummaryCardsProps) {
-  const activeCount = elders.filter((e) => e.status === "ACTIVE").length;
-  const inactiveCount = elders.filter((e) => e.status === "INACTIVE").length;
-
+export function ElderSummaryCards({ summary }: ElderSummaryCardsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500">総在籍数</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{elders.length}</p>
+            <p className="text-3xl font-bold text-gray-900 mt-1">{summary.total}</p>
           </div>
           <div className="bg-violet-100 p-3 rounded-lg">
             <svg className="w-6 h-6 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -30,7 +27,7 @@ export function ElderSummaryCards({ elders }: ElderSummaryCardsProps) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500">在籍中</p>
-            <p className="text-3xl font-bold text-green-600 mt-1">{activeCount}</p>
+            <p className="text-3xl font-bold text-green-600 mt-1">{summary.active}</p>
           </div>
           <div className="bg-green-100 p-3 rounded-lg">
             <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,7 +41,7 @@ export function ElderSummaryCards({ elders }: ElderSummaryCardsProps) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500">退所・無効</p>
-            <p className="text-3xl font-bold text-gray-500 mt-1">{inactiveCount}</p>
+            <p className="text-3xl font-bold text-gray-500 mt-1">{summary.inactive}</p>
           </div>
           <div className="bg-gray-100 p-3 rounded-lg">
             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

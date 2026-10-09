@@ -7,12 +7,16 @@ import { ElderTable } from "@/features/elder-management/components/ElderTable";
 import { AddElderModal } from "@/features/elder-management/components/AddElderModal";
 import { ElderSummaryCards } from "@/features/elder-management/components/ElderSummaryCards";
 import { useElders, useCreateElder, useUpdateElder, useDeleteElder } from "@/features/elder-management/hooks/useElders";
+import { useDebouncedValue } from "@/features/elder-management/hooks/useDebouncedValue";
 
 export function ElderManagementPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [statusFilter, setStatusFilter] = useState<ElderStatus | "">("");
+  // 入力値は即時反映、検索条件を debounce してリクエスト回数を抑える
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
   const [openAddModal, setOpenAddModal] = useState(false);
   const [editingElder, setEditingElder] = useState<ElderRow | null>(null);
@@ -21,12 +25,13 @@ export function ElderManagementPage() {
     page,
     limit,
     status: statusFilter || undefined,
-    q: searchQuery || undefined,
+    q: debouncedSearch || undefined,
   };
 
   const { data, isLoading, error } = useElders(params);
   const elders = data?.data ?? [];
   const total = data?.total ?? 0;
+  const summary = data?.summary ?? { total: 0, active: 0, inactive: 0 };
 
   const createMutation = useCreateElder();
   const updateMutation = useUpdateElder();
@@ -58,12 +63,15 @@ const handleEdit = async (data: UpdateElderInput) => {
     deleteMutation.mutate(id);
   };
 
+  // 検索ボタンで即時適用（debounce を待たない）
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setSearchQuery(searchInput);
     setPage(1);
   };
 
   const handleReset = () => {
+    setSearchInput("");
     setSearchQuery("");
     setStatusFilter("");
     setPage(1);
@@ -85,7 +93,7 @@ const handleEdit = async (data: UpdateElderInput) => {
         </button>
       </div>
 
-      <ElderSummaryCards elders={elders} />
+      <ElderSummaryCards summary={summary} />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
         <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-3">
@@ -94,8 +102,8 @@ const handleEdit = async (data: UpdateElderInput) => {
             <input
               type="text"
               placeholder="氏名・部屋番号で検索..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="w-full h-10 pl-10 pr-4 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
             />
           </div>
@@ -117,7 +125,7 @@ const handleEdit = async (data: UpdateElderInput) => {
           >
             検索
           </button>
-          {(searchQuery || statusFilter) && (
+          {(searchInput || statusFilter) && (
             <button
               type="button"
               onClick={handleReset}

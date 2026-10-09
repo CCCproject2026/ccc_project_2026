@@ -1,5 +1,8 @@
 import { ElderListParams, ElderListResponse, CreateElderInput, UpdateElderInput, Elder } from "@/features/elder-management/types/elder.types";
 
+// キャッシュはクライアント側（TanStack Query）で担保する。
+// Route Handler は Clerk で認証されたユーザー単位のデータを返すため、
+// サーバー側の共有キャッシュ（next.revalidate / unstable_cache）は使用しない。
 const API_BASE = "/api/elders";
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -17,14 +20,12 @@ export const elderApi = {
     if (params.q) search.set("q", params.q);
     if (params.page) search.set("page", String(params.page));
     if (params.limit) search.set("limit", String(params.limit));
-    const res = await fetch(`${API_BASE}?${search.toString()}`, {
-      next: { revalidate: 60 },
-    });
+    const res = await fetch(`${API_BASE}?${search.toString()}`);
     return handleResponse<ElderListResponse>(res);
   },
 
   get: async (id: string): Promise<Elder> => {
-    const res = await fetch(`${API_BASE}/${id}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/${id}`);
     return handleResponse<Elder>(res);
   },
 
