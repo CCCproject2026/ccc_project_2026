@@ -14,6 +14,7 @@
 		"prisma:studio": "prisma studio",
 		"prisma:validate": "prisma validate",
 		"build": "next build",
+		"heroku-prebuild": "prisma generate --generator client",
 		"start": "next start",
 		"lint": "eslint src",
 		"biome:check": "biome check",
