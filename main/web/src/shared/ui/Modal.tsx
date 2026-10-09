@@ -18,7 +18,9 @@ export function Modal({
 	title,
 	children,
 	footer,
-	maxWidthClass = "max-w-md",
+	// 任意値を使う。Tailwind v4 では max-w-md は spacing スケール
+	// (globals.css の --spacing-md: 12px) を参照し 12px になるため。
+	maxWidthClass = "max-w-[28rem]",
 }: ModalProps) {
 	const titleId = useId();
 	const dialogRef = useRef<HTMLDivElement>(null);
