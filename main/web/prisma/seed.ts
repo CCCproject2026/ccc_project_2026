@@ -19,8 +19,8 @@ async function main() {
 		where: { id: "user_nurse_001" },
 		update: {
 			email: "nurse.one@example.com",
-			firstName: "Hanako",
-			lastName: "Yamada",
+			firstName: "花子",
+			lastName: "山田",
 			role: UserRole.NURSE,
 			status: UserStatus.ACTIVE,
 		},
@@ -28,15 +28,15 @@ async function main() {
 			id: "user_nurse_001",
 			clerkUserId: "clerk_id_nurse_111", // Clerk連携用のダミーID
 			email: "nurse.one@example.com",
-			firstName: "Hanako",
-			lastName: "Yamada",
+			firstName: "花子",
+			lastName: "山田",
 			role: UserRole.NURSE,
 			status: UserStatus.ACTIVE,
 			startDate: new Date("2024-04-01T00:00:00.000Z"),
 			endDate: null,
 			dateOfBirth: new Date("1985-06-12T00:00:00.000Z"),
 			nationality: "日本",
-			gender: "FEMALE",
+			gender: "女性",
 		},
 	});
 
@@ -44,8 +44,8 @@ async function main() {
 		where: { id: "user_caregiver_001" },
 		update: {
 			email: "caregiver.one@example.com",
-			firstName: "Taro",
-			lastName: "Sato",
+			firstName: "太郎",
+			lastName: "佐藤",
 			role: UserRole.CAREGIVER,
 			status: UserStatus.ACTIVE,
 		},
@@ -53,35 +53,40 @@ async function main() {
 			id: "user_caregiver_001",
 			clerkUserId: "clerk_id_caregiver_888",
 			email: "caregiver.one@example.com",
-			firstName: "Taro",
-			lastName: "Sato",
+			firstName: "太郎",
+			lastName: "佐藤",
 			role: UserRole.CAREGIVER,
 			status: UserStatus.ACTIVE,
 			startDate: new Date("2025-09-01T00:00:00.000Z"),
 			endDate: null,
 			dateOfBirth: new Date("1992-11-03T00:00:00.000Z"),
 			nationality: "日本",
-			gender: "MALE",
+			gender: "男性",
 		},
 	});
 
 	// 招待中スタッフ: Clerk登録前のため clerkUserId は NULL
 	await prisma.user.upsert({
 		where: { id: "user_nurse_pending_001" },
-		update: { status: UserStatus.PENDING },
+		update: {
+			firstName: "由紀",
+			lastName: "山本",
+			role: UserRole.NURSE,
+			status: UserStatus.PENDING,
+		},
 		create: {
 			id: "user_nurse_pending_001",
 			clerkUserId: null,
 			email: "nurse.invited@example.com",
-			firstName: "Yuki",
-			lastName: "Yamamoto",
+			firstName: "由紀",
+			lastName: "山本",
 			role: UserRole.NURSE,
 			status: UserStatus.PENDING,
 			startDate: new Date("2026-10-01T00:00:00.000Z"),
 			endDate: null,
 			dateOfBirth: new Date("1990-02-20T00:00:00.000Z"),
 			nationality: "日本",
-			gender: "FEMALE",
+			gender: "女性",
 		},
 	});
 
@@ -92,72 +97,77 @@ async function main() {
 	const elderTaro = await prisma.elder.upsert({
 		where: { id: "elderly_001" },
 		update: {
-			firstName: "Ichiro",
-			lastName: "Tanaka",
+			firstName: "一郎",
+			lastName: "田中",
 			roomNumber: "301",
 			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_001",
-			firstName: "Ichiro",
-			lastName: "Tanaka",
+			firstName: "一郎",
+			lastName: "田中",
 			roomNumber: "301",
 			status: ElderStatus.ACTIVE,
 			dateOfBirth: new Date("1940-03-15T00:00:00.000Z"),
-			gender: "MALE",
+			gender: "男性",
 		},
 	});
 
 	const elderMiyako = await prisma.elder.upsert({
 		where: { id: "elderly_002" },
 		update: {
-			firstName: "Miyako",
-			lastName: "Suzuki",
+			firstName: "美咲",
+			lastName: "鈴木",
 			roomNumber: "302",
 			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_002",
-			firstName: "Miyako",
-			lastName: "Suzuki",
+			firstName: "美咲",
+			lastName: "鈴木",
 			roomNumber: "302",
 			status: ElderStatus.ACTIVE,
 			dateOfBirth: new Date("1943-09-08T00:00:00.000Z"),
-			gender: "FEMALE",
+			gender: "女性",
 		},
 	});
 
 	const elderKenji = await prisma.elder.upsert({
 		where: { id: "elderly_003" },
 		update: {
-			firstName: "Kenji",
-			lastName: "Kobayashi",
+			firstName: "健二",
+			lastName: "小林",
 			roomNumber: "305",
 			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_003",
-			firstName: "Kenji",
-			lastName: "Kobayashi",
+			firstName: "健二",
+			lastName: "小林",
 			roomNumber: "305",
 			status: ElderStatus.ACTIVE,
 			dateOfBirth: new Date("1938-12-01T00:00:00.000Z"),
-			gender: "MALE",
+			gender: "男性",
 		},
 	});
 
 	// 退所済み。過去データは保持し status のみ変更する。
 	await prisma.elder.upsert({
 		where: { id: "elderly_004" },
-		update: { status: ElderStatus.INACTIVE },
+		update: {
+			firstName: "恵子",
+			lastName: "渡辺",
+			roomNumber: "308",
+			status: ElderStatus.INACTIVE,
+		},
 		create: {
 			id: "elderly_004",
-			firstName: "Keiko",
-			lastName: "Watanabe",
+			firstName: "恵子",
+			lastName: "渡辺",
 			roomNumber: "308",
 			status: ElderStatus.INACTIVE,
 			dateOfBirth: new Date("1941-05-22T00:00:00.000Z"),
-			gender: "FEMALE",
+			gender: "女性",
 		},
 	});
 

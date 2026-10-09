@@ -47,6 +47,13 @@ enum ElderStatus {
   INACTIVE // 逝去・退所（過去データは保持）
 }
 
+enum Gender {
+  男性
+  女性
+  その他
+  回答しない
+}
+
 enum DeviceStatus {
   ACTIVE // 利用中
   INACTIVE // 故障・回収（過去データは保持）
@@ -76,7 +83,7 @@ model User {
   endDate      DateTime?  @db.Date // 利用終了日・退職日
   dateOfBirth  DateTime   @db.Date
   nationality  String
-  gender       String
+  gender      Gender
   status       UserStatus @default(PENDING)
   createdAt    DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
@@ -99,7 +106,7 @@ model Elder {
   roomNumber  String // 駆けつけるための部屋番号
   status      ElderStatus @default(ACTIVE)
   dateOfBirth DateTime    @db.Date // 年齢は表示時に算出するため保存しない
-  gender      String
+  gender      Gender
   createdAt   DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
 
