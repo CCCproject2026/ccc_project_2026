@@ -36,7 +36,7 @@ async function main() {
 			endDate: null,
 			dateOfBirth: new Date("1985-06-12T00:00:00.000Z"),
 			nationality: "日本",
-			gender: "FEMALE",
+			gender: "女性",
 		},
 	});
 
@@ -61,7 +61,7 @@ async function main() {
 			endDate: null,
 			dateOfBirth: new Date("1992-11-03T00:00:00.000Z"),
 			nationality: "日本",
-			gender: "MALE",
+			gender: "男性",
 		},
 	});
 
@@ -86,7 +86,7 @@ async function main() {
 			endDate: null,
 			dateOfBirth: new Date("1990-02-20T00:00:00.000Z"),
 			nationality: "日本",
-			gender: "FEMALE",
+			gender: "女性",
 		},
 	});
 
@@ -109,7 +109,7 @@ async function main() {
 			roomNumber: "301",
 			status: ElderStatus.ACTIVE,
 			dateOfBirth: new Date("1940-03-15T00:00:00.000Z"),
-			gender: "MALE",
+			gender: "男性",
 		},
 	});
 
@@ -128,7 +128,7 @@ async function main() {
 			roomNumber: "302",
 			status: ElderStatus.ACTIVE,
 			dateOfBirth: new Date("1943-09-08T00:00:00.000Z"),
-			gender: "FEMALE",
+			gender: "女性",
 		},
 	});
 
@@ -147,7 +147,7 @@ async function main() {
 			roomNumber: "305",
 			status: ElderStatus.ACTIVE,
 			dateOfBirth: new Date("1938-12-01T00:00:00.000Z"),
-			gender: "MALE",
+			gender: "男性",
 		},
 	});
 
@@ -167,7 +167,7 @@ async function main() {
 			roomNumber: "308",
 			status: ElderStatus.INACTIVE,
 			dateOfBirth: new Date("1941-05-22T00:00:00.000Z"),
-			gender: "FEMALE",
+			gender: "女性",
 		},
 	});
 

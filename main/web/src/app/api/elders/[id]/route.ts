@@ -1,27 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { UpdateElderInput, Gender } from "@/features/elder-management/types/elder.types";
-
-const genderToPrisma = (g: Gender) => {
-  switch (g) {
-    case "男性": return "MALE";
-    case "女性": return "FEMALE";
-    case "その他": return "OTHER";
-    case "回答しない": return "PREFER_NOT_TO_SAY";
-    default: return g;
-  }
-};
-
-const genderFromPrisma = (g: string): Gender => {
-  switch (g) {
-    case "MALE": return "男性";
-    case "FEMALE": return "女性";
-    case "OTHER": return "その他";
-    case "PREFER_NOT_TO_SAY": return "回答しない";
-    default: return g as Gender;
-  }
-};
+import { UpdateElderInput } from "@/features/elder-management/types/elder.types";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -79,7 +59,6 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       ...elder,
-      gender: genderFromPrisma(elder.gender),
       currentDeviceId: elder.deviceAssignments[0]?.deviceId ?? null,
       deviceAssignments: undefined,
     });
@@ -103,7 +82,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (lastName !== undefined) updateData.lastName = lastName;
     if (roomNumber !== undefined) updateData.roomNumber = roomNumber;
     if (dateOfBirth !== undefined) updateData.dateOfBirth = new Date(dateOfBirth);
-    if (gender !== undefined) updateData.gender = genderToPrisma(gender);
+    if (gender !== undefined) updateData.gender = gender;
     if (status !== undefined) updateData.status = status;
 
     if (Object.keys(updateData).length === 0) {
@@ -115,10 +94,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: updateData,
     });
 
-    return NextResponse.json({
-      ...elder,
-      gender: genderFromPrisma(elder.gender),
-    });
+    return NextResponse.json(elder);
   } catch (error) {
     console.error("PATCH /api/elders/[id] error:", error);
     if ((error as { code?: string }).code === "P2025") {

@@ -1,27 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { CreateElderInput, ElderStatus, Gender } from "@/features/elder-management/types/elder.types";
-
-const genderToPrisma = (g: Gender) => {
-  switch (g) {
-    case "男性": return "MALE";
-    case "女性": return "FEMALE";
-    case "その他": return "OTHER";
-    case "回答しない": return "PREFER_NOT_TO_SAY";
-    default: return g;
-  }
-};
-
-const genderFromPrisma = (g: string): Gender => {
-  switch (g) {
-    case "MALE": return "男性";
-    case "FEMALE": return "女性";
-    case "OTHER": return "その他";
-    case "PREFER_NOT_TO_SAY": return "回答しない";
-    default: return g as Gender;
-  }
-};
+import { CreateElderInput, ElderStatus } from "@/features/elder-management/types/elder.types";
 
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 20;
@@ -82,7 +62,6 @@ export async function GET(request: NextRequest) {
 
     const data = elders.map((e) => ({
       ...e,
-      gender: genderFromPrisma(e.gender),
       currentDeviceId: e.deviceAssignments[0]?.deviceId ?? null,
       deviceAssignments: undefined,
     }));
@@ -135,7 +114,7 @@ export async function POST(request: NextRequest) {
         lastName,
         roomNumber,
         dateOfBirth: new Date(dateOfBirth),
-        gender: genderToPrisma(gender),
+        gender,
         status: "ACTIVE",
       },
     });
