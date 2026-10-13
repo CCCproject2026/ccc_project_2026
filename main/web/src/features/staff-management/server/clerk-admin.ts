@@ -246,6 +246,62 @@ export async function findPendingInvitations(
 	});
 }
 
+// 有効な（pending）招待を、email に関係なくすべて取得する（全ページ）
+// 定期処理（T10）で、取消済みスタッフの招待が残っていないか探すのに使う
+export async function listAllPendingInvitations(): Promise<
+	ClerkResult<ClerkStaffInvitation[]>
+> {
+	return callClerk(async () => {
+		const client = await clerkClient();
+		const found: ClerkStaffInvitation[] = [];
+		let offset = 0;
+
+		for (let page = 0; page < MAX_PAGES; page++) {
+			const response = await withTimeout(
+				client.invitations.getInvitationList({
+					status: "pending",
+					limit: PAGE_SIZE,
+					offset,
+				}),
+			);
+
+			for (const invitation of response.data) {
+				found.push(toClerkStaffInvitation(invitation));
+			}
+
+			offset = offset + response.data.length;
+
+			if (response.data.length < PAGE_SIZE || offset >= response.totalCount) {
+				break;
+			}
+		}
+
+		return found;
+	});
+}
+
+// パスワード付きで Clerk ユーザーを作る（開発用の初期 NURSE 作成 T11 だけで使う）
+// サーバーから作ったメールアドレスは、Clerk では確認済みとして扱われる
+export async function createClerkUserWithPassword(input: {
+	email: string;
+	password: string;
+	lastName: string;
+	firstName: string;
+}): Promise<ClerkResult<ClerkStaffUser>> {
+	return callClerk(async () => {
+		const client = await clerkClient();
+		const user = await withTimeout(
+			client.users.createUser({
+				emailAddress: [normalizeEmail(input.email)],
+				password: input.password,
+				lastName: input.lastName,
+				firstName: input.firstName,
+			}),
+		);
+		return toClerkStaffUser(user);
+	});
+}
+
 // 招待を作成する（招待メールが送られる）
 // ignoreExisting は使わない（重複していたら FAILED になり、呼び出し側で Clerk を照合し直す）
 export async function createStaffInvitation(

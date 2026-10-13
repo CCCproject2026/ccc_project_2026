@@ -24,6 +24,7 @@ import {
 	findClerkUsersByEmail,
 	findPendingInvitations,
 	getClerkUser,
+	listAllPendingInvitations,
 	revokeInvitation,
 } from "./clerk-admin";
 
@@ -298,5 +299,34 @@ describe("revokeInvitation", () => {
 		);
 		const result = await revokeInvitation("inv_1");
 		expect(result.kind).toBe("FAILED");
+	});
+});
+
+describe("listAllPendingInvitations", () => {
+	it("email を指定せず、pending の招待をすべて返す", async () => {
+		fakeClient.invitations.getInvitationList.mockResolvedValue({
+			data: [
+				{
+					id: "inv_1",
+					emailAddress: "A@example.com",
+					publicMetadata: { staffUserId: "user-1" },
+				},
+				{ id: "inv_2", emailAddress: "b@example.com", publicMetadata: null },
+			],
+			totalCount: 2,
+		});
+
+		const result = await listAllPendingInvitations();
+
+		const params = fakeClient.invitations.getInvitationList.mock.calls[0][0];
+		expect(params.status).toBe("pending");
+		expect(params.query).toBeUndefined();
+		expect(result).toEqual({
+			kind: "SUCCESS",
+			data: [
+				{ id: "inv_1", email: "a@example.com", staffUserId: "user-1" },
+				{ id: "inv_2", email: "b@example.com", staffUserId: null },
+			],
+		});
 	});
 });
