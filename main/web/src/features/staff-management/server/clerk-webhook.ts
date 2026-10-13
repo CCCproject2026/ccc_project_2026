@@ -1,0 +1,141 @@
+import "server-only";
+import type { User } from "@prisma/client";
+import { ApiError } from "@/shared/lib/api-error";
+import { notifyOps } from "@/shared/lib/logger";
+import { prisma } from "@/shared/lib/prisma";
+import { logStaffOperation } from "./audit";
+import { type ClerkStaffUser, getClerkUser } from "./clerk-admin";
+import { decideLink, linkStaff } from "./reconcile";
+import type { StaffLock } from "./staff-lock";
+
+// Clerk の user.created / user.updated を受け取ったときの処理（T9）
+// 呼び出し側でロックを取ってから呼ぶこと
+//
+// 古いイベントの値で上書きしないよう、イベントの中身ではなく
+// ロックを取った後に Clerk から最新の情報を取り直して使う（設計書 7節）
+export async function syncClerkUser(
+	clerkUserId: string,
+	lock: StaffLock,
+): Promise<void> {
+	// 1. Clerk から最新の情報を取る
+	lock.ensureCanContinue();
+	const result = await getClerkUser(clerkUserId);
+	if (result.kind !== "SUCCESS") {
+		// 5xx を返して、Clerk に再送してもらう
+		throw new ApiError(
+			503,
+			"TEMPORARILY_UNAVAILABLE",
+			"Clerk からユーザー情報を取得できませんでした",
+		);
+	}
+	const clerkUser = result.data;
+
+	// 既に削除されたアカウント → 何もしない
+	if (clerkUser === null) {
+		return;
+	}
+
+	// 2. 既に紐付いているスタッフがいれば、email を同期する
+	const linkedStaff = await prisma.user.findUnique({
+		where: { clerkUserId },
+	});
+	if (linkedStaff !== null) {
+		await syncEmail(linkedStaff, clerkUser, lock);
+		return;
+	}
+
+	// 3. まだ紐付いていなければ、自動紐付けの条件を確認する
+	await tryAutoLink(clerkUser, lock);
+}
+
+// 紐付け済みスタッフの email を、Clerk の最新の email にそろえる
+// role・status は変えない（INACTIVE を ACTIVE に戻したりしない）
+async function syncEmail(
+	staff: User,
+	clerkUser: ClerkStaffUser,
+	lock: StaffLock,
+): Promise<void> {
+	// 確認済みの primary email だけを使う
+	if (clerkUser.primaryEmail === null || !clerkUser.isPrimaryEmailVerified) {
+		return;
+	}
+	// 変わっていなければ何もしない
+	if (clerkUser.primaryEmail === staff.email) {
+		return;
+	}
+
+	// 別のスタッフが同じ email を使っている → 更新しない。担当者に知らせる（設計書 7節）
+	const sameEmail = await prisma.user.findUnique({
+		where: { email: clerkUser.primaryEmail },
+		select: { id: true },
+	});
+	if (sameEmail !== null && sameEmail.id !== staff.id) {
+		notifyOps("EMAIL_CONFLICT", {
+			targetId: staff.id,
+			reason:
+				"Clerk の email が別のスタッフと重複しているため、DB の email を更新しませんでした",
+		});
+		return;
+	}
+
+	lock.ensureCanContinue();
+	await prisma.user.updateMany({
+		where: { id: staff.id, clerkUserId: staff.clerkUserId },
+		data: { email: clerkUser.primaryEmail },
+	});
+
+	logStaffOperation({
+		actorId: null,
+		targetId: staff.id,
+		action: "EMAIL_SYNC",
+		externalResult: "SKIPPED",
+	});
+}
+
+// 本システムの招待から作られたアカウントなら、PENDING のスタッフに紐付けて ACTIVE にする
+async function tryAutoLink(
+	clerkUser: ClerkStaffUser,
+	lock: StaffLock,
+): Promise<void> {
+	// 本システムの招待から作られたアカウントでなければ何もしない
+	if (clerkUser.staffUserId === null) {
+		return;
+	}
+
+	const staff = await prisma.user.findUnique({
+		where: { id: clerkUser.staffUserId },
+	});
+	// 対象がいない → 新しい User は作らない
+	if (staff === null) {
+		return;
+	}
+	// PENDING・未紐付けのときだけ。取消済み（INACTIVE）は ACTIVE に戻さない
+	if (staff.status !== "PENDING" || staff.clerkUserId !== null) {
+		return;
+	}
+
+	// このアカウントはどのスタッフにも紐付いていない（syncClerkUser で確認済み）
+	const decision = decideLink(staff, clerkUser, null);
+	if (decision.kind !== "AUTO_LINK") {
+		// 自動では紐付けない。NURSE が画面から「照合」する
+		return;
+	}
+
+	try {
+		const linked = await linkStaff(staff, clerkUser, lock);
+		logStaffOperation({
+			actorId: null,
+			targetId: linked.id,
+			action: "WEBHOOK_LINK",
+			before: { status: staff.status, role: staff.role },
+			after: { status: linked.status, role: linked.role },
+			externalResult: "SUCCESS",
+		});
+	} catch (error) {
+		// 途中で状態が変わった（409）→ 何もしない。それ以外は再送してもらう
+		if (error instanceof ApiError && error.status === 409) {
+			return;
+		}
+		throw error;
+	}
+}

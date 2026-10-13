@@ -1,28 +1,31 @@
 // src/app/api/staff/invitations/route.ts
 import { NextResponse } from "next/server";
-import { errorResponse } from "@/shared/lib/api-error";
+import { staffInviteSchema } from "@/features/staff-management/schemas/staff-input";
+import {
+	inviteStaff,
+	listInvitations,
+} from "@/features/staff-management/server/staff-service";
+import { errorResponse, readJsonBody } from "@/shared/lib/api-error";
 import { requireRole } from "@/shared/lib/auth";
-
-// 中身は T6 で実装する。今は NURSE だけが呼べるようにしておく
 
 // 登録待ち（PENDING）一覧
 export async function GET() {
 	try {
 		await requireRole("NURSE");
-		return NextResponse.json({ staff: [] });
+		const response = await listInvitations();
+		return NextResponse.json(response);
 	} catch (error) {
 		return errorResponse(error);
 	}
 }
 
 // 新規招待
-export async function POST() {
+export async function POST(request: Request) {
 	try {
 		await requireRole("NURSE");
-		return NextResponse.json(
-			{ code: "NOT_IMPLEMENTED", message: "未実装です" },
-			{ status: 501 },
-		);
+		const input = staffInviteSchema.parse(await readJsonBody(request));
+		const response = await inviteStaff(input);
+		return NextResponse.json(response, { status: 201 });
 	} catch (error) {
 		return errorResponse(error);
 	}

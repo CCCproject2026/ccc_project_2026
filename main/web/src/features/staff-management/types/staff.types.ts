@@ -26,6 +26,12 @@ export type StaffAction =
 	| "RETRY_CANCEL" // 取消処理の再試行
 	| "ACTIVATE"; // 有効化
 
+// エラー（502）のときに、画面が次に案内する操作
+export type StaffRetryAction =
+	| "SYNC" // 「照合」で確認し直す
+	| "RETRY_CANCEL" // 「取消処理を再試行」する
+	| "REINVITE"; // 「再招待」する
+
 // API が画面に返すスタッフの情報
 // 生年月日・国籍・性別・clerkUserId などの個人情報は入れない
 export type StaffItem = {

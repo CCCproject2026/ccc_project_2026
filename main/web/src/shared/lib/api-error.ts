@@ -32,6 +32,24 @@ export class ApiError<
 	}
 }
 
+// リクエスト本文の JSON を読む。JSON として読めなければ 400
+// 本文が空のときは {} として扱う（照合 API など、本文が省略できる場合のため）
+export async function readJsonBody(request: Request): Promise<unknown> {
+	const text = await request.text();
+	if (text === "") {
+		return {};
+	}
+	try {
+		return JSON.parse(text);
+	} catch {
+		throw new ApiError(
+			400,
+			"INVALID_INPUT",
+			"リクエストの形式が正しくありません",
+		);
+	}
+}
+
 export function errorResponse(e: unknown) {
 	if (e instanceof ApiError) {
 		return NextResponse.json(

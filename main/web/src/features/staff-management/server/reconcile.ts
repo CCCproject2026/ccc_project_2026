@@ -250,8 +250,8 @@ function checkConfirmationToken(
 	}
 }
 
-// スタッフを Clerk アカウントに紐付けて ACTIVE にする
-async function linkStaff(
+// スタッフを Clerk アカウントに紐付けて ACTIVE にする（Webhook の T9 でも使う）
+export async function linkStaff(
 	staff: User,
 	candidate: ClerkStaffUser,
 	lock: StaffLock,
