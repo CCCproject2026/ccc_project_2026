@@ -1,17 +1,26 @@
 import { getMockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { Sidebar } from "@/shared/layout/sidebar/Sidebar";
 import { TopBarClient } from "@/shared/layout/TopBarClient";
+import { requireStaffPage } from "@/shared/lib/auth";
 
-export default function AuthenticatedLayout({
+export default async function AuthenticatedLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
+	// ACTIVE なスタッフ以外は、ここで案内ページへ移動する
+	// （各ページでも同じチェックをする。layout だけに頼らない）
+	const loginUser = await requireStaffPage();
+
 	const count = getMockAlarmData().count ?? 0;
 
 	return (
 		<div className="flex h-screen w-screen overflow-hidden bg-gray-50/60 pb-16 md:pb-0">
-			<Sidebar />
+			<Sidebar
+				role={loginUser.role}
+				lastName={loginUser.lastName}
+				firstName={loginUser.firstName}
+			/>
 
 			<div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
 				<TopBarClient count={count} />

@@ -1,21 +1,29 @@
 // src/app/api/staff/route.ts
 import { NextResponse } from "next/server";
+import { errorResponse } from "@/shared/lib/api-error";
+import { requireRole } from "@/shared/lib/auth";
 
-// スタッフ一覧の取得（GET）や新規スタッフの登録（POST）の雛形です。
-// 本来の仕様やDB操作のロジックに合わせて、中身を書き換えてください。
-
+// スタッフ一覧（GET /api/staff）
+// 中身は T8 で実装する。今は NURSE だけが呼べるようにしておく
 export async function GET() {
-	return NextResponse.json({ success: true, staff: [] });
+	try {
+		await requireRole("NURSE");
+		return NextResponse.json({ staff: [] });
+	} catch (error) {
+		return errorResponse(error);
+	}
 }
 
-export async function POST(request: Request) {
+// 設計書には POST /api/staff はない（新規は POST /api/staff/invitations を使う）
+// 不要なら T8 で削除する
+export async function POST() {
 	try {
-		const body = await request.json();
-		return NextResponse.json({ success: true, data: body });
-	} catch {
+		await requireRole("NURSE");
 		return NextResponse.json(
-			{ success: false, error: "Invalid JSON" },
-			{ status: 400 },
+			{ code: "NOT_IMPLEMENTED", message: "未実装です" },
+			{ status: 501 },
 		);
+	} catch (error) {
+		return errorResponse(error);
 	}
 }
