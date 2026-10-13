@@ -9,6 +9,7 @@ main/web/.env
 main/web/.env.*
 main/web/prisma/.env
 main/web/prisma/.env.*
+!main/web/.env.example
 *.pem
 *.key
 *.crt
