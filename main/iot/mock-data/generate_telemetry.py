@@ -3,7 +3,7 @@
 import argparse
 import json
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 DEVICE_ID = "esp32-mpu6050-01"
@@ -138,7 +138,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    start_time = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9)))
+    start_time = datetime.now(UTC).astimezone(timezone(timedelta(hours=9)))
     packets = [make_packet(index, start_time) for index in range(PACKET_COUNT)]
     validate_packets(packets)
 
