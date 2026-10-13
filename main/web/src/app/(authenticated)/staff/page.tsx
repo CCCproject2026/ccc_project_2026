@@ -3,7 +3,7 @@ import { requireRolePage } from "@/shared/lib/auth";
 
 export default async function StaffPage() {
 	// スタッフ管理は NURSE だけ
-	await requireRolePage("NURSE");
+	const loginUser = await requireRolePage("NURSE");
 
-	return <StaffManagementPage />;
+	return <StaffManagementPage currentUserId={loginUser.id} />;
 }

@@ -1,14 +1,4 @@
-export type RoleType = "看護師（管理者）" | "介護士";
-
-export interface StaffMember {
-	id: string;
-	name: string;
-	role: RoleType;
-	mail: string;
-	isSelf?: boolean;
-}
-
-// ===== ここから下は新スタッフ登録（API）で使う型 =====
+// スタッフ管理（新スタッフ登録）で使う型
 
 // DB の UserRole と同じ値
 export type StaffRole = "NURSE" | "CAREGIVER";
@@ -41,4 +31,39 @@ export type StaffItem = {
 	role: StaffRole;
 	status: StaffStatus;
 	availableActions: StaffAction[];
+};
+
+// 照合の結果（API の result）
+export type StaffSyncResult =
+	| "LINKED" // 紐付けて ACTIVE にした
+	| "CONFIRM_REQUIRED" // 既存アカウントの紐付けを NURSE が確認する
+	| "ALREADY_INVITED" // 招待は送信済み（再送しない）
+	| "SENT" // 招待を送った
+	| "RETRY_REQUIRED" // Clerk を確認できない
+	| "SEND_FAILED" // 送信が確実に失敗した
+	| "SEND_UNKNOWN" // 送信できたか不明
+	| "MANUAL_CHECK_REQUIRED"; // 手動で確認が必要
+
+// 手動確認が必要な理由
+export type StaffManualCheckReason =
+	| "MULTIPLE_ACCOUNTS"
+	| "LINKED_TO_OTHER_STAFF"
+	| "EMAIL_NOT_VERIFIED"
+	| "ACCOUNT_UNUSABLE"
+	| "FOREIGN_INVITATION";
+
+// 操作が成功したときの API の応答
+export type StaffOperationResult = {
+	staff: StaffItem;
+	result?: StaffSyncResult;
+	reason?: StaffManualCheckReason;
+	confirmationToken?: string;
+};
+
+// エラーのときの API の応答
+export type StaffApiError = {
+	code: string;
+	message: string;
+	staff?: StaffItem; // 今の DB の状態（エラーでも状態が変わっていることがある）
+	retryAction?: StaffRetryAction;
 };
