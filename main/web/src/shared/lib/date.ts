@@ -36,3 +36,12 @@ export function toDbDate(value: string): Date {
 export function fromDbDate(value: Date): string {
 	return value.toISOString().slice(0, 10);
 }
+
+// DB から読んだ Date を「1990年4月1日」の形にする（画面に表示する用）
+export function formatJapaneseDate(value: Date): string {
+	const parts = fromDbDate(value).split("-");
+	const year = Number(parts[0]);
+	const month = Number(parts[1]);
+	const day = Number(parts[2]);
+	return `${year}年${month}月${day}日`;
+}

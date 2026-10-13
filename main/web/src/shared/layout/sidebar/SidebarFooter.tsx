@@ -26,8 +26,10 @@ export function SidebarFooter({
 
 	return (
 		<div className="mt-auto md:w-full">
+			{/* クリックするとマイページ（自分のスタッフ情報）を開く */}
 			<Link
-				href="/dashboard"
+				href="/profile"
+				title="マイページ"
 				className="hidden md:flex items-center gap-3 px-2 py-3 border-t border-slate-800 hover:bg-slate-800/50 rounded-xl transition-colors cursor-pointer group"
 			>
 				<div className="w-9 h-9 rounded-full bg-violet-600 flex items-center justify-center text-white text-sm font-medium">

@@ -94,14 +94,13 @@ export function Sidebar({ role, lastName, firstName }: SidebarProps) {
 						<span>スタッフ</span>
 					</Link>
 				)}
-				{/* 修正：ユーザー情報は、他のボタンと同じサイズで「マイページ」のように並べると、画面が崩れません */}
+				{/* マイページ（自分のスタッフ情報） */}
 				<Link
-					// href="/profile"  なったらいい　いまいち　dashboard　にいくようにしている
-					href="/dashboard"
+					href="/profile"
 					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
 				>
 					<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
-						?
+						{lastName.charAt(0) || firstName.charAt(0) || "?"}
 					</div>
 					<span>マイページ</span>
 				</Link>

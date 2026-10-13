@@ -60,7 +60,7 @@ export const staffInviteSchema = z.object({
 	gender: z
 		.string()
 		.trim()
-		.min(1, "性別を入力してください")
+		.min(1, "性別を選択してください")
 		.max(100, "性別は100文字以内で入力してください"),
 });
 

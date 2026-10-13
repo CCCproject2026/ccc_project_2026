@@ -258,7 +258,7 @@ export function StaffFormModal({
 					</FormField>
 				</div>
 
-				{/* 国籍・性別（この版では自由入力） */}
+				{/* 国籍（自由入力）・性別（女性・男性から選ぶ） */}
 				<div className="grid grid-cols-2 gap-3">
 					<FormField
 						label="国籍"
@@ -280,13 +280,15 @@ export function StaffFormModal({
 						error={errors.gender?.message}
 						required
 					>
-						<input
+						<select
 							id="staff-gender"
-							type="text"
-							placeholder="例: 女性"
 							{...register("gender")}
-							className={inputClass(Boolean(errors.gender))}
-						/>
+							className={`${inputClass(Boolean(errors.gender))} bg-white`}
+						>
+							<option value="">選択してください</option>
+							<option value="女性">女性</option>
+							<option value="男性">男性</option>
+						</select>
 					</FormField>
 				</div>
 			</form>

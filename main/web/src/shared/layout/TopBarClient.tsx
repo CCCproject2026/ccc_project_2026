@@ -21,6 +21,10 @@ const ROUTE_META: Record<string, { title: string; breadcrumb?: string }> = {
 		title: "デバイス接続ステータス",
 		breadcrumb: "デバイス管理",
 	},
+	"/profile": {
+		title: "マイページ",
+		breadcrumb: "アカウント",
+	},
 	"/response": {
 		title: "対応履歴一覧",
 		breadcrumb: "対応履歴",

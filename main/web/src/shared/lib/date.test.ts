@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fromDbDate, isRealDate, toDbDate, todayInJapan } from "./date";
+import {
+	formatJapaneseDate,
+	fromDbDate,
+	isRealDate,
+	toDbDate,
+	todayInJapan,
+} from "./date";
 
 describe("isRealDate", () => {
 	it("正しい日付は true", () => {
@@ -32,5 +38,12 @@ describe("toDbDate と fromDbDate", () => {
 	it("変換して戻しても日付がずれない", () => {
 		const dbDate = toDbDate("2026-10-13");
 		expect(fromDbDate(dbDate)).toBe("2026-10-13");
+	});
+});
+
+describe("formatJapaneseDate", () => {
+	it("「年月日」の形にし、先頭の0を付けない", () => {
+		expect(formatJapaneseDate(toDbDate("1990-04-01"))).toBe("1990年4月1日");
+		expect(formatJapaneseDate(toDbDate("2026-10-13"))).toBe("2026年10月13日");
 	});
 });
