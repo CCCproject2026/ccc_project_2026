@@ -2,20 +2,31 @@ import { Clock, PauseCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { BrandHeader } from "@/features/auth/components/BrandHeader";
 import { SignOutButton } from "@/features/auth/components/SignOutButton";
+import { syncSignedInUser } from "@/features/staff-management/server/clerk-webhook";
 import { getLoginUser } from "@/shared/lib/auth";
 
 // ログインはしているが、システムを使えない人に見せるページ
 // 業務データ（入居者・アラームなど）は絶対に表示しない
 // デザインはログイン画面と同じ（背景・ロゴ・白いカード）
 export default async function AccountStatusPage() {
-	const { isSignedIn, user } = await getLoginUser();
+	const { isSignedIn, clerkUserId, user } = await getLoginUser();
 
-	if (!isSignedIn) {
+	if (!isSignedIn || clerkUserId === null) {
 		redirect("/login");
 	}
 	// 使える人がこのページに来たら、ダッシュボードへ戻す
 	if (user !== null && user.status === "ACTIVE") {
 		redirect("/dashboard");
+	}
+
+	// まだどのスタッフにも紐付いていない → 招待から登録した直後かもしれない
+	// Webhook と同じ条件で紐付けを試し、ACTIVE になればダッシュボードへ進む
+	// （取消済み・停止中のスタッフは、ここでも ACTIVE にならない）
+	if (user === null) {
+		const isLinked = await syncSignedInUser(clerkUserId);
+		if (isLinked) {
+			redirect("/dashboard");
+		}
 	}
 
 	// 利用停止中かどうか

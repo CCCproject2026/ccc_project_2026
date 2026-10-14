@@ -9,20 +9,21 @@ import { prisma } from "./prisma";
 // ロールや利用状態はすぐ変わることがあるので、キャッシュせず毎回 DB を見る
 export async function getLoginUser(): Promise<{
 	isSignedIn: boolean;
+	clerkUserId: string | null; // ログイン中の Clerk ユーザー ID
 	user: User | null;
 }> {
 	const { userId } = await auth();
 
 	// Clerk にログインしていない
 	if (!userId) {
-		return { isSignedIn: false, user: null };
+		return { isSignedIn: false, clerkUserId: null, user: null };
 	}
 
 	// Clerk の ID で DB の User を探す（見つからなければ null）
 	const user = await prisma.user.findUnique({
 		where: { clerkUserId: userId },
 	});
-	return { isSignedIn: true, user };
+	return { isSignedIn: true, clerkUserId: userId, user };
 }
 
 // ===== API 用（エラーを投げて、errorResponse で 401 / 403 を返す） =====

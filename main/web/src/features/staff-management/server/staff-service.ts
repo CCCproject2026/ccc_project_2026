@@ -464,6 +464,17 @@ export async function changeRole(
 ): Promise<StaffOperationResponse> {
 	return withStaffLock(async (lock) => {
 		const actor = await requireRole("NURSE");
+
+		// 自分のロールは変更できない（他の看護師に依頼する）
+		// 画面でも押せないようにしているが、API を直接呼ばれても防ぐ
+		if (actor.id === id) {
+			throw new ApiError(
+				403,
+				"FORBIDDEN",
+				"自分のロールは変更できません。他の看護師（管理者）に依頼してください",
+			);
+		}
+
 		const staff = await findStaffOrThrow(id);
 		const before = snapshot(staff);
 
@@ -522,6 +533,17 @@ export async function deactivateStaff(
 ): Promise<StaffOperationResponse> {
 	return withStaffLock(async (lock) => {
 		const actor = await requireRole("NURSE");
+
+		// 自分自身は無効化できない（すぐにログインできなくなるため。他の看護師に依頼する）
+		// 画面でも押せないようにしているが、API を直接呼ばれても防ぐ
+		if (actor.id === id) {
+			throw new ApiError(
+				403,
+				"FORBIDDEN",
+				"自分自身は無効化できません。他の看護師（管理者）に依頼してください",
+			);
+		}
+
 		const staff = await findStaffOrThrow(id);
 		const before = snapshot(staff);
 

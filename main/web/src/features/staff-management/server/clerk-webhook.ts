@@ -6,7 +6,28 @@ import { prisma } from "@/shared/lib/prisma";
 import { logStaffOperation } from "./audit";
 import { type ClerkStaffUser, getClerkUser } from "./clerk-admin";
 import { decideLink, linkStaff } from "./reconcile";
-import type { StaffLock } from "./staff-lock";
+import { type StaffLock, withStaffLock } from "./staff-lock";
+
+// ログイン中の本人について、Webhook と同じ同期を行う
+// 招待から登録した直後は、Webhook が遅れる（ローカルでは届かない）ことがあるため、
+// 本人がログインした時にも同じ紐付けの確認を1回行う。紐付け条件は Webhook と同じ。
+// ACTIVE になったら true
+export async function syncSignedInUser(clerkUserId: string): Promise<boolean> {
+	try {
+		await withStaffLock(async (lock) => {
+			await syncClerkUser(clerkUserId, lock);
+		});
+	} catch {
+		// Clerk に届かない・ロックが取れないなど。画面では「登録が完了していません」のまま
+		return false;
+	}
+
+	const staff = await prisma.user.findUnique({
+		where: { clerkUserId },
+		select: { status: true },
+	});
+	return staff !== null && staff.status === "ACTIVE";
+}
 
 // Clerk の user.created / user.updated を受け取ったときの処理（T9）
 // 呼び出し側でロックを取ってから呼ぶこと

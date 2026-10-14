@@ -295,6 +295,16 @@ describe("取消 cancelInvitation", () => {
 });
 
 describe("ロール変更 changeRole", () => {
+	it("自分のロールは変更できない（403）。DB も見ない", async () => {
+		// 操作している人は nurse-1（requireRole の偽物が返す）
+		await expect(changeRole("nurse-1", "CAREGIVER")).rejects.toMatchObject({
+			status: 403,
+			code: "FORBIDDEN",
+		});
+		expect(prisma.user.findUnique).not.toHaveBeenCalled();
+		expect(prisma.user.updateMany).not.toHaveBeenCalled();
+	});
+
 	it("最後の NURSE を CAREGIVER にすると 403", async () => {
 		vi.mocked(prisma.user.findUnique).mockResolvedValue(
 			makeStaff({
@@ -351,6 +361,16 @@ describe("ロール変更 changeRole", () => {
 });
 
 describe("無効化 deactivateStaff", () => {
+	it("自分自身は無効化できない（403）。DB も見ない", async () => {
+		// 操作している人は nurse-1（requireRole の偽物が返す）
+		await expect(deactivateStaff("nurse-1")).rejects.toMatchObject({
+			status: 403,
+			code: "FORBIDDEN",
+		});
+		expect(prisma.user.findUnique).not.toHaveBeenCalled();
+		expect(prisma.user.updateMany).not.toHaveBeenCalled();
+	});
+
 	it("最後の NURSE は無効化できない（403）", async () => {
 		vi.mocked(prisma.user.findUnique).mockResolvedValue(
 			makeStaff({

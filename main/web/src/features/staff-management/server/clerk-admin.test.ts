@@ -24,6 +24,7 @@ import {
 	findClerkUsersByEmail,
 	findPendingInvitations,
 	getClerkUser,
+	getSignUpUrl,
 	listAllPendingInvitations,
 	revokeInvitation,
 } from "./clerk-admin";
@@ -328,5 +329,36 @@ describe("listAllPendingInvitations", () => {
 				{ id: "inv_2", email: "b@example.com", staffUserId: null },
 			],
 		});
+	});
+});
+
+describe("getSignUpUrl（招待メールのリンク先）", () => {
+	afterEach(() => {
+		delete process.env.APP_URL;
+	});
+
+	it("APP_URL があれば /sign-up を付ける（最後の / は1つにする）", () => {
+		process.env.APP_URL = "https://example.herokuapp.com/";
+		expect(getSignUpUrl()).toBe("https://example.herokuapp.com/sign-up");
+	});
+
+	it("APP_URL がなければ undefined（Clerk の画面を使う）", () => {
+		delete process.env.APP_URL;
+		expect(getSignUpUrl()).toBeUndefined();
+	});
+
+	it("招待に redirectUrl として渡す", async () => {
+		process.env.APP_URL = "http://localhost:3000";
+		fakeClient.invitations.createInvitation.mockResolvedValue({
+			id: "inv_1",
+			emailAddress: "a@example.com",
+			publicMetadata: { staffUserId: "user-1" },
+		});
+		await createStaffInvitation("a@example.com", "user-1");
+		expect(fakeClient.invitations.createInvitation).toHaveBeenCalledWith(
+			expect.objectContaining({
+				redirectUrl: "http://localhost:3000/sign-up",
+			}),
+		);
 	});
 });

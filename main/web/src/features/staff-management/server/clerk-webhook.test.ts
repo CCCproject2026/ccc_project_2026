@@ -11,6 +11,12 @@ vi.mock("./reconcile", async (importOriginal) => {
 	return { ...original, linkStaff: vi.fn() };
 });
 vi.mock("./audit", () => ({ logStaffOperation: vi.fn() }));
+// ロック: すぐに work を実行する
+vi.mock("./staff-lock", () => ({
+	withStaffLock: vi.fn(async (work: (lock: unknown) => Promise<unknown>) =>
+		work({ ensureCanContinue: () => {} }),
+	),
+}));
 vi.mock("@/shared/lib/logger", () => ({ notifyOps: vi.fn() }));
 vi.mock("@/shared/lib/prisma", () => ({
 	prisma: { user: { findUnique: vi.fn(), updateMany: vi.fn() } },
@@ -19,7 +25,7 @@ vi.mock("@/shared/lib/prisma", () => ({
 import { notifyOps } from "@/shared/lib/logger";
 import { prisma } from "@/shared/lib/prisma";
 import { getClerkUser } from "./clerk-admin";
-import { syncClerkUser } from "./clerk-webhook";
+import { syncClerkUser, syncSignedInUser } from "./clerk-webhook";
 import { linkStaff } from "./reconcile";
 
 const lock = { ensureCanContinue: vi.fn() };
@@ -176,5 +182,39 @@ describe("既に紐付いているとき（email の同期）", () => {
 		await syncClerkUser("c1", lock);
 		expect(linkStaff).not.toHaveBeenCalled();
 		expect(prisma.user.updateMany).not.toHaveBeenCalled();
+	});
+});
+
+describe("syncSignedInUser（登録直後に本人がログインしたとき）", () => {
+	it("紐付けできて ACTIVE になれば true", async () => {
+		setClerkAccount();
+		vi.mocked(prisma.user.findUnique)
+			.mockResolvedValueOnce(null as never) // clerkUserId で探す → まだいない
+			.mockResolvedValueOnce(makeStaff() as never) // staffUserId で探す → PENDING
+			.mockResolvedValueOnce({ status: "ACTIVE" } as never); // 最後に状態を確認
+		vi.mocked(linkStaff).mockResolvedValue(
+			makeStaff({ status: "ACTIVE", clerkUserId: "c1" }),
+		);
+
+		expect(await syncSignedInUser("c1")).toBe(true);
+	});
+
+	it("取消済みのスタッフなら false（ACTIVE にしない）", async () => {
+		setClerkAccount();
+		vi.mocked(prisma.user.findUnique)
+			.mockResolvedValueOnce(null as never)
+			.mockResolvedValueOnce(makeStaff({ status: "INACTIVE" }) as never)
+			.mockResolvedValueOnce(null as never);
+
+		expect(await syncSignedInUser("c1")).toBe(false);
+		expect(linkStaff).not.toHaveBeenCalled();
+	});
+
+	it("Clerk を確認できなければ false（エラーにしない）", async () => {
+		vi.mocked(getClerkUser).mockResolvedValue({
+			kind: "UNKNOWN",
+			reason: "TIMEOUT",
+		});
+		expect(await syncSignedInUser("c1")).toBe(false);
 	});
 });

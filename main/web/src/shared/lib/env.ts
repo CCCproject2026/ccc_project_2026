@@ -6,6 +6,9 @@ const serverEnvSchema = z.object({
 	DATABASE_URL: z.string().min(1),
 	CLERK_SECRET_KEY: z.string().min(1),
 	CLERK_WEBHOOK_SECRET: z.string().min(1),
+	// このアプリの URL（例: http://localhost:3000）。招待メールのリンク先に使う
+	// 未設定なら、招待メールのリンクは Clerk の画面を開く
+	APP_URL: z.string().optional(),
 	STAFF_TOKEN_SECRET: z
 		.string()
 		.refine(

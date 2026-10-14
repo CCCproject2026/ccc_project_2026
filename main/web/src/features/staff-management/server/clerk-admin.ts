@@ -302,6 +302,17 @@ export async function createClerkUserWithPassword(input: {
 	});
 }
 
+// 招待メールのリンクを押したときに開く、本システムのパスワード設定ページの URL
+// APP_URL が未設定なら undefined（その場合は Clerk の画面が開く）
+export function getSignUpUrl(): string | undefined {
+	const appUrl = process.env.APP_URL;
+	if (!appUrl) {
+		return undefined;
+	}
+	// 最後の "/" を取ってから "/sign-up" を付ける
+	return `${appUrl.replace(/\/+$/, "")}/sign-up`;
+}
+
 // 招待を作成する（招待メールが送られる）
 // ignoreExisting は使わない（重複していたら FAILED になり、呼び出し側で Clerk を照合し直す）
 export async function createStaffInvitation(
@@ -315,6 +326,8 @@ export async function createStaffInvitation(
 				emailAddress: normalizeEmail(email),
 				publicMetadata: { staffUserId },
 				notify: true,
+				// メールのリンクから、本システムのパスワード設定ページ（/sign-up）を開く
+				redirectUrl: getSignUpUrl(),
 			}),
 		);
 		return toClerkStaffInvitation(invitation);

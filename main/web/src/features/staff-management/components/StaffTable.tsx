@@ -30,13 +30,23 @@ interface StaffTableProps {
 // 最後の看護師（管理者）のときに表示する理由
 const LAST_NURSE_REASON = "最後の看護師（管理者）は変更・無効化できません";
 
+// 自分のロールを変えようとしたときに表示する理由
+const SELF_ROLE_REASON =
+	"自分のロールは変更できません。他の看護師（管理者）に依頼してください";
+
+// 自分を無効化しようとしたときに表示する理由
+const SELF_DEACTIVATE_REASON =
+	"自分自身は無効化できません。他の看護師（管理者）に依頼してください";
+
 // ロールの列（利用中なら変更できるセレクト、停止中なら文字だけ）
 function RoleCell({
 	staff,
+	isSelf,
 	busyId,
 	onRoleChange,
 }: {
 	staff: StaffItem;
+	isSelf: boolean; // ログイン中の本人か
 	busyId: string | null;
 	onRoleChange: (staff: StaffItem, role: StaffRole) => void;
 }) {
@@ -48,13 +58,20 @@ function RoleCell({
 		);
 	}
 
-	const canChange = staff.availableActions.includes("CHANGE_ROLE");
+	// 押せない理由（自分 → 最後の看護師 の順に確認する）
+	let disabledReason: string | undefined;
+	if (isSelf) {
+		disabledReason = SELF_ROLE_REASON;
+	} else if (!staff.availableActions.includes("CHANGE_ROLE")) {
+		disabledReason = LAST_NURSE_REASON;
+	}
+
 	return (
 		<RolePicker
 			value={staff.role}
 			onChange={(role) => onRoleChange(staff, role)}
-			disabled={!canChange || busyId !== null}
-			disabledReason={canChange ? undefined : LAST_NURSE_REASON}
+			disabled={disabledReason !== undefined || busyId !== null}
+			disabledReason={disabledReason}
 		/>
 	);
 }
@@ -62,6 +79,7 @@ function RoleCell({
 // 操作ボタン（PC とスマホで同じものを使う）
 function StaffActions({
 	staff,
+	isSelf,
 	busyId,
 	onDeactivate,
 	onActivate,
@@ -69,6 +87,7 @@ function StaffActions({
 	onRetryCancel,
 }: {
 	staff: StaffItem;
+	isSelf: boolean; // ログイン中の本人か
 	busyId: string | null;
 	onDeactivate: (staff: StaffItem) => void;
 	onActivate: (staff: StaffItem) => void;
@@ -81,15 +100,23 @@ function StaffActions({
 	const baseButton =
 		"px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
 
+	// 無効化を押せない理由（自分 → 最後の看護師 の順に確認する）
+	let deactivateDisabledReason: string | undefined;
+	if (isSelf) {
+		deactivateDisabledReason = SELF_DEACTIVATE_REASON;
+	} else if (!actions.includes("DEACTIVATE")) {
+		deactivateDisabledReason = LAST_NURSE_REASON;
+	}
+
 	return (
 		<div className="flex flex-wrap items-center gap-2 justify-end">
-			{/* 利用中：無効化（最後の看護師なら押せない状態で表示する） */}
+			{/* 利用中：無効化（自分・最後の看護師なら押せない状態で表示する） */}
 			{staff.status === "ACTIVE" && (
 				<button
 					type="button"
 					onClick={() => onDeactivate(staff)}
-					disabled={isBusy || !actions.includes("DEACTIVATE")}
-					title={actions.includes("DEACTIVATE") ? undefined : LAST_NURSE_REASON}
+					disabled={isBusy || deactivateDisabledReason !== undefined}
+					title={deactivateDisabledReason}
 					className={`${baseButton} bg-rose-50 text-rose-600 hover:bg-rose-100`}
 				>
 					<HiOutlineNoSymbol className="text-sm" />
@@ -175,6 +202,7 @@ export function StaffTable({
 							<td className="py-4 px-6">
 								<RoleCell
 									staff={item}
+									isSelf={item.id === currentUserId}
 									busyId={busyId}
 									onRoleChange={onRoleChange}
 								/>
@@ -182,6 +210,7 @@ export function StaffTable({
 							<td className="py-4 px-6">
 								<StaffActions
 									staff={item}
+									isSelf={item.id === currentUserId}
 									busyId={busyId}
 									onDeactivate={onDeactivate}
 									onActivate={onActivate}
@@ -201,11 +230,13 @@ export function StaffTable({
 						<StaffName staff={item} isSelf={item.id === currentUserId} />
 						<RoleCell
 							staff={item}
+							isSelf={item.id === currentUserId}
 							busyId={busyId}
 							onRoleChange={onRoleChange}
 						/>
 						<StaffActions
 							staff={item}
+							isSelf={item.id === currentUserId}
 							busyId={busyId}
 							onDeactivate={onDeactivate}
 							onActivate={onActivate}
