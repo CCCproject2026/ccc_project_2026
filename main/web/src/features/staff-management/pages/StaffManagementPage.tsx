@@ -16,7 +16,7 @@ import { StaffFormModal } from "@/features/staff-management/components/StaffForm
 import { StaffSummaryCards } from "@/features/staff-management/components/StaffSummaryCards";
 import { StaffTable } from "@/features/staff-management/components/StaffTable";
 import { ROLE_LABELS } from "@/features/staff-management/constants/staff.constant";
-import type { StaffInviteInput } from "@/features/staff-management/schemas/staff-input";
+import type { StaffReinviteInput } from "@/features/staff-management/schemas/staff-input";
 import type {
 	StaffItem,
 	StaffRole,
@@ -159,7 +159,7 @@ export function StaffManagementPage({
 	}
 
 	// ===== 再招待 =====
-	async function handleReinvite(values: StaffInviteInput) {
+	async function handleReinvite(values: StaffReinviteInput) {
 		if (reinviteTarget === null) {
 			return;
 		}

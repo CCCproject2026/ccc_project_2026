@@ -6,6 +6,8 @@ const staff: StaffItem = {
 	id: "user-1",
 	email: "a@example.com",
 	displayName: "田中 花子",
+	lastName: "田中",
+	firstName: "花子",
 	role: "CAREGIVER",
 	status: "PENDING",
 	availableActions: ["SYNC", "CANCEL"],

@@ -49,12 +49,15 @@ export function decideLink(
 	candidate: ClerkStaffUser,
 	linkedStaffId: string | null,
 ): LinkDecision {
-	// ④ 他のスタッフに紐付いていないこと
+	// 判定は、下の 1 → 3 の順に行う
+	// （①〜④ は設計書の紐付け条件の番号。① PENDING・未紐付けは、呼び出し側で確認済み）
+
+	// 1. 他のスタッフに紐付いていないこと（条件④）
 	if (linkedStaffId !== null && linkedStaffId !== staff.id) {
 		return { kind: "MANUAL", reason: "LINKED_TO_OTHER_STAFF" };
 	}
 
-	// ② 確認済みの primary email が完全一致すること
+	// 2. 確認済みの primary email が完全一致すること（条件②）
 	if (
 		!candidate.isPrimaryEmailVerified ||
 		candidate.primaryEmail !== normalizeEmail(staff.email)
@@ -67,7 +70,7 @@ export function decideLink(
 		return { kind: "MANUAL", reason: "ACCOUNT_UNUSABLE" };
 	}
 
-	// ③ 本システムの招待から作られたアカウントなら、自動で紐付けてよい
+	// 3. 本システムの招待から作られたアカウントなら、自動で紐付けてよい（条件③）
 	if (candidate.staffUserId === staff.id) {
 		return { kind: "AUTO_LINK" };
 	}

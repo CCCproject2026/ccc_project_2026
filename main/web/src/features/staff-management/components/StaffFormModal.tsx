@@ -2,11 +2,15 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { type Resolver, useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 import { ROLE_LABELS } from "@/features/staff-management/constants/staff.constant";
 import {
+	GENDER_OPTIONS,
 	type StaffInviteInput,
+	type StaffReinviteInput,
 	staffInviteSchema,
+	staffReinviteSchema,
 } from "@/features/staff-management/schemas/staff-input";
 import type { StaffItem } from "@/features/staff-management/types/staff.types";
 import { FormField } from "@/shared/ui/FormField";
@@ -14,15 +18,38 @@ import { Modal } from "@/shared/ui/Modal";
 
 // 招待フォーム（新規招待・再招待の両方で使う）
 // 設計書：招待時に必須プロフィールをすべて入力する
-interface StaffFormModalProps {
+// mode によって、onSubmit に渡す値の形が変わる
+type StaffFormModalProps = {
 	open: boolean;
-	mode: "invite" | "reinvite";
-	target?: StaffItem | null; // 再招待のときの対象スタッフ
 	busy: boolean; // 送信中
 	serverError: string | null; // サーバーから返った入力エラー
 	onClose: () => void;
-	onSubmit: (values: StaffInviteInput) => void;
-}
+} & (
+	| {
+			mode: "invite";
+			onSubmit: (values: StaffInviteInput) => void;
+	  }
+	| {
+			mode: "reinvite";
+			target: StaffItem | null; // 再招待の対象スタッフ
+			onSubmit: (values: StaffReinviteInput) => void;
+	  }
+);
+
+// フォームの入力欄の値（どの欄も文字列）
+type StaffFormFields = z.input<typeof staffInviteSchema>;
+
+// 再招待フォームのチェック：email は表示するだけ（送信しない）なので、文字列であればよい
+const reinviteFormSchema = staffReinviteSchema.extend({ email: z.string() });
+
+// mode によってチェックを切り替える
+// （2つのスキーマで出力の型が違うので、ここだけ型を合わせる。値は onSubmit の前に読み直す）
+const inviteResolver = zodResolver(
+	staffInviteSchema,
+) as Resolver<StaffFormFields>;
+const reinviteResolver = zodResolver(
+	reinviteFormSchema,
+) as unknown as Resolver<StaffFormFields>;
 
 // 空のフォーム
 const EMPTY_VALUES = {
@@ -45,15 +72,14 @@ function inputClass(hasError: boolean): string {
 	}`;
 }
 
-export function StaffFormModal({
-	open,
-	mode,
-	target,
-	busy,
-	serverError,
-	onClose,
-	onSubmit,
-}: StaffFormModalProps) {
+export function StaffFormModal(props: StaffFormModalProps) {
+	const { open, mode, busy, serverError, onClose } = props;
+	let target: StaffItem | null = null;
+	if (props.mode === "reinvite") {
+		target = props.target;
+	}
+	const isReinvite = mode === "reinvite";
+
 	const {
 		register,
 		handleSubmit,
@@ -61,10 +87,19 @@ export function StaffFormModal({
 		reset,
 		control,
 		formState: { errors },
-	} = useForm({
-		resolver: zodResolver(staffInviteSchema),
+	} = useForm<StaffFormFields>({
+		resolver: isReinvite ? reinviteResolver : inviteResolver,
 		defaultValues: EMPTY_VALUES,
 	});
+
+	// チェックが通った値を、mode に合った形にして渡す
+	const submit = (values: StaffFormFields) => {
+		if (props.mode === "reinvite") {
+			props.onSubmit(staffReinviteSchema.parse(values));
+		} else {
+			props.onSubmit(staffInviteSchema.parse(values));
+		}
+	};
 
 	// 選ばれているロール（ボタンの色を変えるため）
 	const selectedRole = useWatch({ control, name: "role" });
@@ -75,21 +110,20 @@ export function StaffFormModal({
 			return;
 		}
 		if (mode === "reinvite" && target) {
-			// 再招待：email は変更できない。氏名は「姓 名」から分けて入れておく
-			const nameParts = target.displayName.split(" ");
+			// 再招待：email は変更できない
+			// 生年月日・入職日・国籍・性別は画面に返していないので空欄。空欄のままなら今の値を使う
 			reset({
 				...EMPTY_VALUES,
 				email: target.email,
 				role: target.role,
-				lastName: nameParts[0] ?? "",
-				firstName: nameParts.slice(1).join(" "),
+				lastName: target.lastName,
+				firstName: target.firstName,
 			});
 		} else {
 			reset(EMPTY_VALUES);
 		}
 	}, [open, mode, target, reset]);
 
-	const isReinvite = mode === "reinvite";
 	const title = isReinvite ? "スタッフを再招待" : "スタッフを招待";
 
 	return (
@@ -120,7 +154,7 @@ export function StaffFormModal({
 		>
 			<form
 				id="staff-form"
-				onSubmit={handleSubmit(onSubmit)}
+				onSubmit={handleSubmit(submit)}
 				noValidate
 				className="space-y-4"
 			>
@@ -228,13 +262,19 @@ export function StaffFormModal({
 					</FormField>
 				</div>
 
+				{isReinvite && (
+					<p className="text-xs text-slate-500">
+						生年月日・入職日・国籍・性別は、変更する場合だけ入力してください。空欄のままなら登録済みの内容を使います。
+					</p>
+				)}
+
 				{/* 日付 */}
 				<div className="grid grid-cols-2 gap-3">
 					<FormField
 						label="生年月日"
 						htmlFor="staff-birth"
 						error={errors.dateOfBirth?.message}
-						required
+						required={!isReinvite}
 					>
 						<input
 							id="staff-birth"
@@ -247,7 +287,7 @@ export function StaffFormModal({
 						label="入職日"
 						htmlFor="staff-start"
 						error={errors.startDate?.message}
-						required
+						required={!isReinvite}
 					>
 						<input
 							id="staff-start"
@@ -264,7 +304,7 @@ export function StaffFormModal({
 						label="国籍"
 						htmlFor="staff-nationality"
 						error={errors.nationality?.message}
-						required
+						required={!isReinvite}
 					>
 						<input
 							id="staff-nationality"
@@ -278,16 +318,21 @@ export function StaffFormModal({
 						label="性別"
 						htmlFor="staff-gender"
 						error={errors.gender?.message}
-						required
+						required={!isReinvite}
 					>
 						<select
 							id="staff-gender"
 							{...register("gender")}
 							className={`${inputClass(Boolean(errors.gender))} bg-white`}
 						>
-							<option value="">選択してください</option>
-							<option value="女性">女性</option>
-							<option value="男性">男性</option>
+							<option value="">
+								{isReinvite ? "変更しない" : "選択してください"}
+							</option>
+							{GENDER_OPTIONS.map((option) => (
+								<option key={option} value={option}>
+									{option}
+								</option>
+							))}
 						</select>
 					</FormField>
 				</div>

@@ -84,3 +84,6 @@ main/iot/*
 main/iot/mock-data/*
 !main/iot/mock-data/generate_telemetry.py
 !main/iot/mock-data/telemetry-3min.jsonl
+
+# TypeScript incremental build info
+*.tsbuildinfo

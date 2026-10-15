@@ -7,8 +7,10 @@ const serverEnvSchema = z.object({
 	CLERK_SECRET_KEY: z.string().min(1),
 	CLERK_WEBHOOK_SECRET: z.string().min(1),
 	// このアプリの URL（例: http://localhost:3000）。招待メールのリンク先に使う
-	// 未設定なら、招待メールのリンクは Clerk の画面を開く
-	APP_URL: z.string().optional(),
+	// 任意：未設定なら、招待メールのリンクは Clerk の画面を開く
+	// （本番では、招待から本システムのパスワード設定ページを開くために設定する）
+	// 設定する場合は、URL の形でなければ起動を止める（壊れた招待リンクを送らないため）
+	APP_URL: z.url("APP_URL は URL の形式で指定してください").optional(),
 	STAFF_TOKEN_SECRET: z
 		.string()
 		.refine(

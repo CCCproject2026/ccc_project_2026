@@ -57,6 +57,8 @@ export function toStaffItem(
 		id: user.id,
 		email: user.email,
 		displayName: `${user.lastName} ${user.firstName}`,
+		lastName: user.lastName,
+		firstName: user.firstName,
 		role: user.role,
 		status: user.status,
 		availableActions: getAvailableActions(user, activeNurseCount),

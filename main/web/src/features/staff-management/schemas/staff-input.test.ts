@@ -13,6 +13,16 @@ const validInput = {
 	gender: "女性",
 };
 
+describe("staffInviteSchema（性別）", () => {
+	it("性別は選択肢以外を受け付けない", () => {
+		const result = staffInviteSchema.safeParse({
+			...validInput,
+			gender: "その他",
+		});
+		expect(result.success).toBe(false);
+	});
+});
+
 describe("staffInviteSchema", () => {
 	beforeEach(() => {
 		// 「今」を日本時間 2026-10-13 00:30 に固定する（UTC ではまだ 10-12）
@@ -101,5 +111,37 @@ describe("staffReinviteSchema", () => {
 	it("email は入力に含まれない（送っても結果から消える）", () => {
 		const result = staffReinviteSchema.parse(validInput);
 		expect("email" in result).toBe(false);
+	});
+
+	it("生年月日・入職日・国籍・性別は空欄でも通り、undefined になる（今の値のまま）", () => {
+		const result = staffReinviteSchema.parse({
+			role: "CAREGIVER",
+			lastName: "田中",
+			firstName: "花子",
+			dateOfBirth: "",
+			startDate: "",
+			nationality: "",
+			gender: "",
+		});
+		expect(result.dateOfBirth).toBeUndefined();
+		expect(result.startDate).toBeUndefined();
+		expect(result.nationality).toBeUndefined();
+		expect(result.gender).toBeUndefined();
+	});
+
+	it("入力された項目は、新規招待と同じようにチェックする", () => {
+		const result = staffReinviteSchema.safeParse({
+			...validInput,
+			startDate: "2026-02-30",
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("姓・名は空欄にできない", () => {
+		const result = staffReinviteSchema.safeParse({
+			...validInput,
+			lastName: "",
+		});
+		expect(result.success).toBe(false);
 	});
 });

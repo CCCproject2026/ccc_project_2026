@@ -53,6 +53,7 @@ import {
 	changeRole,
 	deactivateStaff,
 	inviteStaff,
+	reinviteStaff,
 	syncInvitation,
 } from "./staff-service";
 
@@ -85,7 +86,7 @@ const inviteInput = {
 	dateOfBirth: "1990-04-01",
 	startDate: "2026-10-01",
 	nationality: "日本",
-	gender: "女性",
+	gender: "女性" as const,
 };
 
 beforeEach(() => {
@@ -294,6 +295,80 @@ describe("取消 cancelInvitation", () => {
 	});
 });
 
+describe("再招待 reinviteStaff", () => {
+	function mockReinvitable() {
+		vi.mocked(prisma.user.findUnique).mockResolvedValue(
+			makeStaff({ status: "INACTIVE" }) as never,
+		);
+		vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 1 } as never);
+		vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(
+			makeStaff() as never,
+		);
+		vi.mocked(reconcileStaff).mockResolvedValue({
+			result: "SENT",
+			staff: makeStaff(),
+		});
+	}
+
+	it("生年月日などが空欄（undefined）なら、その項目は更新しない", async () => {
+		mockReinvitable();
+
+		await reinviteStaff("user-1", {
+			role: "NURSE",
+			lastName: "田中",
+			firstName: "花子",
+		});
+
+		expect(prisma.user.updateMany).toHaveBeenCalledWith({
+			where: { id: "user-1", status: "INACTIVE", clerkUserId: null },
+			data: {
+				role: "NURSE",
+				lastName: "田中",
+				firstName: "花子",
+				status: "PENDING",
+			},
+		});
+	});
+
+	it("入力された項目だけを更新する", async () => {
+		mockReinvitable();
+
+		await reinviteStaff("user-1", {
+			role: "CAREGIVER",
+			lastName: "田中",
+			firstName: "花子",
+			startDate: "2026-11-01",
+			gender: "男性",
+		});
+
+		expect(prisma.user.updateMany).toHaveBeenCalledWith({
+			where: { id: "user-1", status: "INACTIVE", clerkUserId: null },
+			data: {
+				role: "CAREGIVER",
+				lastName: "田中",
+				firstName: "花子",
+				status: "PENDING",
+				startDate: new Date("2026-11-01T00:00:00.000Z"),
+				gender: "男性",
+			},
+		});
+	});
+
+	it("取消・失敗した（INACTIVE・未紐付け）スタッフ以外は 409", async () => {
+		vi.mocked(prisma.user.findUnique).mockResolvedValue(
+			makeStaff({ status: "ACTIVE", clerkUserId: "clerk_1" }) as never,
+		);
+		await expect(
+			reinviteStaff("user-1", {
+				role: "CAREGIVER",
+				lastName: "田中",
+				firstName: "花子",
+			}),
+		).rejects.toMatchObject({ status: 409 });
+		expect(prisma.user.updateMany).not.toHaveBeenCalled();
+	});
+});
+
 describe("ロール変更 changeRole", () => {
 	it("自分のロールは変更できない（403）。DB も見ない", async () => {
 		// 操作している人は nurse-1（requireRole の偽物が返す）
@@ -399,6 +474,17 @@ describe("無効化 deactivateStaff", () => {
 		vi.mocked(prisma.user.findUnique).mockResolvedValue(makeStaff() as never);
 		await expect(deactivateStaff("user-1")).rejects.toMatchObject({
 			status: 409,
+			message: expect.stringContaining("「取消」"),
+		});
+	});
+
+	it("取消済み（INACTIVE・未紐付け）は 409。「取消してください」とは案内しない", async () => {
+		vi.mocked(prisma.user.findUnique).mockResolvedValue(
+			makeStaff({ status: "INACTIVE" }) as never,
+		);
+		await expect(deactivateStaff("user-1")).rejects.toMatchObject({
+			status: 409,
+			message: expect.stringContaining("取消済み"),
 		});
 	});
 

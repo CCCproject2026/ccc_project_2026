@@ -1,5 +1,5 @@
 import "server-only";
-import { Client } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { ApiError } from "@/shared/lib/api-error";
 
 // スタッフ管理の全操作で使う、ロックの番号（固定）
@@ -28,11 +28,30 @@ function unavailable(message: string): ApiError {
 	return new ApiError(503, "TEMPORARILY_UNAVAILABLE", message);
 }
 
-// ロック専用の DB 接続を作る（Prisma の接続とは別）
-function createLockClient(): Client {
+// ロック専用の接続プールの大きさ
+// ロックは1つなので、同時にロックを持てるのは1接続だけ。待っている操作の分だけ少し余裕を持たせる
+// （Heroku Postgres は接続数の上限が小さいので、大きくしない）
+const POOL_MAX = 3;
+
+// 使っていない接続を閉じるまでの時間
+const POOL_IDLE_TIMEOUT_MS = 30000;
+
+// ロック専用の接続プール（Prisma の接続とは別）。最初に使うときに作る
+// 操作のたびに接続（Heroku では SSL の手続きも）を作り直さないように、接続を使い回す
+let pool: Pool | undefined;
+
+function getLockPool(): Pool {
+	if (pool !== undefined) {
+		return pool;
+	}
+
 	const connectionString = process.env.DATABASE_URL;
 	if (!connectionString) {
-		throw new Error("DATABASE_URL が設定されていません");
+		// 他の「DB に接続できない」場合と同じく 503 にする（ログには原因を残す）
+		console.error("[staff-lock] DATABASE_URL が設定されていません");
+		throw unavailable(
+			"データベースに接続できません。しばらくしてから再度お試しください",
+		);
 	}
 
 	// Heroku Postgres は SSL が必要。ローカルの PostgreSQL は SSL なし
@@ -41,11 +60,22 @@ function createLockClient(): Client {
 		ssl = { rejectUnauthorized: false };
 	}
 
-	return new Client({
+	pool = new Pool({
 		connectionString,
 		ssl,
+		max: POOL_MAX,
+		idleTimeoutMillis: POOL_IDLE_TIMEOUT_MS,
 		connectionTimeoutMillis: LOCK_WAIT_MS,
+		// スクリプト（scripts/）が、使っていない接続のせいで終了できなくならないようにする
+		allowExitOnIdle: true,
 	});
+
+	// 使っていない接続が切れたときのエラー
+	// （"error" を受け取らないと、Node.js のプロセスごと落ちてしまう。壊れた接続はプールが捨てる）
+	pool.on("error", () => {
+		console.warn("[staff-lock] 待機中の DB 接続が切れました");
+	});
+	return pool;
 }
 
 // ロックを取ってから work を実行し、最後に必ずロックを解放する
@@ -63,22 +93,24 @@ export async function withStaffLock<T>(
 ): Promise<T> {
 	const lockWaitMs = options.lockWaitMs ?? LOCK_WAIT_MS;
 	const startedAt = Date.now();
-	const client = createLockClient();
+	const lockPool = getLockPool();
 
-	// 接続が切れたら記録する
-	// （"error" を受け取らないと、Node.js のプロセスごと落ちてしまう）
-	let isConnectionLost = false;
-	client.on("error", () => {
-		isConnectionLost = true;
-	});
-
+	let client: PoolClient;
 	try {
-		await client.connect();
+		client = await lockPool.connect();
 	} catch {
 		throw unavailable(
 			"データベースに接続できません。しばらくしてから再度お試しください",
 		);
 	}
+
+	// 使っている間に接続が切れたら記録する
+	// （"error" を受け取らないと、Node.js のプロセスごと落ちてしまう）
+	let isConnectionLost = false;
+	const onError = () => {
+		isConnectionLost = true;
+	};
+	client.on("error", onError);
 
 	let isLocked = false;
 
@@ -124,7 +156,10 @@ export async function withStaffLock<T>(
 		// ===== 3. 本来の処理を実行する =====
 		return await work(lock);
 	} finally {
-		// ===== 4. ロックを解放して、接続を閉じる（エラーでも必ず実行される） =====
+		// ===== 4. ロックを解放して、接続をプールに返す（エラーでも必ず実行される） =====
+		// ロックの解放を確認できたときだけ、接続を使い回す
+		// 確認できなければ接続ごと捨てる（接続が閉じれば、PostgreSQL がロックを必ず解放する）
+		let canReuse = !isConnectionLost;
 		if (isLocked && !isConnectionLost) {
 			try {
 				const result = await client.query<{ unlocked: boolean }>(
@@ -133,18 +168,16 @@ export async function withStaffLock<T>(
 				);
 				if (!result.rows[0].unlocked) {
 					console.warn("[staff-lock] ロックの解放を確認できませんでした");
+					canReuse = false;
 				}
 			} catch {
 				console.warn("[staff-lock] ロックの解放に失敗しました");
+				canReuse = false;
 			}
 		}
 
-		// 接続を閉じる。接続が閉じれば、PostgreSQL がロックを必ず解放する
-		// （解放の確認に失敗した場合も、ここで接続ごと捨てる）
-		try {
-			await client.end();
-		} catch {
-			// 既に切れている場合など。何もしない
-		}
+		client.removeListener("error", onError);
+		// release(true) を渡すと、プールに返さずに接続を閉じる
+		client.release(!canReuse);
 	}
 }

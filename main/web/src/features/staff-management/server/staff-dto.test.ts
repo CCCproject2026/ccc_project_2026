@@ -25,7 +25,9 @@ describe("toStaffItem", () => {
 			"availableActions",
 			"displayName",
 			"email",
+			"firstName",
 			"id",
+			"lastName",
 			"role",
 			"status",
 		]);

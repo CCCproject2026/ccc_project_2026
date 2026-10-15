@@ -12,13 +12,32 @@ import { type StaffLock, withStaffLock } from "./staff-lock";
 // 招待から登録した直後は、Webhook が遅れる（ローカルでは届かない）ことがあるため、
 // 本人がログインした時にも同じ紐付けの確認を1回行う。紐付け条件は Webhook と同じ。
 // ACTIVE になったら true
+//
+// このページは何度でも開けるので、紐付けの見込みがない人ではロックを取らない
+// （ロックを取ると、NURSE の操作や Webhook を待たせてしまうため）
 export async function syncSignedInUser(clerkUserId: string): Promise<boolean> {
+	// 1. ロックを取る前に、紐付けの見込みがあるかだけ確認する（DB は更新しない）
+	const isLinkable = await canAutoLinkLater(clerkUserId);
+	if (!isLinkable) {
+		return false;
+	}
+
+	// 2. ロックを取って、Webhook と同じ同期を行う
 	try {
 		await withStaffLock(async (lock) => {
 			await syncClerkUser(clerkUserId, lock);
 		});
-	} catch {
-		// Clerk に届かない・ロックが取れないなど。画面では「登録が完了していません」のまま
+	} catch (error) {
+		// 想定内：Clerk に届かない・ロックが取れない・時間切れ（どれも 503）
+		// 画面では「登録が完了していません」のまま。次に開いたときに、もう一度試す
+		if (error instanceof ApiError && error.status === 503) {
+			return false;
+		}
+		// 想定外（DB の障害・実装のバグなど）は、握りつぶさずに記録する
+		// 個人情報を含む可能性があるため、メッセージ本文は出さない
+		notifyOps("SIGNED_IN_SYNC_FAILED", {
+			reason: error instanceof Error ? error.name : typeof error,
+		});
 		return false;
 	}
 
@@ -27,6 +46,29 @@ export async function syncSignedInUser(clerkUserId: string): Promise<boolean> {
 		select: { status: true },
 	});
 	return staff !== null && staff.status === "ACTIVE";
+}
+
+// 本システムの招待から作られたアカウントで、相手のスタッフがまだ PENDING・未紐付けなら true
+// ロックの外で読むだけなので、ここで true でも、ロックの中で条件をもう一度確認する
+async function canAutoLinkLater(clerkUserId: string): Promise<boolean> {
+	const result = await getClerkUser(clerkUserId);
+	// Clerk に届かない → 今回はあきらめる（次に開いたときに、もう一度試す）
+	if (result.kind !== "SUCCESS") {
+		return false;
+	}
+	const clerkUser = result.data;
+	// 削除済み、または本システムの招待から作られたアカウントではない
+	if (clerkUser === null || clerkUser.staffUserId === null) {
+		return false;
+	}
+
+	const staff = await prisma.user.findUnique({
+		where: { id: clerkUser.staffUserId },
+		select: { status: true, clerkUserId: true },
+	});
+	return (
+		staff !== null && staff.status === "PENDING" && staff.clerkUserId === null
+	);
 }
 
 // Clerk の user.created / user.updated を受け取ったときの処理（T9）

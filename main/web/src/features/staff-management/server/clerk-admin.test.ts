@@ -19,6 +19,9 @@ vi.mock("@clerk/nextjs/errors", () => ({
 		error?.isFakeClerkError === true,
 }));
 
+vi.mock("@/shared/lib/logger", () => ({ notifyOps: vi.fn() }));
+
+import { notifyOps } from "@/shared/lib/logger";
 import {
 	createStaffInvitation,
 	findClerkUsersByEmail,
@@ -242,6 +245,30 @@ describe("findClerkUsersByEmail", () => {
 
 		const result = await findClerkUsersByEmail("a@example.com");
 		expect(result).toEqual({ kind: "UNKNOWN", reason: "NETWORK" });
+	});
+	it("最大ページ数まで読んでも終わらなければ UNKNOWN にして、担当者に知らせる", async () => {
+		const fullPage = [];
+		for (let i = 0; i < 100; i++) {
+			fullPage.push({
+				id: `inv_${i}`,
+				emailAddress: `user${i}@example.com`,
+				publicMetadata: null,
+			});
+		}
+		// 毎回「まだ続きがある」と返す
+		fakeClient.invitations.getInvitationList.mockResolvedValue({
+			data: fullPage,
+			totalCount: 999999,
+		});
+
+		const result = await listAllPendingInvitations();
+
+		expect(result).toEqual({ kind: "UNKNOWN", reason: "PAGE_LIMIT" });
+		expect(fakeClient.invitations.getInvitationList).toHaveBeenCalledTimes(50);
+		expect(notifyOps).toHaveBeenCalledWith(
+			"CLERK_PAGE_LIMIT",
+			expect.objectContaining({ reason: expect.any(String) }),
+		);
 	});
 });
 

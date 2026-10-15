@@ -3,7 +3,7 @@
 import { useAuth, useClerk } from "@clerk/nextjs";
 import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 // 招待を受けた人が、パスワードを決めて登録するフォーム
 // ticket: 招待メールのリンクに付いている Clerk の招待チケット
@@ -54,9 +54,17 @@ export function SetPasswordForm({ ticket }: SetPasswordFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errorMessage, setErrorMessage] = useState("");
 
+	// このフォームで登録して、自分のセッションを作ったら true
+	// （state ではなく ref にするのは、値を変えても再描画させず、すぐに読めるようにするため）
+	const hasCreatedSessionRef = useRef(false);
+
 	// 別のアカウントでログインしたままのブラウザで開いた場合は、先にログアウトする
 	// （ログアウトしないと、その人のアカウントでダッシュボードが開いてしまう）
+	// ただし、このフォームで登録した直後のログイン（自分で作ったセッション）はログアウトしない
 	useEffect(() => {
+		if (hasCreatedSessionRef.current) {
+			return;
+		}
 		if (isLoaded && isSignedIn) {
 			void signOut();
 		}
@@ -97,6 +105,8 @@ export function SetPasswordForm({ ticket }: SetPasswordFormProps) {
 
 			// 3. 完了したらログインして、ダッシュボードへ
 			if (result.status === "complete") {
+				// setActive で isSignedIn が true になる前に、印を付けておく
+				hasCreatedSessionRef.current = true;
 				await setActive({ session: result.createdSessionId });
 				router.push("/dashboard");
 				return;

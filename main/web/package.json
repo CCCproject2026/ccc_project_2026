@@ -13,7 +13,7 @@
 		"prisma:seed": "prisma db seed",
 		"prisma:studio": "prisma studio",
 		"prisma:validate": "prisma validate",
-		"build": "next build",
+		"build": "prisma generate --generator client && next build",
 		"start": "next start",
 		"test": "vitest run",
 		"bootstrap:nurse": "tsx --require ./scripts/allow-server-only.cjs scripts/bootstrap-nurse.ts",

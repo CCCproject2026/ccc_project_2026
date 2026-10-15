@@ -423,19 +423,31 @@ export async function reinviteStaff(
 			);
 		}
 
+		// 更新する項目。生年月日・入職日・国籍・性別は、入力されたものだけ更新する
+		// （再招待フォームでは空欄で表示するので、空欄なら登録済みの値をそのまま使う）
+		const data: Prisma.UserUpdateManyMutationInput = {
+			role: input.role,
+			lastName: input.lastName,
+			firstName: input.firstName,
+			status: "PENDING",
+		};
+		if (input.dateOfBirth !== undefined) {
+			data.dateOfBirth = toDbDate(input.dateOfBirth);
+		}
+		if (input.startDate !== undefined) {
+			data.startDate = toDbDate(input.startDate);
+		}
+		if (input.nationality !== undefined) {
+			data.nationality = input.nationality;
+		}
+		if (input.gender !== undefined) {
+			data.gender = input.gender;
+		}
+
 		lock.ensureCanContinue();
 		const updated = await prisma.user.updateMany({
 			where: { id, status: "INACTIVE", clerkUserId: null },
-			data: {
-				role: input.role,
-				lastName: input.lastName,
-				firstName: input.firstName,
-				dateOfBirth: toDbDate(input.dateOfBirth),
-				startDate: toDbDate(input.startDate),
-				nationality: input.nationality,
-				gender: input.gender,
-				status: "PENDING",
-			},
+			data,
 		});
 		if (updated.count === 0) {
 			throw invalidState(
@@ -551,9 +563,15 @@ export async function deactivateStaff(
 		if (staff.status === "INACTIVE" && staff.clerkUserId !== null) {
 			return { staff: await toDto(staff) };
 		}
-		if (staff.status !== "ACTIVE") {
+		if (staff.status === "PENDING") {
 			throw invalidState(
 				"無効化できるのは、利用中のスタッフだけです。登録待ちの場合は「取消」してください",
+			);
+		}
+		if (staff.status !== "ACTIVE") {
+			// INACTIVE・未紐付け = 招待を取消済み（既にログインできない状態）
+			throw invalidState(
+				"このスタッフは招待を取消済みのため、無効化は不要です",
 			);
 		}
 

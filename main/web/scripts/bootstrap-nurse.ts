@@ -17,10 +17,23 @@ const bootstrapSchema = staffInviteSchema.extend({
 	password: z.string().min(8, "パスワードは8文字以上にしてください"),
 });
 
+// 実行してよい NODE_ENV（未設定・development・test だけ）
+// 「production 以外ならよい」ではなく、許可するものだけを並べる（staging などでも動かないように）
+const ALLOWED_NODE_ENVS = ["", "development", "test"];
+
 async function main() {
-	// 本番では絶対に実行しない
-	if (process.env.NODE_ENV === "production") {
-		console.error("本番環境では bootstrap:nurse を実行できません");
+	// 開発環境以外では絶対に実行しない
+	const nodeEnv = process.env.NODE_ENV ?? "";
+	if (!ALLOWED_NODE_ENVS.includes(nodeEnv)) {
+		console.error(
+			`NODE_ENV=${nodeEnv} では bootstrap:nurse を実行できません（開発環境専用）`,
+		);
+		process.exitCode = 1;
+		return;
+	}
+	// Heroku の dyno の中（heroku run など）では、NODE_ENV に関係なく実行しない
+	if (process.env.DYNO !== undefined) {
+		console.error("Heroku 上では bootstrap:nurse を実行できません（開発環境専用）");
 		process.exitCode = 1;
 		return;
 	}

@@ -1,6 +1,7 @@
 import "server-only";
 import { isClerkAPIResponseError } from "@clerk/nextjs/errors";
 import { clerkClient, type Invitation, type User } from "@clerk/nextjs/server";
+import { notifyOps } from "@/shared/lib/logger";
 
 // Clerk を1回呼ぶときの時間制限（設計書 6節：外部HTTPは1回5秒）
 const CLERK_TIMEOUT_MS = 5000;
@@ -10,6 +11,11 @@ const PAGE_SIZE = 100;
 
 // 一覧を取るときの最大ページ数（無限ループ防止。100件 × 50ページ = 5000件まで）
 const MAX_PAGES = 50;
+
+// 一覧を全ページ読むときの、全体の時間制限
+// 1ページごとの 5 秒とは別に、全体でもこれを超えたらやめる
+// （ロックの上限 25 秒・Heroku の 30 秒を、一覧の読み込みだけで使い切らないため）
+const LIST_TOTAL_LIMIT_MS = 10000;
 
 // ===== 結果の形 =====
 // SUCCESS : 成功した
@@ -45,6 +51,9 @@ export function normalizeEmail(email: string): string {
 
 class ClerkTimeoutError extends Error {}
 
+// 最大ページ数まで読んでも、一覧が終わらなかった
+class ClerkPageLimitError extends Error {}
+
 // promise が 5 秒以内に終わらなければ ClerkTimeoutError にする
 // 注意: Clerk への通信そのものは止まらない（だから結果は「不明」として扱う）
 async function withTimeout<T>(promise: Promise<T>): Promise<T> {
@@ -70,6 +79,10 @@ function toFailure(error: unknown): ClerkResult<never> {
 	// 時間切れ → 届いたかどうかわからない
 	if (error instanceof ClerkTimeoutError) {
 		return { kind: "UNKNOWN", reason: "TIMEOUT" };
+	}
+	// 一覧を最後まで読めなかった → 「見つからない」とは言い切れない
+	if (error instanceof ClerkPageLimitError) {
+		return { kind: "UNKNOWN", reason: "PAGE_LIMIT" };
 	}
 
 	if (isClerkAPIResponseError(error)) {
@@ -97,6 +110,42 @@ async function callClerk<T>(action: () => Promise<T>): Promise<ClerkResult<T>> {
 	} catch (error) {
 		return toFailure(error);
 	}
+}
+
+// Clerk の一覧を、全ページ読む
+// fetchPage は offset を受け取って、1ページ分を返す
+// 途中までの結果は返さない（「招待が残っていない」などと誤って判断しないため）
+async function fetchAllPages<T>(
+	label: string,
+	fetchPage: (offset: number) => Promise<{ data: T[]; totalCount: number }>,
+): Promise<T[]> {
+	const startedAt = Date.now();
+	const all: T[] = [];
+	let offset = 0;
+
+	for (let page = 0; page < MAX_PAGES; page++) {
+		// 全体の時間制限を超えていたら、次のページは読まない
+		if (Date.now() - startedAt > LIST_TOTAL_LIMIT_MS) {
+			throw new ClerkTimeoutError();
+		}
+
+		const response = await withTimeout(fetchPage(offset));
+		for (const item of response.data) {
+			all.push(item);
+		}
+		offset = offset + response.data.length;
+
+		// 最後のページまで読んだら終わり
+		if (response.data.length < PAGE_SIZE || offset >= response.totalCount) {
+			return all;
+		}
+	}
+
+	// 上限まで読んでも終わらなかった → 黙って打ち切らず、担当者に知らせる
+	notifyOps("CLERK_PAGE_LIMIT", {
+		reason: `${label} が ${MAX_PAGES * PAGE_SIZE} 件を超えたため、読み込みを中止しました`,
+	});
+	throw new ClerkPageLimitError();
 }
 
 // ===== Clerk のデータを、本システム用の形に変える =====
@@ -171,39 +220,27 @@ export async function findClerkUsersByEmail(
 
 	return callClerk(async () => {
 		const client = await clerkClient();
+		const users = await fetchAllPages("Clerk ユーザーの検索結果", (offset) =>
+			client.users.getUserList({
+				emailAddress: [target],
+				limit: PAGE_SIZE,
+				offset,
+			}),
+		);
+
+		// Clerk の検索結果を、もう一度自分で完全一致チェックする
 		const found: ClerkStaffUser[] = [];
-		let offset = 0;
-
-		for (let page = 0; page < MAX_PAGES; page++) {
-			const response = await withTimeout(
-				client.users.getUserList({
-					emailAddress: [target],
-					limit: PAGE_SIZE,
-					offset,
-				}),
-			);
-
-			// Clerk の検索結果を、もう一度自分で完全一致チェックする
-			for (const user of response.data) {
-				let hasSameEmail = false;
-				for (const address of user.emailAddresses) {
-					if (normalizeEmail(address.emailAddress) === target) {
-						hasSameEmail = true;
-					}
-				}
-				if (hasSameEmail) {
-					found.push(toClerkStaffUser(user));
+		for (const user of users) {
+			let hasSameEmail = false;
+			for (const address of user.emailAddresses) {
+				if (normalizeEmail(address.emailAddress) === target) {
+					hasSameEmail = true;
 				}
 			}
-
-			offset = offset + response.data.length;
-
-			// 最後のページまで読んだら終わり
-			if (response.data.length < PAGE_SIZE || offset >= response.totalCount) {
-				break;
+			if (hasSameEmail) {
+				found.push(toClerkStaffUser(user));
 			}
 		}
-
 		return found;
 	});
 }
@@ -216,32 +253,23 @@ export async function findPendingInvitations(
 
 	return callClerk(async () => {
 		const client = await clerkClient();
-		const found: ClerkStaffInvitation[] = [];
-		let offset = 0;
-
-		for (let page = 0; page < MAX_PAGES; page++) {
-			const response = await withTimeout(
+		const invitations = await fetchAllPages(
+			"Clerk の招待の検索結果",
+			(offset) =>
 				client.invitations.getInvitationList({
 					status: "pending",
 					query: target, // query は部分一致なので、下で完全一致チェックをする
 					limit: PAGE_SIZE,
 					offset,
 				}),
-			);
+		);
 
-			for (const invitation of response.data) {
-				if (normalizeEmail(invitation.emailAddress) === target) {
-					found.push(toClerkStaffInvitation(invitation));
-				}
-			}
-
-			offset = offset + response.data.length;
-
-			if (response.data.length < PAGE_SIZE || offset >= response.totalCount) {
-				break;
+		const found: ClerkStaffInvitation[] = [];
+		for (const invitation of invitations) {
+			if (normalizeEmail(invitation.emailAddress) === target) {
+				found.push(toClerkStaffInvitation(invitation));
 			}
 		}
-
 		return found;
 	});
 }
@@ -253,29 +281,20 @@ export async function listAllPendingInvitations(): Promise<
 > {
 	return callClerk(async () => {
 		const client = await clerkClient();
-		const found: ClerkStaffInvitation[] = [];
-		let offset = 0;
-
-		for (let page = 0; page < MAX_PAGES; page++) {
-			const response = await withTimeout(
+		const invitations = await fetchAllPages(
+			"Clerk の有効な招待の一覧",
+			(offset) =>
 				client.invitations.getInvitationList({
 					status: "pending",
 					limit: PAGE_SIZE,
 					offset,
 				}),
-			);
+		);
 
-			for (const invitation of response.data) {
-				found.push(toClerkStaffInvitation(invitation));
-			}
-
-			offset = offset + response.data.length;
-
-			if (response.data.length < PAGE_SIZE || offset >= response.totalCount) {
-				break;
-			}
+		const found: ClerkStaffInvitation[] = [];
+		for (const invitation of invitations) {
+			found.push(toClerkStaffInvitation(invitation));
 		}
-
 		return found;
 	});
 }
@@ -304,6 +323,8 @@ export async function createClerkUserWithPassword(input: {
 
 // 招待メールのリンクを押したときに開く、本システムのパスワード設定ページの URL
 // APP_URL が未設定なら undefined（その場合は Clerk の画面が開く）
+// APP_URL は任意。設定する場合の形式（URL か）は、起動時に env.ts でチェックしている
+// （テストで値を切り替えられるように、ここでは毎回 process.env から読む）
 export function getSignUpUrl(): string | undefined {
 	const appUrl = process.env.APP_URL;
 	if (!appUrl) {

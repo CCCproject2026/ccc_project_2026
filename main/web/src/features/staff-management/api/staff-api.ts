@@ -1,5 +1,8 @@
 // スタッフ管理 API を呼ぶ関数（画面から使う）
-import type { StaffInviteInput } from "@/features/staff-management/schemas/staff-input";
+import type {
+	StaffInviteInput,
+	StaffReinviteInput,
+} from "@/features/staff-management/schemas/staff-input";
 import type {
 	StaffApiError,
 	StaffItem,
@@ -100,7 +103,8 @@ export function cancelInvitation(id: string) {
 }
 
 // 再招待（email は変更できないので送らない）
-export function reinviteStaff(id: string, values: StaffInviteInput) {
+// 生年月日などが undefined（空欄）の項目は、JSON に入らない → サーバーは今の値のままにする
+export function reinviteStaff(id: string, values: StaffReinviteInput) {
 	return callApi<StaffOperationResult>(
 		`/api/staff/invitations/${encodeURIComponent(id)}/reinvite`,
 		"POST",

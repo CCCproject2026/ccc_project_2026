@@ -28,6 +28,8 @@ export type StaffItem = {
 	id: string;
 	email: string;
 	displayName: string; // 「姓 名」
+	lastName: string; // 姓（再招待フォームで使う）
+	firstName: string; // 名（再招待フォームで使う）
 	role: StaffRole;
 	status: StaffStatus;
 	availableActions: StaffAction[];

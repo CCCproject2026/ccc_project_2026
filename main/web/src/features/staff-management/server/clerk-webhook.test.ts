@@ -22,11 +22,13 @@ vi.mock("@/shared/lib/prisma", () => ({
 	prisma: { user: { findUnique: vi.fn(), updateMany: vi.fn() } },
 }));
 
+import { ApiError } from "@/shared/lib/api-error";
 import { notifyOps } from "@/shared/lib/logger";
 import { prisma } from "@/shared/lib/prisma";
 import { getClerkUser } from "./clerk-admin";
 import { syncClerkUser, syncSignedInUser } from "./clerk-webhook";
 import { linkStaff } from "./reconcile";
+import { withStaffLock } from "./staff-lock";
 
 const lock = { ensureCanContinue: vi.fn() };
 
@@ -189,6 +191,7 @@ describe("syncSignedInUser（登録直後に本人がログインしたとき）
 	it("紐付けできて ACTIVE になれば true", async () => {
 		setClerkAccount();
 		vi.mocked(prisma.user.findUnique)
+			.mockResolvedValueOnce(makeStaff() as never) // ロックの前の確認 → PENDING
 			.mockResolvedValueOnce(null as never) // clerkUserId で探す → まだいない
 			.mockResolvedValueOnce(makeStaff() as never) // staffUserId で探す → PENDING
 			.mockResolvedValueOnce({ status: "ACTIVE" } as never); // 最後に状態を確認
@@ -199,15 +202,49 @@ describe("syncSignedInUser（登録直後に本人がログインしたとき）
 		expect(await syncSignedInUser("c1")).toBe(true);
 	});
 
-	it("取消済みのスタッフなら false（ACTIVE にしない）", async () => {
+	it("取消済みのスタッフなら false。ロックも取らない", async () => {
 		setClerkAccount();
-		vi.mocked(prisma.user.findUnique)
-			.mockResolvedValueOnce(null as never)
-			.mockResolvedValueOnce(makeStaff({ status: "INACTIVE" }) as never)
-			.mockResolvedValueOnce(null as never);
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
+			makeStaff({ status: "INACTIVE" }) as never,
+		);
 
 		expect(await syncSignedInUser("c1")).toBe(false);
+		expect(withStaffLock).not.toHaveBeenCalled();
 		expect(linkStaff).not.toHaveBeenCalled();
+	});
+
+	it("本システムの招待ではないアカウントなら false。ロックも DB も使わない", async () => {
+		setClerkAccount({ staffUserId: null });
+
+		expect(await syncSignedInUser("c1")).toBe(false);
+		expect(withStaffLock).not.toHaveBeenCalled();
+		expect(prisma.user.findUnique).not.toHaveBeenCalled();
+	});
+
+	it("ロックが取れない（503）なら false。担当者には知らせない", async () => {
+		setClerkAccount();
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
+			makeStaff() as never,
+		);
+		vi.mocked(withStaffLock).mockRejectedValueOnce(
+			new ApiError(503, "TEMPORARILY_UNAVAILABLE", "他の操作を処理中です"),
+		);
+
+		expect(await syncSignedInUser("c1")).toBe(false);
+		expect(notifyOps).not.toHaveBeenCalled();
+	});
+
+	it("想定外のエラーなら false にしつつ、担当者に知らせる", async () => {
+		setClerkAccount();
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
+			makeStaff() as never,
+		);
+		vi.mocked(withStaffLock).mockRejectedValueOnce(new TypeError("bug"));
+
+		expect(await syncSignedInUser("c1")).toBe(false);
+		expect(notifyOps).toHaveBeenCalledWith("SIGNED_IN_SYNC_FAILED", {
+			reason: "TypeError",
+		});
 	});
 
 	it("Clerk を確認できなければ false（エラーにしない）", async () => {
