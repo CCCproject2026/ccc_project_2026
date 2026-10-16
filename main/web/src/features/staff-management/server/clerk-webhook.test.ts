@@ -247,6 +247,19 @@ describe("syncSignedInUser（登録直後に本人がログインしたとき）
 		});
 	});
 
+	it("ロックの前の DB 確認で失敗しても false（500 画面にしない）。担当者に知らせる", async () => {
+		setClerkAccount();
+		vi.mocked(prisma.user.findUnique).mockRejectedValueOnce(
+			new Error("db down"),
+		);
+
+		expect(await syncSignedInUser("c1")).toBe(false);
+		expect(withStaffLock).not.toHaveBeenCalled();
+		expect(notifyOps).toHaveBeenCalledWith("SIGNED_IN_SYNC_FAILED", {
+			reason: "Error",
+		});
+	});
+
 	it("Clerk を確認できなければ false（エラーにしない）", async () => {
 		vi.mocked(getClerkUser).mockResolvedValue({
 			kind: "UNKNOWN",

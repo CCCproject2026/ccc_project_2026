@@ -16,17 +16,26 @@ import { type StaffLock, withStaffLock } from "./staff-lock";
 // このページは何度でも開けるので、紐付けの見込みがない人ではロックを取らない
 // （ロックを取ると、NURSE の操作や Webhook を待たせてしまうため）
 export async function syncSignedInUser(clerkUserId: string): Promise<boolean> {
-	// 1. ロックを取る前に、紐付けの見込みがあるかだけ確認する（DB は更新しない）
-	const isLinkable = await canAutoLinkLater(clerkUserId);
-	if (!isLinkable) {
-		return false;
-	}
-
-	// 2. ロックを取って、Webhook と同じ同期を行う
+	// 呼び出し元のページにはエラー画面がないため、DB の読み取りも含めてすべて try の中で行う
+	// （DB の一時的な失敗で 500 画面にしない）
 	try {
+		// 1. ロックを取る前に、紐付けの見込みがあるかだけ確認する（DB は更新しない）
+		const isLinkable = await canAutoLinkLater(clerkUserId);
+		if (!isLinkable) {
+			return false;
+		}
+
+		// 2. ロックを取って、Webhook と同じ同期を行う
 		await withStaffLock(async (lock) => {
 			await syncClerkUser(clerkUserId, lock);
 		});
+
+		// 3. ACTIVE になったかを確認する
+		const staff = await prisma.user.findUnique({
+			where: { clerkUserId },
+			select: { status: true },
+		});
+		return staff !== null && staff.status === "ACTIVE";
 	} catch (error) {
 		// 想定内：Clerk に届かない・ロックが取れない・時間切れ（どれも 503）
 		// 画面では「登録が完了していません」のまま。次に開いたときに、もう一度試す
@@ -40,12 +49,6 @@ export async function syncSignedInUser(clerkUserId: string): Promise<boolean> {
 		});
 		return false;
 	}
-
-	const staff = await prisma.user.findUnique({
-		where: { clerkUserId },
-		select: { status: true },
-	});
-	return staff !== null && staff.status === "ACTIVE";
 }
 
 // 本システムの招待から作られたアカウントで、相手のスタッフがまだ PENDING・未紐付けなら true
