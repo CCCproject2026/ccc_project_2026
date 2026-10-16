@@ -1,4 +1,6 @@
-export type RoleType = "看護師（管理者）" | "介護士";
+import type { RoleType } from "@/shared/validation/schemas";
+
+export type { RoleType };
 
 export interface StaffMember {
 	id: string;

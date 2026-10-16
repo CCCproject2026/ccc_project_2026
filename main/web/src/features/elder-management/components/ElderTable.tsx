@@ -55,7 +55,6 @@ export function ElderTable({
             <tr key={elder.id} className="hover:bg-gray-50 transition-colors">
               <td className="py-4 px-6">
                 <div className="font-medium">{elder.lastName} {elder.firstName}</div>
-                <div className="text-xs text-gray-500 font-mono">{elder.id}</div>
               </td>
               <td className="py-4 px-6">{elder.roomNumber}</td>
               <td className="py-4 px-6">

@@ -26,8 +26,6 @@ INACTIVE INACTIVE
         Gender {
             MALE MALE
 FEMALE FEMALE
-OTHER OTHER
-PREFER_NOT_TO_SAY PREFER_NOT_TO_SAY
         }
     
 
@@ -57,7 +55,7 @@ ERROR ERROR
     DateTime endDate "❓"
     DateTime dateOfBirth 
     String nationality 
-    String gender 
+    Gender gender 
     UserStatus status 
     DateTime createdAt 
     DateTime updatedAt 
@@ -119,6 +117,7 @@ ERROR ERROR
     }
   
     "User" |o--|| "UserRole" : "enum:role"
+    "User" |o--|| "Gender" : "enum:gender"
     "User" |o--|| "UserStatus" : "enum:status"
     "Elder" |o--|| "ElderStatus" : "enum:status"
     "Elder" |o--|| "Gender" : "enum:gender"

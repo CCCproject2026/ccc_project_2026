@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { CreateElderInput, ElderStatus } from "@/features/elder-management/types/elder.types";
+import { ElderStatus } from "@/features/elder-management/types/elder.types";
+import { elderCreateSchema } from "@/shared/validation/schemas";
 
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 20;
@@ -102,11 +103,15 @@ export async function POST(request: NextRequest) {
 
 
     const body = await request.json();
-    const { firstName, lastName, roomNumber, dateOfBirth, gender } = body as CreateElderInput;
-
-    if (!firstName || !lastName || !roomNumber || !dateOfBirth || !gender) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    const parsed = elderCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.issues },
+        { status: 400 },
+      );
     }
+
+    const { firstName, lastName, roomNumber, dateOfBirth, gender } = parsed.data;
 
     const elder = await prisma.elder.create({
       data: {

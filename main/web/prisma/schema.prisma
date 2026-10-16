@@ -48,10 +48,8 @@ enum ElderStatus {
 }
 
 enum Gender {
-  男性
-  女性
-  その他
-  回答しない
+  MALE
+  FEMALE
 }
 
 enum DeviceStatus {

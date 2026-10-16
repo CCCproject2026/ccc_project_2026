@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useReverification } from "@clerk/nextjs";
 import { HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlineChevronDown } from "react-icons/hi2";
 import { ElderStatus, ElderRow, ElderListParams, CreateElderInput, UpdateElderInput } from "@/features/elder-management/types/elder.types";
 import { ElderTable } from "@/features/elder-management/components/ElderTable";
@@ -8,6 +9,7 @@ import { AddElderModal } from "@/features/elder-management/components/AddElderMo
 import { ElderSummaryCards } from "@/features/elder-management/components/ElderSummaryCards";
 import { useElders, useCreateElder, useUpdateElder, useDeleteElder } from "@/features/elder-management/hooks/useElders";
 import { useDebouncedValue } from "@/features/elder-management/hooks/useDebouncedValue";
+import { clampPage, getTotalPages } from "@/features/elder-management/lib/pagination";
 
 export function ElderManagementPage() {
   const [page, setPage] = useState(1);
@@ -32,9 +34,23 @@ export function ElderManagementPage() {
   const total = data?.total ?? 0;
   const summary = data?.summary ?? { total: 0, active: 0, inactive: 0 };
 
+  const totalPages = getTotalPages(total, limit);
+
+  // 件数が減ったときに現在ページを有効範囲へ補正する（レンダー中の state 調整）。
+  // 例: 在籍中21件の2ページ目で1件を退所させると total は 20 になるため、
+  // page を 1 に戻さないと一覧が空になりページ操作もできなくなる。
+  const correctedPage = clampPage(page, total, limit);
+  if (correctedPage !== page) {
+    setPage(correctedPage);
+  }
+
   const createMutation = useCreateElder();
   const updateMutation = useUpdateElder();
   const deleteMutation = useDeleteElder();
+
+  // 退所（無効化）は影響が大きいため、実行前に Clerk の再認証（reverification）を必須にする。
+  // 再認証が必要な場合、useReverification がモーダルを表示し、成功後に DELETE を自動で再試行する。
+  const removeElder = useReverification((id: string) => deleteMutation.mutateAsync(id));
 
   const handleAdd = async (data: CreateElderInput) => {
     try {
@@ -55,10 +71,14 @@ const handleEdit = async (data: UpdateElderInput) => {
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const elder = elders.find((e) => e.id === id);
     if (!window.confirm(`${elder?.lastName} ${elder?.firstName} を退所・無効化しますか？`)) return;
-    deleteMutation.mutate(id);
+    try {
+      await removeElder(id);
+    } catch {
+      // 再認証のキャンセル、または削除失敗。失敗時は下部のエラーバナー（deleteMutation.isError）で通知する。
+    }
   };
 
   const handleReactivate = (id: string) => {
@@ -165,7 +185,7 @@ const handleEdit = async (data: UpdateElderInput) => {
             </button>
             <button
               onClick={() => setPage((p) => p + 1)}
-              disabled={page * limit >= total}
+              disabled={page >= totalPages}
               className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-sm"
             >
               次へ

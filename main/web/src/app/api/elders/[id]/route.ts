@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, reverificationErrorResponse } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { UpdateElderInput } from "@/features/elder-management/types/elder.types";
+import { elderUpdateSchema } from "@/shared/validation/schemas";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -75,7 +75,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
-    const { firstName, lastName, roomNumber, dateOfBirth, gender, status } = body as UpdateElderInput;
+    const parsed = elderUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const { firstName, lastName, roomNumber, dateOfBirth, gender, status } = parsed.data;
 
     const updateData: Record<string, unknown> = {};
     if (firstName !== undefined) updateData.firstName = firstName;
@@ -106,8 +114,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await checkNurseAuth();
-    if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    const authResult = await checkNurseAuth();
+    if ("error" in authResult) return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+
+    // 退所（無効化）は誤操作時の影響が大きいため、操作前に再認証（reverification）を必須にする。
+    // 未再認証の場合は Clerk のヒントを返し、クライアントの useReverification が
+    // 再認証モーダルを表示してリクエストを再試行する。
+    const { has } = await auth();
+    if (!has({ reverification: "strict" })) {
+      return reverificationErrorResponse("strict");
+    }
 
     const { id } = await params;
 

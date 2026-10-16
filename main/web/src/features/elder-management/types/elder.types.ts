@@ -1,5 +1,11 @@
-export type ElderStatus = "ACTIVE" | "INACTIVE";
-export type Gender = "男性" | "女性" | "その他" | "回答しない";
+import type {
+	CreateElderInput,
+	ElderStatus,
+	Gender,
+	UpdateElderInput,
+} from "@/shared/validation/schemas";
+
+export type { CreateElderInput, ElderStatus, Gender, UpdateElderInput };
 
 export interface Elder {
   id: string;
@@ -15,23 +21,6 @@ export interface Elder {
 
 export interface ElderRow extends Elder {
   currentDeviceId: string | null;
-}
-
-export interface CreateElderInput {
-  firstName: string;
-  lastName: string;
-  roomNumber: string;
-  dateOfBirth: string;
-  gender: Gender;
-}
-
-export interface UpdateElderInput {
-  firstName?: string;
-  lastName?: string;
-  roomNumber?: string;
-  dateOfBirth?: string;
-  gender?: Gender;
-  status?: ElderStatus;
 }
 
 export interface ElderListParams {
