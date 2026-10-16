@@ -20,6 +20,13 @@ jobs:
           cache-dependency-path: main/web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
+      # Tests import @prisma/client, so the client must be generated first
+      - name: Generate Prisma client
+        run: pnpm run prisma:generate
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+      - name: Run tests
+        run: pnpm run test
 
   lint-python:
     runs-on: ubuntu-latest

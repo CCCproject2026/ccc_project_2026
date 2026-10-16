@@ -32,6 +32,17 @@ Copy `.env.example` to `.env` and set keys:
 - `CLERK_SECRET_KEY` (server)
 - `CLERK_WEBHOOK_SECRET` (webhook verification)
 - `API_BASE_URL` (optional override)
+- `APP_URL` (optional; e.g. `http://localhost:3000`). Invitation emails link to `<APP_URL>/sign-up`. If unset, the link opens Clerk's hosted page instead. Must be a valid URL when set (checked at startup). Set it in production.
+
+## Scheduled jobs (Heroku Scheduler)
+
+Register in Heroku Scheduler (Resources → Heroku Scheduler → Add Job):
+
+| Command | Frequency | Purpose |
+|---|---|---|
+| `pnpm staff:reconcile-cancelled` | Every 10 minutes | Revokes Clerk invitations that remain for cancelled (INACTIVE, unlinked) staff. Run with `--dry-run` to only check. |
+
+`pnpm bootstrap:nurse` is for local development only. It refuses to run on Heroku (`DYNO` is set) or when `NODE_ENV` is anything other than unset / `development` / `test`.
 
 ## High-level folder map
 

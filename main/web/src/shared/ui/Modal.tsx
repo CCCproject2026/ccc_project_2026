@@ -18,7 +18,8 @@ export function Modal({
 	title,
 	children,
 	footer,
-	maxWidthClass = "max-w-md",
+	// 注意: max-w-md は globals.css の --spacing-md(12px) になってしまうので、px で指定する
+	maxWidthClass = "max-w-[448px]",
 }: ModalProps) {
 	const titleId = useId();
 	const dialogRef = useRef<HTMLDivElement>(null);

@@ -1,3 +1,4 @@
+import type { UserRole } from "@prisma/client";
 import { Cpu, LayoutDashboard, Users } from "lucide-react";
 import Link from "next/link";
 import { getMockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
@@ -6,8 +7,20 @@ import { SiberHeader } from "./SiberHeader";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarItem } from "./SidebarItem";
 
-export function Sidebar() {
+// ログイン中の人の情報（DB の User から渡す）
+interface SidebarProps {
+	role: UserRole;
+	lastName: string;
+	firstName: string;
+}
+
+export function Sidebar({ role, lastName, firstName }: SidebarProps) {
 	const alarmCount = getMockAlarmData().count ?? 0;
+
+	// スタッフ管理は NURSE だけが使えるので、NURSE のときだけメニューに出す
+	// （メニューを隠すだけでなく、ページと API でも NURSE かどうかチェックしている）
+	const canManageStaff = role === "NURSE";
+
 	return (
 		<>
 			<div className="hidden md:block w-64 h-screen shrink-0 bg-sidebar-bg">
@@ -34,14 +47,20 @@ export function Sidebar() {
 							label="デバイス管理"
 							icon={<Cpu className="w-5 h-5" />}
 						/>
-						<SidebarItem
-							href="/staff"
-							label="スタッフ管理"
-							icon={<Users className="w-5 h-5" />}
-						/>
+						{canManageStaff && (
+							<SidebarItem
+								href="/staff"
+								label="スタッフ管理"
+								icon={<Users className="w-5 h-5" />}
+							/>
+						)}
 					</nav>
 
-					<SidebarFooter />
+					<SidebarFooter
+						role={role}
+						lastName={lastName}
+						firstName={firstName}
+					/>
 				</aside>
 			</div>
 
@@ -66,21 +85,22 @@ export function Sidebar() {
 					)}
 				</Link>
 
+				{canManageStaff && (
+					<Link
+						href="/staff"
+						className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors"
+					>
+						<Users className="w-5 h-5" />
+						<span>スタッフ</span>
+					</Link>
+				)}
+				{/* マイページ（自分のスタッフ情報） */}
 				<Link
-					href="/staff"
-					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors"
-				>
-					<Users className="w-5 h-5" />
-					<span>スタッフ</span>
-				</Link>
-				{/* 修正：ユーザー情報は、他のボタンと同じサイズで「マイページ」のように並べると、画面が崩れません */}
-				<Link
-					// href="/profile"  なったらいい　いまいち　dashboard　にいくようにしている
-					href="/dashboard"
+					href="/profile"
 					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
 				>
 					<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
-						?
+						{lastName.charAt(0) || firstName.charAt(0) || "?"}
 					</div>
 					<span>マイページ</span>
 				</Link>
