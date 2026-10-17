@@ -23,6 +23,13 @@ INACTIVE INACTIVE
     
 
 
+        Gender {
+            MALE MALE
+FEMALE FEMALE
+        }
+    
+
+
         DeviceStatus {
             ACTIVE ACTIVE
 INACTIVE INACTIVE
@@ -48,7 +55,7 @@ ERROR ERROR
     DateTime endDate "❓"
     DateTime dateOfBirth 
     String nationality 
-    String gender 
+    Gender gender 
     UserStatus status 
     DateTime createdAt 
     DateTime updatedAt 
@@ -62,7 +69,7 @@ ERROR ERROR
     String roomNumber 
     ElderStatus status 
     DateTime dateOfBirth 
-    String gender 
+    Gender gender 
     DateTime createdAt 
     DateTime updatedAt 
     }
@@ -110,8 +117,10 @@ ERROR ERROR
     }
   
     "User" |o--|| "UserRole" : "enum:role"
+    "User" |o--|| "Gender" : "enum:gender"
     "User" |o--|| "UserStatus" : "enum:status"
     "Elder" |o--|| "ElderStatus" : "enum:status"
+    "Elder" |o--|| "Gender" : "enum:gender"
     "Device" |o--|| "DeviceStatus" : "enum:status"
     "DeviceAssignment" }o--|| "Elder" : "elder"
     "DeviceAssignment" }o--|| "Device" : "device"
