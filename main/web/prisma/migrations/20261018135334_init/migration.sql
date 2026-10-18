@@ -8,6 +8,9 @@ CREATE TYPE "UserStatus" AS ENUM ('PENDING', 'ACTIVE', 'INACTIVE');
 CREATE TYPE "ElderStatus" AS ENUM ('ACTIVE', 'INACTIVE');
 
 -- CreateEnum
+CREATE TYPE "Gender" AS ENUM ('MALE', 'FEMALE');
+
+-- CreateEnum
 CREATE TYPE "DeviceStatus" AS ENUM ('ACTIVE', 'INACTIVE');
 
 -- CreateEnum
@@ -25,7 +28,7 @@ CREATE TABLE "User" (
     "endDate" DATE,
     "dateOfBirth" DATE NOT NULL,
     "nationality" TEXT NOT NULL,
-    "gender" TEXT NOT NULL,
+    "gender" "Gender" NOT NULL,
     "status" "UserStatus" NOT NULL DEFAULT 'PENDING',
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
@@ -41,7 +44,7 @@ CREATE TABLE "Elder" (
     "roomNumber" TEXT NOT NULL,
     "status" "ElderStatus" NOT NULL DEFAULT 'ACTIVE',
     "dateOfBirth" DATE NOT NULL,
-    "gender" TEXT NOT NULL,
+    "gender" "Gender" NOT NULL,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
@@ -164,30 +167,3 @@ ALTER TABLE "ResponseRecord" ADD CONSTRAINT "ResponseRecord_elderId_fkey" FOREIG
 
 -- AddForeignKey
 ALTER TABLE "ResponseRecord" ADD CONSTRAINT "ResponseRecord_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- Prisma のスキーマ文法で表現できない制約（詳細設計 §6）
--- @@unique に部分条件を書けないため、有効な割当の重複は migration で管理する
-
--- 有効な割当の重複防止（詳細設計 §6.1）
-CREATE UNIQUE INDEX "device_assignment_active_elder_idx"
-ON "DeviceAssignment" ("elderId")
-WHERE "unassignedAt" IS NULL;
-
-CREATE UNIQUE INDEX "device_assignment_active_device_idx"
-ON "DeviceAssignment" ("deviceId")
-WHERE "unassignedAt" IS NULL;
-
--- 割当期間の整合性（詳細設計 §6.2）
-ALTER TABLE "DeviceAssignment"
-ADD CONSTRAINT "device_assignment_period_check"
-CHECK ("unassignedAt" IS NULL OR "assignedAt" < "unassignedAt");
-
--- 対応記録の日時整合性（詳細設計 §6.3）
-ALTER TABLE "ResponseRecord"
-ADD CONSTRAINT "response_record_time_check"
-CHECK ("responseStartedAt" <= "completedAt");
-
--- 対応記録の入力制約（詳細設計 §4.5）content は空文字・空白のみを許可しない
-ALTER TABLE "ResponseRecord"
-ADD CONSTRAINT "response_record_content_check"
-CHECK (length(btrim("content")) > 0);

@@ -5,6 +5,7 @@ This document describes the `web` workspace (Next.js App Router) and the staff a
 ## Quick start
 
 Prerequisites:
+
 - Node.js (18+ recommended)
 - pnpm
 - PostgreSQL (if you enable Prisma persistence)
@@ -28,6 +29,7 @@ pnpm prisma:seed
 ## Environment
 
 Copy `.env.example` to `.env` and set keys:
+
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (frontend)
 - `CLERK_SECRET_KEY` (server)
 - `CLERK_WEBHOOK_SECRET` (webhook verification)
@@ -96,6 +98,7 @@ Copy `.env.example` to `.env` and set keys:
 
 Current state: in-memory store (`lib/staff-db.ts`) used for development and demo.
 Next steps to persist:
+
 1. Add `Staff` and `Invitation` models to `prisma/schema.prisma`.
 2. Implement `lib/staff-db` -> `lib/staff-repo.ts` using Prisma client.
 3. Migrate the webhook handler and API route handlers to use the Prisma-backed repo.
@@ -115,7 +118,8 @@ Next steps to persist:
 - Enable Prisma persistence and migrate `staff` models.
 - Implement Clerk server integration (`lib/clerk.ts`) with proper error handling and retries.
 - Add UI to manage role assignment with confirmation dialog and audit log.
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 ## User journey maps
 
 ### Nurse (Primary user)
@@ -155,3 +159,15 @@ Key UI components used: `AddStaffModal`, `StaffTable`, `PendingInviteRow`, `Devi
 - Invitation race: invited user accepts before admin sees the pending list — webhook handler must deduplicate and upsert staff records.
 - Role downgrade/demotion: require confirmation dialog and optionally record reason for audit.
 - Offline handling: queue acknowledge/response actions when the app is offline and sync on reconnect.
+
+### WEB APP USER ACCOUNT FOR DEVELOPMENT
+
+1. Nurse account:
+   - Email: `c250324@ccg.ac.jp`
+   - Password: `testing123!"#`
+   - (for development only; Clerk handles auth in production)
+
+2. Caregiver account:
+   - Email: `c250321@ccg.ac.jp`
+   - Password: `Test9102000`
+   - (for development only; Clerk handles auth in production)1

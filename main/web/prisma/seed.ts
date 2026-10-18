@@ -15,21 +15,23 @@ async function main() {
 	//    Clerk を認証情報の正、User をロール・利用状態の正とする。
 	//    招待中スタッフは clerkUserId が NULL を許可する。
 	// ----------------------------------------------------------------
+	// テスト用 Clerk アカウントを有効な看護師として紐付ける。
 	const nurse = await prisma.user.upsert({
 		where: { id: "user_nurse_001" },
 		update: {
-			email: "nurse.one@example.com",
-			firstName: "花子",
-			lastName: "山田",
+			clerkUserId: "user_3KrisCDb429DjaVmsHgaD0A5wJh",
+			email: "c250324@ccg.ac.jp",
+			firstName: "testing",
+			lastName: "nurse",
 			role: UserRole.NURSE,
 			status: UserStatus.ACTIVE,
 		},
 		create: {
 			id: "user_nurse_001",
-			clerkUserId: "clerk_id_nurse_111", // Clerk連携用のダミーID
-			email: "nurse.one@example.com",
-			firstName: "花子",
-			lastName: "山田",
+			clerkUserId: "user_3KrisCDb429DjaVmsHgaD0A5wJh",
+			email: "c250324@ccg.ac.jp",
+			firstName: "testing",
+			lastName: "nurse",
 			role: UserRole.NURSE,
 			status: UserStatus.ACTIVE,
 			startDate: new Date("2024-04-01T00:00:00.000Z"),
@@ -43,18 +45,19 @@ async function main() {
 	const member = await prisma.user.upsert({
 		where: { id: "user_caregiver_001" },
 		update: {
-			email: "caregiver.one@example.com",
-			firstName: "太郎",
-			lastName: "佐藤",
+			clerkUserId: "user_3Jcr3TjmrjKmm8nAR6GlHEoyZ3z",
+			email: "c250321@ccg.ac.jp",
+			firstName: "testing",
+			lastName: "caregiver",
 			role: UserRole.CAREGIVER,
 			status: UserStatus.ACTIVE,
 		},
 		create: {
 			id: "user_caregiver_001",
-			clerkUserId: "clerk_id_caregiver_888",
-			email: "caregiver.one@example.com",
-			firstName: "太郎",
-			lastName: "佐藤",
+			clerkUserId: "user_3Jcr3TjmrjKmm8nAR6GlHEoyZ3z",
+			email: "c250321@ccg.ac.jp",
+			firstName: "testing",
+			lastName: "caregiver",
 			role: UserRole.CAREGIVER,
 			status: UserStatus.ACTIVE,
 			startDate: new Date("2025-09-01T00:00:00.000Z"),
@@ -76,10 +79,10 @@ async function main() {
 		},
 		create: {
 			id: "user_nurse_pending_001",
-			clerkUserId: null,
-			email: "nurse.invited@example.com",
-			firstName: "由紀",
-			lastName: "山本",
+			clerkUserId: "user_3Kid0rQHOWx0tnCpJE2JbSPIAL6",
+			email: "c250447@ccg.ac.jp",
+			firstName: "win htut",
+			lastName: "oo",
 			role: UserRole.NURSE,
 			status: UserStatus.PENDING,
 			startDate: new Date("2026-10-01T00:00:00.000Z"),

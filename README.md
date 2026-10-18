@@ -110,9 +110,9 @@ After inference, FastAPI acts as a client and POSTs the result to the web applic
 - **Payload:**
 
 {
-isfall :  0   or    1, 
+isfall : 0 or 1,
 battery_per : 30.0,
-device_name :  testDev_1,
+device_name : testDev_1,
 status : active
 }
 
