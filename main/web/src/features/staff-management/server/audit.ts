@@ -5,7 +5,7 @@ type StateSnapshot = { status: string; role: string };
 type StaffOperationLog = {
 	actorId: string | null; // null = Webhook・定期処理
 	targetId: string;
-	action: string; // "INVITE" | "SYNC" | "CANCEL" | "REINVITE" | "ACTIVATE" | "DEACTIVATE" | "CHANGE_ROLE"
+	action: string; // "INVITE" | "SYNC" | "CANCEL" | "REINVITE" | "ACTIVATE" | "DEACTIVATE" | "CHANGE_ROLE" | "CLERK_USER_DELETED"
 	before?: StateSnapshot;
 	after?: StateSnapshot;
 	externalResult?: "SUCCESS" | "FAILED" | "UNKNOWN" | "SKIPPED";

@@ -2,7 +2,10 @@
 import type { WebhookEvent } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
-import { syncClerkUser } from "@/features/staff-management/server/clerk-webhook";
+import {
+	syncClerkUser,
+	unlinkDeletedClerkUser,
+} from "@/features/staff-management/server/clerk-webhook";
 import { withStaffLock } from "@/features/staff-management/server/staff-lock";
 import { ApiError } from "@/shared/lib/api-error";
 import { serverEnv } from "@/shared/lib/env";
@@ -32,16 +35,27 @@ export async function POST(request: Request) {
 		);
 	}
 
-	// 2. user.created / user.updated だけ処理する。それ以外は受け取るだけ
-	if (event.type !== "user.created" && event.type !== "user.updated") {
+	// 2. user.created / user.updated / user.deleted だけ処理する。それ以外は受け取るだけ
+	const isSyncEvent =
+		event.type === "user.created" || event.type === "user.updated";
+	const isDeleteEvent = event.type === "user.deleted";
+	if (!isSyncEvent && !isDeleteEvent) {
 		return NextResponse.json({ received: true });
 	}
+	// user.deleted の本文では id が省略されることがある。id がなければ何もできない
 	const clerkUserId = event.data.id;
+	if (!clerkUserId) {
+		return NextResponse.json({ received: true });
+	}
 
 	// 3. 共通ロックの中で、Clerk の最新情報を使って同期する
 	try {
 		await withStaffLock(async (lock) => {
-			await syncClerkUser(clerkUserId, lock);
+			if (isDeleteEvent) {
+				await unlinkDeletedClerkUser(clerkUserId, lock);
+			} else {
+				await syncClerkUser(clerkUserId, lock);
+			}
 		});
 		return NextResponse.json({ received: true });
 	} catch (error) {

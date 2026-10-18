@@ -114,6 +114,78 @@ export async function syncClerkUser(
 	await tryAutoLink(clerkUser, lock);
 }
 
+// Clerk の user.deleted を受け取ったときの処理
+// 呼び出し側でロックを取ってから呼ぶこと
+//
+// Clerk のダッシュボードでアカウントが削除されると、その人はもうログインできない。
+// DB の User は物理削除しない（設計書）ので、INACTIVE・未紐付けにする。
+// こうしておくと、同じ人が戻ってきたときに NURSE が画面から「再招待」できる。
+// （紐付けたままだと、「有効化」は Clerk アカウントがないので失敗し、
+//   「再招待」は紐付け済みなので受け付けず、画面から直せなくなる）
+export async function unlinkDeletedClerkUser(
+	clerkUserId: string,
+	lock: StaffLock,
+): Promise<void> {
+	// 1. 本当に削除されたかを Clerk に確認する（古いイベントや偽のイベントで外さないため）
+	lock.ensureCanContinue();
+	const result = await getClerkUser(clerkUserId);
+	if (result.kind !== "SUCCESS") {
+		// 5xx を返して、Clerk に再送してもらう
+		throw new ApiError(
+			503,
+			"TEMPORARILY_UNAVAILABLE",
+			"Clerk からユーザー情報を取得できませんでした",
+		);
+	}
+	// まだアカウントがある → 何もしない
+	if (result.data !== null) {
+		return;
+	}
+
+	// 2. 紐付いているスタッフを探す。いなければ何もしない（再送されたときも、ここで終わる）
+	const staff = await prisma.user.findUnique({
+		where: { clerkUserId },
+	});
+	if (staff === null) {
+		return;
+	}
+
+	// 3. INACTIVE・未紐付けにする。role・プロフィール・email はそのまま残す
+	lock.ensureCanContinue();
+	const updated = await prisma.user.updateMany({
+		where: { id: staff.id, clerkUserId },
+		data: { status: "INACTIVE", clerkUserId: null },
+	});
+	// 0件 = 途中で別の操作が先に変えた → 何もしない
+	if (updated.count === 0) {
+		return;
+	}
+
+	logStaffOperation({
+		actorId: null,
+		targetId: staff.id,
+		action: "CLERK_USER_DELETED",
+		before: { status: staff.status, role: staff.role },
+		after: { status: "INACTIVE", role: staff.role },
+		externalResult: "SKIPPED",
+	});
+
+	// 4. 利用中の NURSE がいなくなったら、担当者に知らせる
+	// Clerk 側で既に削除されているので、ここで止めることはできない
+	if (staff.status === "ACTIVE" && staff.role === "NURSE") {
+		const nurseCount = await prisma.user.count({
+			where: { status: "ACTIVE", role: "NURSE" },
+		});
+		if (nurseCount === 0) {
+			notifyOps("LAST_NURSE_DELETED", {
+				targetId: staff.id,
+				reason:
+					"Clerk で最後の看護師（管理者）のアカウントが削除されました。bootstrap-nurse で復旧してください",
+			});
+		}
+	}
+}
+
 // 紐付け済みスタッフの email を、Clerk の最新の email にそろえる
 // role・status は変えない（INACTIVE を ACTIVE に戻したりしない）
 async function syncEmail(

@@ -19,14 +19,21 @@ vi.mock("./staff-lock", () => ({
 }));
 vi.mock("@/shared/lib/logger", () => ({ notifyOps: vi.fn() }));
 vi.mock("@/shared/lib/prisma", () => ({
-	prisma: { user: { findUnique: vi.fn(), updateMany: vi.fn() } },
+	prisma: {
+		user: { findUnique: vi.fn(), updateMany: vi.fn(), count: vi.fn() },
+	},
 }));
 
 import { ApiError } from "@/shared/lib/api-error";
 import { notifyOps } from "@/shared/lib/logger";
 import { prisma } from "@/shared/lib/prisma";
+import { logStaffOperation } from "./audit";
 import { getClerkUser } from "./clerk-admin";
-import { syncClerkUser, syncSignedInUser } from "./clerk-webhook";
+import {
+	syncClerkUser,
+	syncSignedInUser,
+	unlinkDeletedClerkUser,
+} from "./clerk-webhook";
 import { linkStaff } from "./reconcile";
 import { withStaffLock } from "./staff-lock";
 
@@ -266,5 +273,121 @@ describe("syncSignedInUser（登録直後に本人がログインしたとき）
 			reason: "TIMEOUT",
 		});
 		expect(await syncSignedInUser("c1")).toBe(false);
+	});
+});
+
+describe("unlinkDeletedClerkUser（Clerk でアカウントが削除されたとき）", () => {
+	// Clerk に確認すると「削除済み」と返ってくる
+	function setClerkDeleted() {
+		vi.mocked(getClerkUser).mockResolvedValue({ kind: "SUCCESS", data: null });
+	}
+
+	it("紐付いているスタッフを INACTIVE・未紐付けにする（再招待できる状態）", async () => {
+		setClerkDeleted();
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
+			makeStaff({ status: "ACTIVE", clerkUserId: "c1" }) as never,
+		);
+		vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 1 });
+
+		await unlinkDeletedClerkUser("c1", lock);
+		expect(prisma.user.updateMany).toHaveBeenCalledWith({
+			where: { id: "user-1", clerkUserId: "c1" },
+			data: { status: "INACTIVE", clerkUserId: null },
+		});
+		expect(logStaffOperation).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: "CLERK_USER_DELETED",
+				before: { status: "ACTIVE", role: "CAREGIVER" },
+				after: { status: "INACTIVE", role: "CAREGIVER" },
+			}),
+		);
+		// NURSE ではないので、人数は数えない
+		expect(prisma.user.count).not.toHaveBeenCalled();
+	});
+
+	it("利用停止中（INACTIVE・紐付け済み）のスタッフも未紐付けにする", async () => {
+		setClerkDeleted();
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
+			makeStaff({ status: "INACTIVE", clerkUserId: "c1" }) as never,
+		);
+		vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 1 });
+
+		await unlinkDeletedClerkUser("c1", lock);
+		expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
+	});
+
+	it("Clerk にまだアカウントがあれば何もしない（古い・偽のイベント）", async () => {
+		setClerkAccount();
+
+		await unlinkDeletedClerkUser("c1", lock);
+		expect(prisma.user.findUnique).not.toHaveBeenCalled();
+		expect(prisma.user.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("Clerk を確認できなければ 503 を投げて、再送してもらう", async () => {
+		vi.mocked(getClerkUser).mockResolvedValue({
+			kind: "UNKNOWN",
+			reason: "TIMEOUT",
+		});
+
+		await expect(unlinkDeletedClerkUser("c1", lock)).rejects.toMatchObject({
+			status: 503,
+		});
+		expect(prisma.user.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("紐付いているスタッフがいなければ何もしない（再送されたときなど）", async () => {
+		setClerkDeleted();
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null as never);
+
+		await unlinkDeletedClerkUser("c1", lock);
+		expect(prisma.user.updateMany).not.toHaveBeenCalled();
+		expect(logStaffOperation).not.toHaveBeenCalled();
+	});
+
+	it("途中で別の操作が先に変えていたら（0件）、記録しない", async () => {
+		setClerkDeleted();
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
+			makeStaff({ status: "ACTIVE", clerkUserId: "c1" }) as never,
+		);
+		vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 0 });
+
+		await unlinkDeletedClerkUser("c1", lock);
+		expect(logStaffOperation).not.toHaveBeenCalled();
+	});
+
+	it("最後の利用中 NURSE が削除されたら、担当者に知らせる", async () => {
+		setClerkDeleted();
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
+			makeStaff({
+				status: "ACTIVE",
+				role: "NURSE",
+				clerkUserId: "c1",
+			}) as never,
+		);
+		vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 1 });
+		vi.mocked(prisma.user.count).mockResolvedValueOnce(0);
+
+		await unlinkDeletedClerkUser("c1", lock);
+		expect(notifyOps).toHaveBeenCalledWith(
+			"LAST_NURSE_DELETED",
+			expect.objectContaining({ targetId: "user-1" }),
+		);
+	});
+
+	it("他に利用中の NURSE がいれば、知らせない", async () => {
+		setClerkDeleted();
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
+			makeStaff({
+				status: "ACTIVE",
+				role: "NURSE",
+				clerkUserId: "c1",
+			}) as never,
+		);
+		vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 1 });
+		vi.mocked(prisma.user.count).mockResolvedValueOnce(1);
+
+		await unlinkDeletedClerkUser("c1", lock);
+		expect(notifyOps).not.toHaveBeenCalled();
 	});
 });
