@@ -37,17 +37,56 @@ const personNameSchema = (label: string) =>
 		.min(1, `${label}を入力してください`)
 		.max(50, `${label}は50文字以内で入力してください`);
 
-// 生年月日（YYYY-MM-DD）。不正な日付・未来日・0〜130歳の範囲外を拒否する。
+// 生年月日（YYYY-MM-DD）。
+// 1) 形式（YYYY-MM-DD）と実在する日付かを確認し、2) 未来日・0〜130歳の範囲外を拒否する。
+// new Date("1940-02-31") は 3/2 に繰り上がってしまうため、要素が一致するかで実在を判定する。
+const DATE_OF_BIRTH_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDateOfBirth(value: string): Date | null {
+	if (!DATE_OF_BIRTH_PATTERN.test(value)) return null;
+	const [year, month, day] = value.split("-").map(Number);
+	const date = new Date(Date.UTC(year, month - 1, day));
+	const isRealDate =
+		date.getUTCFullYear() === year &&
+		date.getUTCMonth() === month - 1 &&
+		date.getUTCDate() === day;
+	return isRealDate ? date : null;
+}
+
+// 誕生日を迎えたかどうかも考慮した満年齢を返す。
+function calculateAge(birth: Date, today: Date): number {
+	let age = today.getUTCFullYear() - birth.getUTCFullYear();
+	const monthDiff = today.getUTCMonth() - birth.getUTCMonth();
+	if (monthDiff < 0 || (monthDiff === 0 && today.getUTCDate() < birth.getUTCDate())) {
+		age -= 1;
+	}
+	return age;
+}
+
+// ローカルの「今日」を UTC 0時の Date として返す（生年月日と日付単位で比較するため）。
+function todayAsCalendarDate(): Date {
+	const now = new Date();
+	return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
 const dateOfBirthSchema = z
 	.string()
+	.trim()
 	.min(1, "生年月日を入力してください")
-	.refine((value) => {
-		const date = new Date(value);
-		if (Number.isNaN(date.getTime())) return false;
-		const today = new Date();
-		const age = today.getFullYear() - date.getFullYear();
-		return date <= today && age >= 0 && age <= 130;
-	}, "有効な生年月日を入力してください（0〜130歳、未来日不可）");
+	.refine((value) => parseDateOfBirth(value) !== null, {
+		message: "生年月日は YYYY-MM-DD 形式の実在する日付で入力してください",
+	})
+	.refine(
+		(value) => {
+			const date = parseDateOfBirth(value);
+			if (!date) return false;
+			const today = todayAsCalendarDate();
+			return date.getTime() <= today.getTime() && calculateAge(date, today) <= 130;
+		},
+		{
+			message: "有効な生年月日を入力してください（0〜130歳、未来日不可）",
+		},
+	);
 
 // ---- 高齢者 ----
 

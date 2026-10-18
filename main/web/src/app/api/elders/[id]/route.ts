@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth, reverificationErrorResponse } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { elderUpdateSchema } from "@/shared/validation/schemas";
+import { requiresReverification } from "@/shared/lib/reverification";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -25,6 +26,17 @@ async function checkNurseAuth() {
   }
 
   return { userId };
+}
+
+// 退所など影響の大きい操作の前に Clerk の再認証（reverification）を必須にする。
+// 未再認証の場合は Clerk のヒント（403）を返し、クライアントの useReverification が
+// 再認証モーダルを表示してリクエストを再試行する。
+async function checkReverification(): Promise<Response | null> {
+  const { has } = await auth();
+  if (!has({ reverification: "strict" })) {
+    return reverificationErrorResponse("strict");
+  }
+  return null;
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
@@ -70,8 +82,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await checkNurseAuth();
-    if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    const authResult = await checkNurseAuth();
+    if ("error" in authResult) return NextResponse.json({ error: authResult.error }, { status: authResult.status });
 
     const { id } = await params;
     const body = await request.json();
@@ -81,6 +93,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { error: "Validation failed", details: parsed.error.issues },
         { status: 400 },
       );
+    }
+
+    // 退所（INACTIVE への変更）は DELETE と同じ扱いにするため、更新経由でも再認証を必須にする。
+    if (requiresReverification(parsed.data)) {
+      const reverification = await checkReverification();
+      if (reverification) return reverification;
     }
 
     const { firstName, lastName, roomNumber, dateOfBirth, gender, status } = parsed.data;
@@ -117,13 +135,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     const authResult = await checkNurseAuth();
     if ("error" in authResult) return NextResponse.json({ error: authResult.error }, { status: authResult.status });
 
-    // 退所（無効化）は誤操作時の影響が大きいため、操作前に再認証（reverification）を必須にする。
-    // 未再認証の場合は Clerk のヒントを返し、クライアントの useReverification が
-    // 再認証モーダルを表示してリクエストを再試行する。
-    const { has } = await auth();
-    if (!has({ reverification: "strict" })) {
-      return reverificationErrorResponse("strict");
-    }
+    // 退所（無効化）は誤操作時の影響が大きいため、操作前に再認証を必須にする。
+    const reverification = await checkReverification();
+    if (reverification) return reverification;
 
     const { id } = await params;
 

@@ -13,3 +13,13 @@ export type ReverificationHint = { clerk_error: unknown };
 export function isReverificationHint(body: unknown): body is ReverificationHint {
 	return typeof body === "object" && body !== null && "clerk_error" in body;
 }
+
+/**
+ * PATCH（更新）で再認証を必須にすべき変更かどうか。
+ *
+ * 退所（INACTIVE への変更）は DELETE と同じく誤操作の影響が大きいため、
+ * 更新経由であっても再認証を必須にする。
+ */
+export function requiresReverification(update: { status?: string }): boolean {
+	return update.status === "INACTIVE";
+}
