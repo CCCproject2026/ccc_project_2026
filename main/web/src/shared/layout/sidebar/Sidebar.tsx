@@ -1,4 +1,4 @@
-import { Cpu, LayoutDashboard, Users } from "lucide-react";
+import { Cpu, LayoutDashboard, Users, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { getMockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { MobileSignOutButton } from "./MobileSignOutButton";
@@ -39,6 +39,11 @@ export function Sidebar() {
 							label="スタッフ管理"
 							icon={<Users className="w-5 h-5" />}
 						/>
+						<SidebarItem
+							href="/elders"
+							label="高齢者管理"
+							icon={<UserPlus className="w-5 h-5" />}
+						/>
 					</nav>
 
 					<SidebarFooter />
@@ -72,6 +77,13 @@ export function Sidebar() {
 				>
 					<Users className="w-5 h-5" />
 					<span>スタッフ</span>
+				</Link>
+				<Link
+					href="/elders"
+					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors"
+				>
+					<UserPlus className="w-5 h-5" />
+					<span>高齢者</span>
 				</Link>
 				{/* 修正：ユーザー情報は、他のボタンと同じサイズで「マイページ」のように並べると、画面が崩れません */}
 				<Link

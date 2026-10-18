@@ -36,6 +36,7 @@ dist/
 main/web/dist/
 build/
 main/web/build/
+*.tsbuildinfo
 
 # Python caches and virtual environments
 __pycache__/

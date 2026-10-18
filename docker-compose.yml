@@ -8,7 +8,22 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
+
+  # 起動時にスキーマを最新化する一度きりのサービス（Exited (0) で正常終了）
+  migrate:
+    build:
+      context: ./main/web
+      target: builder
+    command: pnpm prisma:deploy
+    env_file:
+      - ./main/web/.env.docker
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
 
   prisma:
     build:
@@ -21,6 +36,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    profiles:
+      - tools
+    restart: "no"
+
+  # ユニットテスト（Vitest）。DB 不要。tools プロファイルでのみ有効。
+  #   docker compose run --rm test
+  test:
+    build:
+      context: ./main/web
+      target: builder
+    command: pnpm test
     profiles:
       - tools
     restart: "no"

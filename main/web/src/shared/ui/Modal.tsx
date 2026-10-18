@@ -18,7 +18,7 @@ export function Modal({
 	title,
 	children,
 	footer,
-	maxWidthClass = "max-w-md",
+	maxWidthClass = "max-w-[28rem]",
 }: ModalProps) {
 	const titleId = useId();
 	const dialogRef = useRef<HTMLDivElement>(null);
