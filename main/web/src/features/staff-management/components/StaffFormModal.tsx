@@ -125,8 +125,6 @@ export function StaffFormModal(props: StaffFormModalProps) {
 
 	// フォームを開くたびに、中身を入れ直す
 	useEffect(() => {
-		// 開き直したときに、前回の確認ダイアログが残らないようにする
-		setPendingValues(null);
 		if (!open) {
 			return;
 		}
