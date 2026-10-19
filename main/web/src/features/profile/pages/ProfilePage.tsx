@@ -7,6 +7,7 @@ import {
 	HiOutlineUser,
 } from "react-icons/hi2";
 import {
+	getGenderLabel,
 	ROLE_LABELS,
 	STATUS_LABELS,
 } from "@/features/staff-management/constants/staff.constant";
@@ -135,7 +136,7 @@ export function ProfilePage({ profile }: ProfilePageProps) {
 					<InfoRow
 						icon={<HiOutlineUser />}
 						label="性別"
-						value={profile.gender}
+						value={getGenderLabel(profile.gender)}
 					/>
 				</dl>
 			</section>

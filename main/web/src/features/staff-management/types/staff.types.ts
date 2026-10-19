@@ -6,6 +6,9 @@ export type StaffRole = "NURSE" | "CAREGIVER";
 // DB の UserStatus と同じ値
 export type StaffStatus = "PENDING" | "ACTIVE" | "INACTIVE";
 
+// 性別（DB に保存する値）
+export type StaffGender = "FEMALE" | "MALE";
+
 // 画面に表示する操作ボタンの種類
 export type StaffAction =
 	| "SYNC" // 照合

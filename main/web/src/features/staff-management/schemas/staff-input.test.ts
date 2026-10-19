@@ -10,7 +10,7 @@ const validInput = {
 	dateOfBirth: "1990-04-01",
 	startDate: "2026-10-01",
 	nationality: "日本",
-	gender: "女性",
+	gender: "FEMALE",
 };
 
 describe("staffInviteSchema（性別）", () => {

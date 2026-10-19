@@ -60,7 +60,7 @@ function makeStaff(overrides: Partial<User> = {}): User {
 		endDate: null,
 		dateOfBirth: new Date("1990-04-01T00:00:00.000Z"),
 		nationality: "日本",
-		gender: "女性",
+		gender: "FEMALE",
 		status: "PENDING",
 		createdAt: new Date("2026-10-13T00:00:00.000Z"),
 		updatedAt: new Date("2026-10-13T00:00:00.000Z"),

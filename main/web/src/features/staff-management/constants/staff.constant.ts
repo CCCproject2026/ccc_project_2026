@@ -1,4 +1,5 @@
 import type {
+	StaffGender,
 	StaffManualCheckReason,
 	StaffRole,
 	StaffStatus,
@@ -17,6 +18,21 @@ export const STATUS_LABELS: Record<StaffStatus, string> = {
 	ACTIVE: "利用中",
 	INACTIVE: "停止中",
 };
+
+// 画面に表示する性別
+export const GENDER_LABELS: Record<StaffGender, string> = {
+	FEMALE: "女性",
+	MALE: "男性",
+};
+
+// 性別の表示名を返す
+// DB の値が想定外（古いデータなど）のときは、そのまま表示する
+export function getGenderLabel(gender: string): string {
+	if (gender === "FEMALE" || gender === "MALE") {
+		return GENDER_LABELS[gender];
+	}
+	return gender;
+}
 
 // 照合・招待の結果ごとに表示するメッセージ
 export const SYNC_RESULT_MESSAGES: Record<StaffSyncResult, string> = {

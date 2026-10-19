@@ -1,5 +1,5 @@
 import type { UserRole } from "@prisma/client";
-import { Cpu, LayoutDashboard, Users } from "lucide-react";
+import { Cpu, LayoutDashboard, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { getMockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { MobileSignOutButton } from "./MobileSignOutButton";
@@ -54,6 +54,12 @@ export function Sidebar({ role, lastName, firstName }: SidebarProps) {
 								icon={<Users className="w-5 h-5" />}
 							/>
 						)}
+						{/* 高齢者管理は全員が見られる（登録・編集は NURSE だけ。API でチェックしている） */}
+						<SidebarItem
+							href="/elders"
+							label="高齢者管理"
+							icon={<UserPlus className="w-5 h-5" />}
+						/>
 					</nav>
 
 					<SidebarFooter
@@ -94,6 +100,13 @@ export function Sidebar({ role, lastName, firstName }: SidebarProps) {
 						<span>スタッフ</span>
 					</Link>
 				)}
+				<Link
+					href="/elders"
+					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors"
+				>
+					<UserPlus className="w-5 h-5" />
+					<span>高齢者</span>
+				</Link>
 				{/* マイページ（自分のスタッフ情報） */}
 				<Link
 					href="/profile"

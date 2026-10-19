@@ -8,8 +8,9 @@ export const staffRoleSchema = z.enum(["NURSE", "CAREGIVER"], {
 	message: "ロールを選択してください",
 });
 
-// 性別の選択肢（画面のドロップダウンと同じ値）
-export const GENDER_OPTIONS = ["女性", "男性"] as const;
+// 性別の選択肢（DB に保存する値。英語のコード）
+// 画面に表示する日本語は GENDER_LABELS（staff.constant.ts）を使う
+export const GENDER_OPTIONS = ["FEMALE", "MALE"] as const;
 
 // ===== 項目ごとのチェック（新規招待と再招待で共通） =====
 

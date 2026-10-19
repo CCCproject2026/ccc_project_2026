@@ -4,7 +4,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { type Resolver, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
-import { ROLE_LABELS } from "@/features/staff-management/constants/staff.constant";
+import {
+	GENDER_LABELS,
+	ROLE_LABELS,
+} from "@/features/staff-management/constants/staff.constant";
 import {
 	GENDER_OPTIONS,
 	type StaffInviteInput,
@@ -298,7 +301,7 @@ export function StaffFormModal(props: StaffFormModalProps) {
 					</FormField>
 				</div>
 
-				{/* 国籍（自由入力）・性別（女性・男性から選ぶ） */}
+				{/* 国籍（自由入力）・性別（女性・男性から選ぶ。DB には FEMALE / MALE で保存） */}
 				<div className="grid grid-cols-2 gap-3">
 					<FormField
 						label="国籍"
@@ -330,7 +333,7 @@ export function StaffFormModal(props: StaffFormModalProps) {
 							</option>
 							{GENDER_OPTIONS.map((option) => (
 								<option key={option} value={option}>
-									{option}
+									{GENDER_LABELS[option]}
 								</option>
 							))}
 						</select>
