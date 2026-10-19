@@ -85,6 +85,35 @@ async function main() {
 		},
 	});
 
+	// 実際に Clerk に登録済みの開発用 NURSE: Kyi Pyar Hlaing
+	// clerkUserId は開発用 Clerk インスタンスの実際のユーザーID
+	// TODO: dateOfBirth / nationality / gender / startDate は仮の値。本人の情報に直すこと
+	await prisma.user.upsert({
+		where: { id: "user_nurse_pending_002" },
+		update: {
+			clerkUserId: "user_3Jcr3TjmrjKmm8nAR6GlHEoyZ3z",
+			email: "c250321@ccg.ac.jp",
+			firstName: "Kyi Pyar",
+			lastName: "Hlaing",
+			role: UserRole.NURSE,
+			status: UserStatus.ACTIVE,
+		},
+		create: {
+			id: "user_nurse_pending_002",
+			clerkUserId: "user_3Jcr3TjmrjKmm8nAR6GlHEoyZ3z",
+			email: "c250321@ccg.ac.jp",
+			firstName: "Kyi Pyar",
+			lastName: "Hlaing",
+			role: UserRole.NURSE,
+			status: UserStatus.ACTIVE,
+			startDate: new Date("2026-10-19T00:00:00.000Z"),
+			endDate: null,
+			dateOfBirth: new Date("2000-01-01T00:00:00.000Z"),
+			nationality: "ミャンマー",
+			gender: "女性",
+		},
+	});
+
 	// ----------------------------------------------------------------
 	// 2. 高齢者データ
 	//    age は保存せず dateOfBirth から表示時に算出する。

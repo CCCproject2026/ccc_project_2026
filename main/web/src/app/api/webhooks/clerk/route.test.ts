@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 // 同期処理とロックは偽物にする（署名の確認だけをテストする）
 vi.mock("@/features/staff-management/server/clerk-webhook", () => ({
 	syncClerkUser: vi.fn(),
-	unlinkDeletedClerkUser: vi.fn(),
+	deleteStaffOfDeletedClerkUser: vi.fn(),
 }));
 vi.mock("@/features/staff-management/server/staff-lock", () => ({
 	withStaffLock: vi.fn(async (work: (lock: unknown) => Promise<unknown>) =>
@@ -14,7 +14,7 @@ vi.mock("@/features/staff-management/server/staff-lock", () => ({
 import { Webhook } from "svix";
 import {
 	syncClerkUser,
-	unlinkDeletedClerkUser,
+	deleteStaffOfDeletedClerkUser,
 } from "@/features/staff-management/server/clerk-webhook";
 import { POST } from "./route";
 
@@ -96,7 +96,7 @@ describe("POST /api/webhooks/clerk", () => {
 			}),
 		);
 		expect(response.status).toBe(200);
-		expect(unlinkDeletedClerkUser).toHaveBeenCalledWith(
+		expect(deleteStaffOfDeletedClerkUser).toHaveBeenCalledWith(
 			"c1",
 			expect.anything(),
 		);
@@ -111,12 +111,12 @@ describe("POST /api/webhooks/clerk", () => {
 			}),
 		);
 		expect(response.status).toBe(200);
-		expect(unlinkDeletedClerkUser).not.toHaveBeenCalled();
+		expect(deleteStaffOfDeletedClerkUser).not.toHaveBeenCalled();
 	});
 
 	it("user.deleted の処理が一時的に失敗したら 503（Clerk が再送する）", async () => {
 		const { ApiError } = await import("@/shared/lib/api-error");
-		vi.mocked(unlinkDeletedClerkUser).mockRejectedValueOnce(
+		vi.mocked(deleteStaffOfDeletedClerkUser).mockRejectedValueOnce(
 			new ApiError(503, "TEMPORARILY_UNAVAILABLE", "一時的に失敗"),
 		);
 		const response = await POST(

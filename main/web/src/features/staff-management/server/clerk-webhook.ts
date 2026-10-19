@@ -117,12 +117,13 @@ export async function syncClerkUser(
 // Clerk の user.deleted を受け取ったときの処理
 // 呼び出し側でロックを取ってから呼ぶこと
 //
-// Clerk のダッシュボードでアカウントが削除されると、その人はもうログインできない。
-// DB の User は物理削除しない（設計書）ので、INACTIVE・未紐付けにする。
-// こうしておくと、同じ人が戻ってきたときに NURSE が画面から「再招待」できる。
-// （紐付けたままだと、「有効化」は Clerk アカウントがないので失敗し、
-//   「再招待」は紐付け済みなので受け付けず、画面から直せなくなる）
-export async function unlinkDeletedClerkUser(
+// Clerk のダッシュボードでアカウントが削除されたら、そのユーザーのデータを
+// システム全体から物理削除する。
+// - そのスタッフが作成した対応記録（ResponseRecord）
+// - スタッフ本人（User）
+// 外部キーは RESTRICT なので、対応記録 → User の順に、1つのトランザクションで消す。
+// 消したデータは戻せない。同じ人が戻ってきたときは、NURSE が新しく招待する。
+export async function deleteStaffOfDeletedClerkUser(
 	clerkUserId: string,
 	lock: StaffLock,
 ): Promise<void> {
@@ -150,14 +151,29 @@ export async function unlinkDeletedClerkUser(
 		return;
 	}
 
-	// 3. INACTIVE・未紐付けにする。role・プロフィール・email はそのまま残す
+	// 3. 対応記録とスタッフ本人を、1つのトランザクションで削除する
+	//    途中で失敗したら、どちらも消えない（中途半端に残らない）
 	lock.ensureCanContinue();
-	const updated = await prisma.user.updateMany({
-		where: { id: staff.id, clerkUserId },
-		data: { status: "INACTIVE", clerkUserId: null },
+	const deletedRecordCount = await prisma.$transaction(async (tx) => {
+		// 途中で別の操作が紐付けを変えていたら、何も消さない
+		const target = await tx.user.findFirst({
+			where: { id: staff.id, clerkUserId },
+		});
+		if (target === null) {
+			return null;
+		}
+
+		// 先に対応記録を消す（User を参照しているため）
+		const deletedRecords = await tx.responseRecord.deleteMany({
+			where: { staffId: staff.id },
+		});
+		await tx.user.delete({
+			where: { id: staff.id },
+		});
+		return deletedRecords.count;
 	});
-	// 0件 = 途中で別の操作が先に変えた → 何もしない
-	if (updated.count === 0) {
+	// null = 途中で別の操作が先に変えた → 何もしない
+	if (deletedRecordCount === null) {
 		return;
 	}
 
@@ -166,9 +182,11 @@ export async function unlinkDeletedClerkUser(
 		targetId: staff.id,
 		action: "CLERK_USER_DELETED",
 		before: { status: staff.status, role: staff.role },
-		after: { status: "INACTIVE", role: staff.role },
 		externalResult: "SKIPPED",
 	});
+	console.info(
+		`[webhook] Clerk で削除されたスタッフのデータを削除しました（対応記録 ${deletedRecordCount} 件）`,
+	);
 
 	// 4. 利用中の NURSE がいなくなったら、担当者に知らせる
 	// Clerk 側で既に削除されているので、ここで止めることはできない
