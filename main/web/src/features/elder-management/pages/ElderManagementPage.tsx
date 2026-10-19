@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useReverification } from "@clerk/nextjs";
-import { HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlineChevronDown } from "react-icons/hi2";
+import { HiOutlinePlus, HiOutlineMagnifyingGlass } from "react-icons/hi2";
 import { ElderStatus, ElderRow, ElderListParams, CreateElderInput, UpdateElderInput } from "@/features/elder-management/types/elder.types";
 import { ElderTable } from "@/features/elder-management/components/ElderTable";
 import { AddElderModal } from "@/features/elder-management/components/AddElderModal";
@@ -11,10 +11,16 @@ import { useElders, useCreateElder, useUpdateElder, useDeleteElder } from "@/fea
 import { useDebouncedValue } from "@/features/elder-management/hooks/useDebouncedValue";
 import { clampPage, getTotalPages } from "@/features/elder-management/lib/pagination";
 
+// 一覧上部のナビゲーション。無効化（退所）した高齢者は通常の一覧から分けて表示する。
+const ELDER_STATUS_TABS: { value: ElderStatus; label: string }[] = [
+  { value: "ACTIVE", label: "在籍中" },
+  { value: "INACTIVE", label: "無効化" },
+];
+
 export function ElderManagementPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
-  const [statusFilter, setStatusFilter] = useState<ElderStatus | "">("");
+  const [statusFilter, setStatusFilter] = useState<ElderStatus>("ACTIVE");
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
@@ -25,7 +31,7 @@ export function ElderManagementPage() {
   const params: ElderListParams = {
     page,
     limit,
-    status: statusFilter || undefined,
+    status: statusFilter,
     q: debouncedSearch || undefined,
   };
 
@@ -96,7 +102,6 @@ const handleEdit = async (data: UpdateElderInput) => {
   const handleReset = () => {
     setSearchInput("");
     setSearchQuery("");
-    setStatusFilter("");
     setPage(1);
   };
 
@@ -118,8 +123,33 @@ const handleEdit = async (data: UpdateElderInput) => {
 
       <ElderSummaryCards summary={summary} />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-3">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="flex gap-1 px-4 border-b border-gray-100" role="tablist" aria-label="高齢者のステータス">
+          {ELDER_STATUS_TABS.map((tab) => {
+            const isActive = statusFilter === tab.value;
+            const count = tab.value === "ACTIVE" ? summary.active : summary.inactive;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => { setStatusFilter(tab.value); setPage(1); }}
+                className={`px-4 py-3 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                  isActive
+                    ? "border-violet-600 text-violet-700"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                {tab.label}
+                <span className={`ml-1.5 text-xs ${isActive ? "text-violet-500" : "text-gray-400"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-3 p-4">
           <div className="relative flex-1 basis-40 min-w-[12rem]">
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
@@ -130,25 +160,13 @@ const handleEdit = async (data: UpdateElderInput) => {
               className="w-full h-10 pl-10 pr-4 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
             />
           </div>
-          <div className="relative shrink-0">
-            <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value as ElderStatus | ""); setPage(1); }}
-              className="h-10 w-full pl-4 pr-10 border border-gray-300 rounded-lg text-sm bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-            >
-              <option value="">全ステータス</option>
-              <option value="ACTIVE">在籍中</option>
-              <option value="INACTIVE">退所・無効</option>
-            </select>
-            <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-          </div>
           <button
             type="submit"
             className="h-10 px-4 shrink-0 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-700 transition-colors"
           >
             検索
           </button>
-          {(searchInput || statusFilter) && (
+          {searchInput && (
             <button
               type="button"
               onClick={handleReset}
@@ -167,6 +185,7 @@ const handleEdit = async (data: UpdateElderInput) => {
           onDelete={handleDelete}
           onReactivate={handleReactivate}
           loading={isLoading}
+          status={statusFilter}
         />
       </div>
 

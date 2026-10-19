@@ -1,7 +1,7 @@
 "use client";
 
 import { HiOutlineArrowPath, HiOutlinePencil, HiOutlineTrash } from "react-icons/hi2";
-import { ElderRow } from "@/features/elder-management/types/elder.types";
+import { ElderRow, ElderStatus } from "@/features/elder-management/types/elder.types";
 
 interface ElderTableProps {
   elders: ElderRow[];
@@ -9,6 +9,7 @@ interface ElderTableProps {
   onDelete: (id: string) => void;
   onReactivate: (id: string) => void;
   loading?: boolean;
+  status?: ElderStatus;
 }
 
 export function ElderTable({
@@ -17,6 +18,7 @@ export function ElderTable({
   onDelete,
   onReactivate,
   loading,
+  status,
 }: ElderTableProps) {
   if (loading) {
     return (
@@ -29,10 +31,17 @@ export function ElderTable({
   }
 
   if (elders.length === 0) {
+    const isInactive = status === "INACTIVE";
     return (
       <div className="text-center py-12 px-6 text-gray-500">
-        <p className="text-lg font-medium">高齢者が登録されていません</p>
-        <p className="text-sm">「高齢者を追加」から登録してください</p>
+        <p className="text-lg font-medium">
+          {isInactive ? "無効化された高齢者はいません" : "高齢者が登録されていません"}
+        </p>
+        <p className="text-sm">
+          {isInactive
+            ? "退所・無効化した高齢者がここに表示されます"
+            : "「高齢者を追加」から登録してください"}
+        </p>
       </div>
     );
   }
