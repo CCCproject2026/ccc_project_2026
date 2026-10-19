@@ -42,23 +42,25 @@ async function main() {
 		},
 	});
 
+	// c250321@ccg.ac.jp のテスト用 Clerk アカウントを、2人目の看護師として紐付ける
+	// （id は過去の対応記録から参照されているので user_caregiver_001 のまま）
 	const member = await prisma.user.upsert({
 		where: { id: "user_caregiver_001" },
 		update: {
 			clerkUserId: "user_3Jcr3TjmrjKmm8nAR6GlHEoyZ3z",
 			email: "c250321@ccg.ac.jp",
-			firstName: "testing",
-			lastName: "caregiver",
-			role: UserRole.CAREGIVER,
+			firstName: "Kyi Pyar",
+			lastName: "Hlaing",
+			role: UserRole.NURSE,
 			status: UserStatus.ACTIVE,
 		},
 		create: {
 			id: "user_caregiver_001",
 			clerkUserId: "user_3Jcr3TjmrjKmm8nAR6GlHEoyZ3z",
 			email: "c250321@ccg.ac.jp",
-			firstName: "testing",
-			lastName: "caregiver",
-			role: UserRole.CAREGIVER,
+			firstName: "Kyi Pyar",
+			lastName: "Hlaing",
+			role: UserRole.NURSE,
 			status: UserStatus.ACTIVE,
 			startDate: new Date("2025-09-01T00:00:00.000Z"),
 			endDate: null,
