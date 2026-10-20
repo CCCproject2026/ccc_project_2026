@@ -1,6 +1,13 @@
 name: Lint All
 
-on: [push]
+on:
+  push:
+  pull_request:
+
+# 同じブランチへの連続 push で同じチェックが重複して走らないようにする
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-web:
@@ -8,6 +15,21 @@ jobs:
     defaults:
       run:
         working-directory: main/web
+    # ロックの実際のテストには本物の Postgres が必要（テストが pg_terminate_backend を実行する）
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v3
@@ -20,13 +42,27 @@ jobs:
           cache-dependency-path: main/web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
+      # Prisma の schema と migration に矛盾がないことを確認する
+      - name: Validate Prisma schema
+        run: pnpm run prisma:validate
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+      # schema.prisma と migration がずれていないことを確認する
+      # （ずれると、DB とアプリの型が食い違い、Prisma の実行時エラーになる）
+      - name: Check Prisma schema and migrations are in sync
+        run: pnpm exec prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "postgresql://postgres:postgres@localhost:5432/postgres" --exit-code
       # Tests import @prisma/client, so the client must be generated first
       - name: Generate Prisma client
         run: pnpm run prisma:generate
         env:
           DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+      # staff-lock.test.ts は DATABASE_URL がない環境ではスキップされる。
+      # 実際のロック（排他制御・エラー時の解放・待ち時間・切断検知）を検証するため、
+      # Postgres サービスの DB を渡す。
       - name: Run tests
         run: pnpm run test
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
 
   lint-python:
     runs-on: ubuntu-latest
