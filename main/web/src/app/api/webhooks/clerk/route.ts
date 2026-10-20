@@ -3,8 +3,8 @@ import type { WebhookEvent } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 import {
-	deleteStaffOfDeletedClerkUser,
 	syncClerkUser,
+	unlinkStaffOfDeletedClerkUser,
 } from "@/features/staff-management/server/clerk-webhook";
 import { withStaffLock } from "@/features/staff-management/server/staff-lock";
 import { ApiError } from "@/shared/lib/api-error";
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 	try {
 		await withStaffLock(async (lock) => {
 			if (isDeleteEvent) {
-				await deleteStaffOfDeletedClerkUser(clerkUserId, lock);
+				await unlinkStaffOfDeletedClerkUser(clerkUserId, lock);
 			} else {
 				await syncClerkUser(clerkUserId, lock);
 			}

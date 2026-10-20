@@ -1,11 +1,12 @@
-// Clerk アカウントが削除されたスタッフのデータを削除する定期処理
+// Clerk アカウントが削除されたスタッフを INACTIVE・未紐付けにする定期処理
+// （User 行と対応記録は物理削除しない）
 //
 // 実行:    pnpm staff:reconcile-deleted
 // 確認だけ: pnpm staff:reconcile-deleted --dry-run
 // 本番:    Heroku Scheduler に「10分ごと」で登録する
 //
 // Webhook（user.deleted）が届かない環境（ローカル開発など）でも、
-// 孤児になった User 行をまとめて削除できるようにする。
+// Clerk にいないのに紐付いたままの User 行を、まとめて未紐付けにできるようにする。
 import "dotenv/config";
 import { reconcileDeletedClerkUsers } from "@/features/staff-management/server/deleted-clerk-users";
 import { prisma } from "@/shared/lib/prisma";
@@ -25,7 +26,7 @@ async function main() {
 		}),
 	);
 
-	// 確認・削除できなかったものがあれば、終了コードを 1 にする（ログで気づけるように）
+	// 確認・処理できなかったものがあれば、終了コードを 1 にする（ログで気づけるように）
 	if (report.failed > 0) {
 		process.exitCode = 1;
 	}

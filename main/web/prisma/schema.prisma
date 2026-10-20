@@ -7,7 +7,6 @@
 // 方針:
 //  - 内部IDは cuid()、日時は timestamptz(3) で UTC 保存
 //  - 物理削除は行わない。User / Elder / Device は status で無効化する
-//    例外: Clerk でアカウントが削除された User は、その User の対応記録と一緒に物理削除する
 //  - 外部キーは RESTRICT。履歴データ(User, Elder)を消しても連鎖削除しない
 //  - Prismaで表現できない制約（部分一意インデックス・CHECK）は
 //    prisma/migrations/*/migration.sql で管理する
