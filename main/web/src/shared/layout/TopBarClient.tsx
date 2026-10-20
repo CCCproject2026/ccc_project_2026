@@ -13,9 +13,17 @@ const ROUTE_META: Record<string, { title: string; breadcrumb?: string }> = {
 		title: "スタッフ情報管理",
 		breadcrumb: "スタッフ管理",
 	},
+	"/staff/invitations": {
+		title: "スタッフ招待",
+		breadcrumb: "スタッフ管理",
+	},
 	"/devices": {
 		title: "デバイス接続ステータス",
 		breadcrumb: "デバイス管理",
+	},
+	"/profile": {
+		title: "マイページ",
+		breadcrumb: "アカウント",
 	},
 	"/response": {
 		title: "対応履歴一覧",

@@ -9,6 +9,7 @@ main/web/.env
 main/web/.env.*
 main/web/prisma/.env
 main/web/prisma/.env.*
+!main/web/.env.example
 *.pem
 *.key
 *.crt
@@ -84,3 +85,6 @@ main/iot/*
 main/iot/mock-data/*
 !main/iot/mock-data/generate_telemetry.py
 !main/iot/mock-data/telemetry-3min.jsonl
+
+# TypeScript incremental build info
+*.tsbuildinfo
