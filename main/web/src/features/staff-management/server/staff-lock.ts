@@ -37,6 +37,17 @@ const POOL_MAX = 3;
 const POOL_IDLE_TIMEOUT_MS = 30000;
 
 // ロック専用の接続プール（Prisma の接続とは別）。最初に使うときに作る
+// ロック用接続に SSL を付けるかどうかを判断する
+// - Heroku（DATABASE_SSL 未設定 + NODE_ENV=production） → SSL あり
+// - ローカル Docker（DATABASE_SSL=false）               → SSL なし
+// - 開発環境                                          → SSL なし
+export function shouldUseSsl(env: {
+	NODE_ENV?: string;
+	DATABASE_SSL?: string;
+}): boolean {
+	return env.NODE_ENV === "production" && env.DATABASE_SSL !== "false";
+}
+
 // 操作のたびに接続（Heroku では SSL の手続きも）を作り直さないように、接続を使い回す
 let pool: Pool | undefined;
 
@@ -55,8 +66,12 @@ function getLockPool(): Pool {
 	}
 
 	// Heroku Postgres は SSL が必要。ローカルの PostgreSQL は SSL なし
+	// ただし Dockerfile の runner は NODE_ENV=production なので、
+	// そのままでは Docker（ssl=off の Postgres）でも SSL を要求して必ず失敗する。
+	// DATABASE_SSL=false で明示的にオプトアウトできるようにする。
+	// （Heroku では DATABASE_SSL を設定しないので、既存の挙動は一切変わらない）
 	let ssl: false | { rejectUnauthorized: boolean } = false;
-	if (process.env.NODE_ENV === "production") {
+	if (shouldUseSsl(process.env)) {
 		ssl = { rejectUnauthorized: false };
 	}
 
