@@ -1,8 +1,8 @@
 """起動・終了とリソース所有の骨格。MQTT / Worker / 実モデルは未接続。"""
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 

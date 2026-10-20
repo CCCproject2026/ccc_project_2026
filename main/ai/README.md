@@ -26,6 +26,7 @@ main/ai/
 │       ├── inference.py
 │       └── result.py
 ├── .env.example
+├── Makefile
 ├── Dockerfile
 ├── pyproject.toml
 └── README.md
@@ -55,8 +56,32 @@ main/ai/
 | `app/processing/result.py` | 結果 JSON の生成と MQTT 送信要求。DB 保存や Alarm 制御は対象外。 |
 | `app/core/logging_setup.py` | 共通の構造化ログ、stdout 出力、運用ログ MQTT 転送。 |
 | `Dockerfile` | Python 3.11、uv による依存準備、非 root 実行、単一 worker の起動設定。 |
+| `Makefile` | Ruff による AI Server 全体の自動修正・整形・チェック用コマンド。 |
 | `pyproject.toml` | プロジェクト情報、Python 要件、Python 依存関係の管理。 |
 | `README.md` | フォルダー構成、ファイルの責務、初期化段階の制約の説明。 |
+
+## コードの自動修正・チェック
+
+`uv`（`uvx` を含む）と `make` が必要です。Web の `biome:write` /
+`biome:check` に相当するコマンドを用意しています。
+リポジトリ直下から次を実行します。
+
+```sh
+# AI Server 全体を自動修正・整形し、最後にチェック
+make -C main/ai fix
+
+# ファイルを変更せずチェック
+make -C main/ai check
+```
+
+`main/ai` に移動済みなら `make fix` / `make check` で実行できます。
+`make lint` は lint のみ、`make format` は整形のみを実行します。
+
+対象は `main/ai` 全体です。Web・IoT は変更しません。
+Ruff は `uvx` で用意するため、アプリの実行依存関係には追加しません。
+初回は Ruff のダウンロードにネットワーク接続が必要です。
+自動修正できないエラーは表示して停止するため、該当箇所を手動で直してください。
+修正後は `git diff` で差分を確認してください。
 
 ## Docker と依存関係
 
