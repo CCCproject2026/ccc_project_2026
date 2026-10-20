@@ -1,0 +1,11 @@
+[project]
+name = "ai-server"
+version = "0.1.0"
+description = "MQTT センサーデータによる転倒推論サーバーの雛形"
+requires-python = ">=3.11"
+# 現段階で用意する HTTP サーバーの最小依存関係。
+# 推論・MQTT・HTTP client の依存関係とバージョン固定は実装時に追加する。
+dependencies = [
+    "fastapi",
+    "uvicorn",
+]

@@ -1,4 +1,24 @@
 services:
+  ai-server:
+    build:
+      context: ./main/ai
+      target: runner
+    # 開発用ポート。本番用ポートは未決定。
+    ports:
+      - "8000:8000"
+    # 現段階は外部接続なしの起動骨格。起動入口は Dockerfile に集約。
+    env_file:
+      - ./main/ai/.env.example
+    # ready は実パイプライン未実装のため 503。ここでは live を確認する。
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 10s
+    restart: unless-stopped
+
   web-app:
     build: ./main/web
     ports:
