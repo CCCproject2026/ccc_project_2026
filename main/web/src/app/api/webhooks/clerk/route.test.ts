@@ -13,8 +13,8 @@ vi.mock("@/features/staff-management/server/staff-lock", () => ({
 
 import { Webhook } from "svix";
 import {
-	syncClerkUser,
 	deleteStaffOfDeletedClerkUser,
+	syncClerkUser,
 } from "@/features/staff-management/server/clerk-webhook";
 import { POST } from "./route";
 

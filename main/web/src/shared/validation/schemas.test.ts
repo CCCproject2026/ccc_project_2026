@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { elderUpdateSchema } from "./schemas";
 
 // 生年月日だけを検証するヘルパー（PATCH 用スキーマでは他の項目は任意）。
-const parseDateOfBirth = (value: string) => elderUpdateSchema.safeParse({ dateOfBirth: value });
+const parseDateOfBirth = (value: string) =>
+	elderUpdateSchema.safeParse({ dateOfBirth: value });
 
 const localDateString = (date: Date) =>
 	`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(

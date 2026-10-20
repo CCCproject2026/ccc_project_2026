@@ -3,8 +3,8 @@ import type { WebhookEvent } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 import {
-	syncClerkUser,
 	deleteStaffOfDeletedClerkUser,
+	syncClerkUser,
 } from "@/features/staff-management/server/clerk-webhook";
 import { withStaffLock } from "@/features/staff-management/server/staff-lock";
 import { ApiError } from "@/shared/lib/api-error";

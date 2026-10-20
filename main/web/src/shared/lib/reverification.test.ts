@@ -18,7 +18,9 @@ describe("requiresReverification", () => {
 
 describe("isReverificationHint", () => {
 	it("detects Clerk's reverification response body", () => {
-		expect(isReverificationHint({ clerk_error: { reason: "reverification" } })).toBe(true);
+		expect(
+			isReverificationHint({ clerk_error: { reason: "reverification" } }),
+		).toBe(true);
 	});
 
 	it("rejects other bodies", () => {

@@ -39,9 +39,9 @@ import { prisma } from "@/shared/lib/prisma";
 import { logStaffOperation } from "./audit";
 import { getClerkUser } from "./clerk-admin";
 import {
+	deleteStaffOfDeletedClerkUser,
 	syncClerkUser,
 	syncSignedInUser,
-	deleteStaffOfDeletedClerkUser,
 } from "./clerk-webhook";
 import { linkStaff } from "./reconcile";
 import { withStaffLock } from "./staff-lock";
@@ -293,7 +293,11 @@ describe("deleteStaffOfDeletedClerkUser（Clerk でアカウントが削除さ�
 
 	// 削除対象のスタッフが DB にいる状態にする
 	function setLinkedStaff(overrides: Partial<User> = {}) {
-		const staff = makeStaff({ status: "ACTIVE", clerkUserId: "c1", ...overrides });
+		const staff = makeStaff({
+			status: "ACTIVE",
+			clerkUserId: "c1",
+			...overrides,
+		});
 		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(staff as never);
 		tx.user.findFirst.mockResolvedValueOnce(staff);
 		tx.responseRecord.deleteMany.mockResolvedValueOnce({ count: 2 });
