@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { ElderStatus } from "@/features/elder-management/types/elder.types";
 import { prisma } from "@/lib/prisma";
+import { ApiError } from "@/shared/lib/api-error";
+import { requireStaff } from "@/shared/lib/auth";
 import { elderCreateSchema } from "@/shared/validation/schemas";
 
 const MAX_LIMIT = 100;
@@ -9,10 +11,9 @@ const DEFAULT_LIMIT = 20;
 
 export async function GET(request: NextRequest) {
 	try {
-		const { userId } = await auth();
-		if (!userId) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
+		// DB 上で ACTIVE なスタッフだけ通す
+		// Clerk にログインしていても、無効化されたスタッフは 403 にする
+		await requireStaff();
 
 		const { searchParams } = new URL(request.url);
 		const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
@@ -87,6 +88,13 @@ export async function GET(request: NextRequest) {
 			summary,
 		});
 	} catch (error) {
+		// requireStaff の 401（未ログイン）・403（ACTIVE でない）
+		if (error instanceof ApiError) {
+			return NextResponse.json(
+				{ error: error.message },
+				{ status: error.status },
+			);
+		}
 		console.error("GET /api/elders error:", error);
 		return NextResponse.json(
 			{ error: "Internal server error" },
@@ -106,7 +114,7 @@ export async function POST(request: NextRequest) {
 			where: { clerkUserId: userId },
 			select: { role: true, status: true },
 		});
-		if (user?.role !== "NURSE" || user.status !== "ACTIVE") {
+		if (!user || user.role !== "NURSE" || user.status !== "ACTIVE") {
 			return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 		}
 

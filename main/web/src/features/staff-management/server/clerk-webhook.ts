@@ -117,13 +117,12 @@ export async function syncClerkUser(
 // Clerk の user.deleted を受け取ったときの処理
 // 呼び出し側でロックを取ってから呼ぶこと
 //
-// Clerk のダッシュボードでアカウントが削除されたら、そのユーザーのデータを
-// システム全体から物理削除する。
-// - そのスタッフが作成した対応記録（ResponseRecord）
-// - スタッフ本人（User）
-// 外部キーは RESTRICT なので、対応記録 → User の順に、1つのトランザクションで消す。
-// 消したデータは戻せない。同じ人が戻ってきたときは、NURSE が新しく招待する。
-export async function deleteStaffOfDeletedClerkUser(
+// Clerk のダッシュボードでアカウントが削除されたら、そのスタッフを
+// INACTIVE・未紐付け（clerkUserId = NULL）にする（設計書 7節）。
+// User と対応記録（ResponseRecord）は物理削除しない。
+// 退職者のアカウントを消しても、高齢者への過去の対応記録は残す。
+// 同じ人が戻ってきたときは、NURSE が同じ User 行に「再招待」する。
+export async function unlinkStaffOfDeletedClerkUser(
 	clerkUserId: string,
 	lock: StaffLock,
 ): Promise<void> {
@@ -151,29 +150,15 @@ export async function deleteStaffOfDeletedClerkUser(
 		return;
 	}
 
-	// 3. 対応記録とスタッフ本人を、1つのトランザクションで削除する
-	//    途中で失敗したら、どちらも消えない（中途半端に残らない）
+	// 3. INACTIVE・未紐付けにする（User 行と対応記録はそのまま残す）
+	//    where に clerkUserId を入れて、途中で別の操作が紐付けを変えていたら何もしない
 	lock.ensureCanContinue();
-	const deletedRecordCount = await prisma.$transaction(async (tx) => {
-		// 途中で別の操作が紐付けを変えていたら、何も消さない
-		const target = await tx.user.findFirst({
-			where: { id: staff.id, clerkUserId },
-		});
-		if (target === null) {
-			return null;
-		}
-
-		// 先に対応記録を消す（User を参照しているため）
-		const deletedRecords = await tx.responseRecord.deleteMany({
-			where: { staffId: staff.id },
-		});
-		await tx.user.delete({
-			where: { id: staff.id },
-		});
-		return deletedRecords.count;
+	const updated = await prisma.user.updateMany({
+		where: { id: staff.id, clerkUserId },
+		data: { status: "INACTIVE", clerkUserId: null },
 	});
-	// null = 途中で別の操作が先に変えた → 何もしない
-	if (deletedRecordCount === null) {
+	// 0 件 = 途中で別の操作が先に変えた → 何もしない
+	if (updated.count === 0) {
 		return;
 	}
 
@@ -182,11 +167,9 @@ export async function deleteStaffOfDeletedClerkUser(
 		targetId: staff.id,
 		action: "CLERK_USER_DELETED",
 		before: { status: staff.status, role: staff.role },
+		after: { status: "INACTIVE", role: staff.role },
 		externalResult: "SKIPPED",
 	});
-	console.info(
-		`[webhook] Clerk で削除されたスタッフのデータを削除しました（対応記録 ${deletedRecordCount} 件）`,
-	);
 
 	// 4. 利用中の NURSE がいなくなったら、担当者に知らせる
 	// Clerk 側で既に削除されているので、ここで止めることはできない
