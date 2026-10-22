@@ -121,10 +121,13 @@ def validate_packets(packets: list[dict]) -> None:
         for sample_index, sample in enumerate(packet["samples"])
     )
     fall_packet = packets[FALL_PACKET_INDEX]
-    assert max(
-        math.sqrt(sample["ax"] ** 2 + sample["ay"] ** 2 + sample["az"] ** 2)
-        for sample in fall_packet["samples"][40:50]
-    ) < 0.1
+    assert (
+        max(
+            math.sqrt(sample["ax"] ** 2 + sample["ay"] ** 2 + sample["az"] ** 2)
+            for sample in fall_packet["samples"][40:50]
+        )
+        < 0.1
+    )
     assert max(sample["az"] for sample in fall_packet["samples"]) > 2.0
 
 
