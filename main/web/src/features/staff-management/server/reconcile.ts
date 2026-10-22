@@ -1,12 +1,15 @@
 import "server-only";
 import type { User } from "@prisma/client";
 import { ApiError } from "@/shared/lib/api-error";
+import { notifyOps } from "@/shared/lib/logger";
 import { prisma } from "@/shared/lib/prisma";
 import {
 	type ClerkStaffInvitation,
 	type ClerkStaffUser,
 	createStaffInvitation,
+	deleteInvitation,
 	findClerkUsersByEmail,
+	findInvitationsByEmail,
 	findPendingInvitations,
 	normalizeEmail,
 } from "./clerk-admin";
@@ -14,6 +17,10 @@ import {
 	createConfirmationToken,
 	readConfirmationToken,
 } from "./confirmation-token";
+import {
+	isOrphanedInvitation,
+	shouldDeleteInvitation,
+} from "./invitation-state";
 import type { StaffLock } from "./staff-lock";
 
 // 手動確認が必要な理由
@@ -33,6 +40,7 @@ export type ReconcileOutcome =
 	| { result: "RETRY_REQUIRED"; staff: User } // Clerk を確認できない（送っていない）
 	| { result: "SEND_FAILED"; staff: User } // 送信が確実に失敗した
 	| { result: "SEND_UNKNOWN"; staff: User } // 送信したかどうか不明
+	| { result: "INVITATION_EXISTS"; staff: User } // 同じアドレスの招待が残っていて送れなかった
 	| { result: "MANUAL_CHECK_REQUIRED"; staff: User; reason: ManualCheckReason };
 
 // 紐付けの判断
@@ -195,7 +203,7 @@ export async function reconcileStaff(input: {
 
 	// ===== 3. 招待を送る =====
 	lock.ensureCanContinue();
-	const sendResult = await createStaffInvitation(staff.email, staff.id);
+	const sendResult = await sendInvitation(staff, lock);
 
 	if (sendResult.kind === "SUCCESS") {
 		return { result: "SENT", staff };
@@ -203,6 +211,10 @@ export async function reconcileStaff(input: {
 	if (sendResult.kind === "UNKNOWN") {
 		// 送られたかもしれないので、次の「照合」で確認する
 		return { result: "SEND_UNKNOWN", staff };
+	}
+	if (sendResult.kind === "DUPLICATE") {
+		// 招待が残っていて、まだ作れなかった
+		return { result: "INVITATION_EXISTS", staff };
 	}
 
 	// FAILED: 重複エラーの可能性があるので、もう一度 Clerk を確認する（設計書 5節）
@@ -212,6 +224,110 @@ export async function reconcileStaff(input: {
 		return { result: "ALREADY_INVITED", staff };
 	}
 	return { result: "SEND_FAILED", staff };
+}
+
+// 招待を送る
+//
+// Clerk は、同じメールアドレスの招待が残っていると新しい招待を作れない
+// （duplicate_record）。アカウントを削除したあとに招待だけが残ると、
+// 再招待ができなくなる（Clerk 側は「既に招待があります」と拒む）ので、
+// 先に放置された招待を片付ける。
+//
+// それでも作れなかった場合は DUPLICATE を返す
+async function sendInvitation(
+	staff: { id: string; email: string },
+	lock: StaffLock,
+): Promise<
+	| { kind: "SUCCESS" }
+	| { kind: "FAILED" }
+	| { kind: "UNKNOWN" }
+	| { kind: "DUPLICATE" }
+> {
+	lock.ensureCanContinue();
+	await deleteOrphanedInvitations(staff.email, lock);
+
+	lock.ensureCanContinue();
+	const sendResult = await createStaffInvitation(staff.email, staff.id);
+	if (sendResult.kind === "SUCCESS") {
+		return { kind: "SUCCESS" };
+	}
+	if (sendResult.kind === "UNKNOWN") {
+		return { kind: "UNKNOWN" };
+	}
+	// Clerk が「このメールアドレスには既に招待があります」と拒んだ以外の失敗
+	if (sendResult.errorCode !== "duplicate_record") {
+		return { kind: "FAILED" };
+	}
+
+	// 残っていた招待をもう一度片付けて、送信し直す
+	lock.ensureCanContinue();
+	await deleteOrphanedInvitations(staff.email, lock);
+
+	lock.ensureCanContinue();
+	const retried = await createStaffInvitation(staff.email, staff.id);
+	if (retried.kind === "SUCCESS") {
+		return { kind: "SUCCESS" };
+	}
+	if (retried.kind === "UNKNOWN") {
+		return { kind: "UNKNOWN" };
+	}
+	return { kind: "DUPLICATE" };
+}
+
+// アカウントが削除されたあとに残った招待を削除する
+//
+// 消すのは「そのメールアドレスの Clerk アカウントが 1 つも無い」招待だけ。
+// アカウントが残っているときは、受け入れ済みの招待も消さない
+// （消すと、既存アカウントと二重で登録できてしまう）。
+//
+// 取り消すだけ（pending）のものは、既存の処理（ALREADY_INVITED）で扱うので消さない
+async function deleteOrphanedInvitations(
+	email: string,
+	lock: StaffLock,
+): Promise<number> {
+	lock.ensureCanContinue();
+	const invitationsResult = await findInvitationsByEmail(email);
+	if (invitationsResult.kind !== "SUCCESS") {
+		// Clerk に確認できない → 消さない（削除できたと断定できないため）
+		return 0;
+	}
+	const candidates = invitationsResult.data.filter((invitation) =>
+		isOrphanedInvitation(invitation),
+	);
+	if (candidates.length === 0) {
+		return 0;
+	}
+
+	// 同じメールアドレスの Clerk アカウントが残っているなら、招待は消さない
+	lock.ensureCanContinue();
+	const usersResult = await findClerkUsersByEmail(email);
+	if (usersResult.kind !== "SUCCESS") {
+		return 0;
+	}
+	const clerkUserCount = usersResult.data.length;
+
+	let deleted = 0;
+	for (const invitation of candidates) {
+		if (
+			!shouldDeleteInvitation({
+				invitationStatus: invitation.status,
+				clerkUserCount,
+			})
+		) {
+			continue;
+		}
+		lock.ensureCanContinue();
+		const result = await deleteInvitation(invitation.id);
+		if (result.kind === "SUCCESS") {
+			deleted += 1;
+			notifyOps("ORPHANED_INVITATION_DELETED", {
+				targetId: invitation.id,
+				reason:
+					"Clerk でアカウントが削除されたあとに残った招待を削除しました（新しい招待を送るため）",
+			});
+		}
+	}
+	return deleted;
 }
 
 // 本システムがこのスタッフ向けに発行した招待があるか

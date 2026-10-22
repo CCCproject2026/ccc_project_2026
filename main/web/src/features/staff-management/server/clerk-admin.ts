@@ -40,6 +40,7 @@ export type ClerkStaffInvitation = {
 	id: string;
 	email: string; // 小文字・空白なしに整えたもの
 	staffUserId: string | null; // 本システムが発行した招待なら User.id が入っている
+	status: string; // Clerk 側の状態（pending / accepted / revoked など）
 };
 
 // メールアドレスを比べるときは、必ずこの形に整えてから比べる
@@ -53,6 +54,16 @@ class ClerkTimeoutError extends Error {}
 
 // 最大ページ数まで読んでも、一覧が終わらなかった
 class ClerkPageLimitError extends Error {}
+
+// Backend API を直接呼んだときのエラー（HTTP の状態と Clerk の error code を持つ）
+class ClerkHttpError extends Error {
+	constructor(
+		readonly status: number,
+		readonly errorCode: string,
+	) {
+		super(`Clerk API error: ${status} ${errorCode}`);
+	}
+}
 
 // promise が 5 秒以内に終わらなければ ClerkTimeoutError にする
 // 注意: Clerk への通信そのものは止まらない（だから結果は「不明」として扱う）
@@ -83,6 +94,19 @@ function toFailure(error: unknown): ClerkResult<never> {
 	// 一覧を最後まで読めなかった → 「見つからない」とは言い切れない
 	if (error instanceof ClerkPageLimitError) {
 		return { kind: "UNKNOWN", reason: "PAGE_LIMIT" };
+	}
+
+	if (error instanceof ClerkHttpError) {
+		// 4xx → Clerk が「受け付けない」と返事をした。確実な失敗
+		if (error.status >= 400 && error.status < 500) {
+			return {
+				kind: "FAILED",
+				errorCode: error.errorCode,
+				status: error.status,
+			};
+		}
+		// 5xx → Clerk 側の障害。処理されたかどうかわからない
+		return { kind: "UNKNOWN", reason: `CLERK_${error.status}` };
 	}
 
 	if (isClerkAPIResponseError(error)) {
@@ -190,6 +214,7 @@ function toClerkStaffInvitation(invitation: Invitation): ClerkStaffInvitation {
 		id: invitation.id,
 		email: normalizeEmail(invitation.emailAddress),
 		staffUserId,
+		status: invitation.status,
 	};
 }
 
@@ -258,6 +283,36 @@ export async function findPendingInvitations(
 			(offset) =>
 				client.invitations.getInvitationList({
 					status: "pending",
+					query: target, // query は部分一致なので、下で完全一致チェックをする
+					limit: PAGE_SIZE,
+					offset,
+				}),
+		);
+
+		const found: ClerkStaffInvitation[] = [];
+		for (const invitation of invitations) {
+			if (normalizeEmail(invitation.emailAddress) === target) {
+				found.push(toClerkStaffInvitation(invitation));
+			}
+		}
+		return found;
+	});
+}
+
+// email 宛ての招待を、状態を絞り込まずにすべて取得する（全ページ＋完全一致）
+// findPendingInvitations との違いは、受け入れ済み（accepted）の招待も見つかること。
+// アカウントを削除したあとに残った招待を探すために使う
+export async function findInvitationsByEmail(
+	email: string,
+): Promise<ClerkResult<ClerkStaffInvitation[]>> {
+	const target = normalizeEmail(email);
+
+	return callClerk(async () => {
+		const client = await clerkClient();
+		const invitations = await fetchAllPages(
+			"Clerk の招待の検索結果",
+			(offset) =>
+				client.invitations.getInvitationList({
 					query: target, // query は部分一致なので、下で完全一致チェックをする
 					limit: PAGE_SIZE,
 					offset,
@@ -365,4 +420,50 @@ export async function revokeInvitation(
 		await withTimeout(client.invitations.revokeInvitation(invitationId));
 		return null;
 	});
+}
+
+// 招待レコードを完全に削除する
+//
+// Clerk の「取り消す（revoke）」は、受け入れ済み（accepted）の招待には使えない
+// （invitation_already_accepted というエラーになる）。
+// アカウントを削除したあとに招待だけが残ると、Clerk が
+// 「このメールアドレスには既に招待があります」（duplicate_record）として
+// 新しい招待が作れなくなるため、削除する。
+//
+// deleteInvitation が SDK にないため、Backend API を直接呼ぶ
+export async function deleteInvitation(
+	invitationId: string,
+): Promise<ClerkResult<null>> {
+	const secretKey = process.env.CLERK_SECRET_KEY;
+	if (!secretKey) {
+		return { kind: "FAILED", errorCode: "missing_secret_key", status: 500 };
+	}
+
+	return callClerk(async () => {
+		const response = await withTimeout(
+			fetch(`https://api.clerk.com/v1/invitations/${invitationId}`, {
+				method: "DELETE",
+				headers: { Authorization: `Bearer ${secretKey}` },
+			}),
+		);
+		if (!response.ok) {
+			// 4xx は「確実に失敗」、5xx は「結果は不明」として扱う（toFailure と同じ考え方）
+			const body = await response.text();
+			throw new ClerkHttpError(response.status, parseClerkErrorCode(body));
+		}
+		return null;
+	});
+}
+
+// Clerk のエラ本文から error code を取り出す（取れなければ不明の文字列）
+function parseClerkErrorCode(body: string): string {
+	try {
+		const parsed = JSON.parse(body) as {
+			errors?: { code?: string }[];
+		};
+		const code = parsed.errors?.[0]?.code;
+		return typeof code === "string" ? code : "unknown";
+	} catch {
+		return "unknown";
+	}
 }

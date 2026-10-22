@@ -87,7 +87,7 @@ function externalResultOf(
 	if (result === "SENT" || result === "LINKED") {
 		return "SUCCESS";
 	}
-	if (result === "SEND_FAILED") {
+	if (result === "SEND_FAILED" || result === "INVITATION_EXISTS") {
 		return "FAILED";
 	}
 	if (result === "SEND_UNKNOWN" || result === "RETRY_REQUIRED") {
@@ -287,6 +287,15 @@ async function finishInvitation(
 			"招待メールを送信できませんでした。しばらくしてから「再招待」してください",
 			staff,
 			"REINVITE",
+		);
+	}
+	// 招待が残っていて送れなかった → PENDING のまま、照合で確認する
+	// （DB 側を INACTIVE にしない。Clerk 側には招待が残っているため）
+	if (outcome.result === "INVITATION_EXISTS") {
+		throw await externalFailure(
+			"このメールアドレスには招待が残っているため、招待メールを送信できませんでした。Clerk の管理画面で確認してください",
+			staff,
+			"SYNC",
 		);
 	}
 	// 結果がわからない・Clerk を確認できない → PENDING のまま、照合で確認する
