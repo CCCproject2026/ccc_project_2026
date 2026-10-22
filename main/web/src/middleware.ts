@@ -1,4 +1,8 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import {
+	SIGN_IN_URL,
+	SIGN_UP_URL,
+} from "@/features/auth/constants/auth.constant";
 
 const isPublicRoute = createRouteMatcher([
 	"/login",
@@ -13,11 +17,19 @@ const isPublicRoute = createRouteMatcher([
 	"/api/staff(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
-	if (!isPublicRoute(req)) {
-		await auth.protect();
-	}
-});
+export default clerkMiddleware(
+	async (auth, req) => {
+		if (!isPublicRoute(req)) {
+			await auth.protect();
+		}
+	},
+	{
+		// サインイン・サインアップの送り先を、このアプリの画面にする
+		// （指定しないと Clerk 自身のページに飛んでしまう）
+		signInUrl: SIGN_IN_URL,
+		signUpUrl: SIGN_UP_URL,
+	},
+);
 
 export const config = {
 	matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
