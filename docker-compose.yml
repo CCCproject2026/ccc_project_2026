@@ -12,12 +12,13 @@ services:
     # ready は実パイプライン未実装のため 503。ここでは live を確認する。
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2).close()"]
-      interval: 30s
+      interval: 5s
       timeout: 5s
       retries: 3
       start_period: 10s
+      start_interval: 5s
     stop_grace_period: 10s
-    restart: unless-stopped
+    restart: on-failure:3
 
   web-app:
     build: ./main/web

@@ -29,6 +29,7 @@ main/ai/
 ├── Makefile
 ├── Dockerfile
 ├── pyproject.toml
+├── uv.lock
 └── README.md
 ```
 
@@ -57,7 +58,8 @@ main/ai/
 | `app/core/logging_setup.py` | 共通の構造化ログ、stdout 出力、運用ログ MQTT 転送。 |
 | `Dockerfile` | Python 3.11、uv による依存準備、非 root 実行、単一 worker の起動設定。 |
 | `Makefile` | Ruff による AI Server 全体の自動修正・整形・チェック用コマンド。 |
-| `pyproject.toml` | プロジェクト情報、Python 要件、Python 依存関係の管理。 |
+| `pyproject.toml` | プロジェクト情報、Python 要件、Python 依存関係の許容範囲。 |
+| `uv.lock` | 間接依存を含む解決済みバージョンの固定。Git 管理する。 |
 | `README.md` | フォルダー構成、ファイルの責務、初期化段階の制約の説明。 |
 
 ## コードの自動修正・チェック
@@ -95,7 +97,9 @@ Python はコンパイル工程を必要としないため、独立した builde
 
 現段階では FastAPI と Uvicorn のみを定義しています。PyTorch、Scaler 関連、
 MQTT、HTTPS client の依存関係は、モデル実物や外部契約の確認後に追加します。
-依存バージョンの固定と lock ファイルは未整備であり、本番運用準備済みではありません。
+依存関係の許容範囲は `pyproject.toml`、解決済みバージョンは `uv.lock` で管理します。
+Docker ビルドは `uv sync --locked --no-install-project --no-dev` を使用し、
+両ファイルが不整合の場合は失敗します。依存変更時は `main/ai` で `uv lock` を実行し、両ファイルをコミットしてください。
 画像の `uv init` はビルド時には実行せず、用意した `pyproject.toml` を使用します。
 
 ## 起動入口と設定
@@ -114,7 +118,10 @@ Compose は `main/ai` の Dockerfile の runner ステージを使用し、
 本番用ポートは未決定です。
 起動コマンドは Dockerfile の `app.main:app` を使用し、Compose では上書きしません。
 現段階では外部接続しないため、Web・DB・MQTT への `depends_on` は設けていません。
-healthcheck は `/health/live` を使用します。healthy は実推論の準備完了を意味しません。
+healthcheck は `/health/live` を5秒間隔で確認します。起動猶予は10秒です。
+healthy は実推論の準備完了を意味しません。
+異常終了時の再起動は最大3回です。`docker compose up -d` の成功だけでは起動成功とせず、
+`docker compose ps -a ai-server` とログで状態を確認してください。
 独自設定を使う場合は Compose の `env_file` を Git 管理外の `.env` に変更してください。
 
 実行ルートは `main/ai`、ASGI の指定は **`app.main:app`** に統一します。
@@ -124,7 +131,7 @@ Uvicorn には渡しません。ローカルでは uv を用意した上で、�
 
 ```sh
 cd main/ai
-uv run --env-file .env.example uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+uv run --locked --env-file .env.example uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
 独自設定が必要なら `.env.example` を Git 管理外の `.env` にコピーし、
@@ -142,7 +149,10 @@ Worker が未実装のため、現時点ではアプリの起動状態のみを�
 `/health/ready` は常に 503 (`pipeline_not_implemented`) です。
 実モデル・MQTT・Worker の接続と稼働判定は未実装です。
 
-テスト・Docker ビルド・起動確認は実施していません。
+起動骨格について、Docker ビルド、非 root 実行、live=200 / ready=503、
+設定不正時の終了コード3と最大3回の再起動後の停止を確認済みです。
+依存指定と lock の不整合が `--locked` で失敗すること、Ruff の lint・整形チェックも確認済みです。
+実モデル・MQTT・Device API の結合試験は、各機能の実装後に実施します。
 
 旧 `features/inference/` の説明文のみの雛形は `app/` に整理し、
 `requirements.txt` は `pyproject.toml` に置き換えています。
