@@ -7,9 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 FROM base AS deps
 WORKDIR /app
 RUN pip install --no-cache-dir uv
-RUN uv venv /opt/venv
-COPY pyproject.toml ./
-RUN uv pip install --python /opt/venv/bin/python -r pyproject.toml
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-install-project --no-dev
 
 FROM base AS runner
 WORKDIR /app

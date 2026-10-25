@@ -4,10 +4,11 @@ version = "0.1.0"
 description = "MQTT センサーデータによる転倒推論サーバーの雛形"
 requires-python = ">=3.11"
 # 現段階で用意する HTTP サーバーの最小依存関係。
-# 推論・MQTT・HTTP client の依存関係とバージョン固定は実装時に追加する。
+# 解決済みバージョンは uv.lock で固定する。
+# 推論・MQTT・HTTP client の依存関係は実装時に追加する。
 dependencies = [
-    "fastapi",
-    "uvicorn",
+    "fastapi>=0.156,<0.157",
+    "uvicorn>=0.54,<0.55",
 ]
 
 [tool.ruff]
