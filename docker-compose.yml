@@ -18,7 +18,7 @@ services:
       start_period: 10s
       start_interval: 5s
     stop_grace_period: 10s
-    restart: on-failure:3
+    restart: no
 
   web-app:
     build: ./main/web
@@ -31,7 +31,7 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    restart: unless-stopped
+    restart: no # no にすることで、コンテナが落ちても再起動しないようにする。開発中は手動で再起動する。バッグしやすくなるため
 
   # 起動時にスキーマを最新化する一度きりのサービス（Exited (0) で正常終了）
   migrate:
@@ -63,15 +63,7 @@ services:
 
   # ユニットテスト（Vitest）。DB 不要。tools プロファイルでのみ有効。
   #   docker compose run --rm test
-  test:
-    build:
-      context: ./main/web
-      target: builder
-    command: pnpm test
-    profiles:
-      - tools
-    restart: "no"
-
+  
   mqtt-broker:
     image: eclipse-mosquitto:2
     container_name: ccc_mqtt_broker
