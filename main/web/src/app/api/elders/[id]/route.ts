@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, reverificationErrorResponse } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { ApiError } from "@/shared/lib/api-error";
+import { requireStaff } from "@/shared/lib/auth";
 import { elderUpdateSchema } from "@/shared/validation/schemas";
 import { requiresReverification } from "@/shared/lib/reverification";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
-}
-
-async function checkAuth() {
-  const { userId } = await auth();
-  if (!userId) return { error: "Unauthorized", status: 401 };
-  return { userId };
 }
 
 async function checkNurseAuth() {
@@ -41,8 +37,9 @@ async function checkReverification(): Promise<Response | null> {
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await checkAuth();
-    if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    // DB 上で ACTIVE なスタッフだけ通す
+    // Clerk にログインしていても、無効化されたスタッフは 403 にする
+    await requireStaff();
 
     const { id } = await params;
     const elder = await prisma.elder.findUnique({
@@ -75,6 +72,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       deviceAssignments: undefined,
     });
   } catch (error) {
+    // requireStaff の 401（未ログイン）・403（ACTIVE でない）
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("GET /api/elders/[id] error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

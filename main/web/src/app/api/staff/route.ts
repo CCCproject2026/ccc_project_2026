@@ -1,21 +1,24 @@
 // src/app/api/staff/route.ts
 import { NextResponse } from "next/server";
+import { staffListQuerySchema } from "@/features/staff-management/schemas/staff-input";
+import { listStaff } from "@/features/staff-management/server/staff-service";
+import { errorResponse } from "@/shared/lib/api-error";
+import { requireRole } from "@/shared/lib/auth";
 
-// スタッフ一覧の取得（GET）や新規スタッフの登録（POST）の雛形です。
-// 本来の仕様やDB操作のロジックに合わせて、中身を書き換えてください。
-
-export async function GET() {
-	return NextResponse.json({ success: true, staff: [] });
-}
-
-export async function POST(request: Request) {
+// スタッフ一覧（GET /api/staff?status=ACTIVE または INACTIVE。省略すると両方）
+// 新規登録は POST /api/staff/invitations を使う
+export async function GET(request: Request) {
 	try {
-		const body = await request.json();
-		return NextResponse.json({ success: true, data: body });
-	} catch {
-		return NextResponse.json(
-			{ success: false, error: "Invalid JSON" },
-			{ status: 400 },
-		);
+		await requireRole("NURSE");
+
+		const searchParams = new URL(request.url).searchParams;
+		const query = staffListQuerySchema.parse({
+			status: searchParams.get("status") ?? undefined,
+		});
+
+		const response = await listStaff(query.status);
+		return NextResponse.json(response);
+	} catch (error) {
+		return errorResponse(error);
 	}
 }

@@ -42,23 +42,25 @@ async function main() {
 		},
 	});
 
+	// c250321@ccg.ac.jp のテスト用 Clerk アカウントを、2人目の看護師として紐付ける
+	// （id は過去の対応記録から参照されているので user_caregiver_001 のまま）
 	const member = await prisma.user.upsert({
 		where: { id: "user_caregiver_001" },
 		update: {
 			clerkUserId: "user_3Jcr3TjmrjKmm8nAR6GlHEoyZ3z",
 			email: "c250321@ccg.ac.jp",
-			firstName: "testing",
-			lastName: "caregiver",
-			role: UserRole.CAREGIVER,
+			firstName: "Kyi Pyar",
+			lastName: "Hlaing",
+			role: UserRole.NURSE,
 			status: UserStatus.ACTIVE,
 		},
 		create: {
 			id: "user_caregiver_001",
 			clerkUserId: "user_3Jcr3TjmrjKmm8nAR6GlHEoyZ3z",
 			email: "c250321@ccg.ac.jp",
-			firstName: "testing",
-			lastName: "caregiver",
-			role: UserRole.CAREGIVER,
+			firstName: "Kyi Pyar",
+			lastName: "Hlaing",
+			role: UserRole.NURSE,
 			status: UserStatus.ACTIVE,
 			startDate: new Date("2025-09-01T00:00:00.000Z"),
 			endDate: null,
@@ -69,6 +71,8 @@ async function main() {
 	});
 
 	// 招待中スタッフ: Clerk登録前のため clerkUserId は NULL
+	// （clerkUserId を入れてしまうと「登録待ち かつ 紐付き」になり、
+	//   照合も取消も有効化もできない状態になってしまうため）
 	await prisma.user.upsert({
 		where: { id: "user_nurse_pending_001" },
 		update: {
@@ -76,10 +80,11 @@ async function main() {
 			lastName: "山本",
 			role: UserRole.NURSE,
 			status: UserStatus.PENDING,
+			clerkUserId: null,
 		},
 		create: {
 			id: "user_nurse_pending_001",
-			clerkUserId: "user_3Kid0rQHOWx0tnCpJE2JbSPIAL6",
+			clerkUserId: null,
 			email: "c250447@ccg.ac.jp",
 			firstName: "win htut",
 			lastName: "oo",
