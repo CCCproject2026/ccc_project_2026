@@ -1,6 +1,10 @@
 import { auth, reverificationErrorResponse } from "@clerk/nextjs/server";
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import {
+	deactivateElder,
+	getElder,
+	updateElder,
+} from "@/features/elder-management/server/elder-service";
+import { checkNurseAuth } from "@/features/elder-management/server/elder-auth";
 import { ApiError } from "@/shared/lib/api-error";
 import { requireStaff } from "@/shared/lib/auth";
 import { requiresReverification } from "@/shared/lib/reverification";
@@ -8,20 +12,6 @@ import { elderUpdateSchema } from "@/shared/validation/schemas";
 
 interface RouteParams {
 	params: Promise<{ id: string }>;
-}
-
-async function checkNurseAuth() {
-	const { userId } = await auth();
-	if (!userId) return { error: "Unauthorized", status: 401 };
-	const user = await prisma.user.findUnique({
-		where: { clerkUserId: userId },
-		select: { role: true, status: true },
-	});
-	if (!user || user.role !== "NURSE" || user.status !== "ACTIVE") {
-		return { error: "Forbidden", status: 403 };
-	}
-
-	return { userId };
 }
 
 // 退所など影響の大きい操作の前に Clerk の再認証（reverification）を必須にする。
@@ -42,35 +32,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 		await requireStaff();
 
 		const { id } = await params;
-		const elder = await prisma.elder.findUnique({
-			where: { id },
-			select: {
-				id: true,
-				firstName: true,
-				lastName: true,
-				roomNumber: true,
-				status: true,
-				dateOfBirth: true,
-				gender: true,
-				createdAt: true,
-				updatedAt: true,
-				deviceAssignments: {
-					where: { unassignedAt: null },
-					select: { deviceId: true },
-					take: 1,
-				},
-			},
-		});
-
+		const elder = await getElder(id);
 		if (!elder) {
 			return NextResponse.json({ error: "Not found" }, { status: 404 });
 		}
-
-		return NextResponse.json({
-			...elder,
-			currentDeviceId: elder.deviceAssignments[0]?.deviceId ?? null,
-			deviceAssignments: undefined,
-		});
+		return NextResponse.json(elder);
 	} catch (error) {
 		// requireStaff の 401（未ログイン）・403（ACTIVE でない）
 		if (error instanceof ApiError) {
@@ -112,29 +78,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 			if (reverification) return reverification;
 		}
 
-		const { firstName, lastName, roomNumber, dateOfBirth, gender, status } =
-			parsed.data;
-
-		const updateData: Record<string, unknown> = {};
-		if (firstName !== undefined) updateData.firstName = firstName;
-		if (lastName !== undefined) updateData.lastName = lastName;
-		if (roomNumber !== undefined) updateData.roomNumber = roomNumber;
-		if (dateOfBirth !== undefined)
-			updateData.dateOfBirth = new Date(dateOfBirth);
-		if (gender !== undefined) updateData.gender = gender;
-		if (status !== undefined) updateData.status = status;
-
-		if (Object.keys(updateData).length === 0) {
+		const elder = await updateElder(id, parsed.data);
+		if (!elder) {
 			return NextResponse.json(
 				{ error: "No fields to update" },
 				{ status: 400 },
 			);
 		}
-
-		const elder = await prisma.elder.update({
-			where: { id },
-			data: updateData,
-		});
 
 		return NextResponse.json(elder);
 	} catch (error) {
@@ -164,10 +114,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
 		const { id } = await params;
 
-		await prisma.elder.update({
-			where: { id },
-			data: { status: "INACTIVE" },
-		});
+		await deactivateElder(id);
 
 		return new NextResponse(null, { status: 204 });
 	} catch (error) {

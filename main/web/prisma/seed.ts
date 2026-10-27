@@ -69,6 +69,8 @@ async function main() {
 	});
 
 	// 招待中スタッフ: Clerk登録前のため clerkUserId は NULL
+	// （clerkUserId を入れてしまうと「登録待ち かつ 紐付き」になり、
+	//   照合も取消も有効化もできない状態になってしまうため）
 	await prisma.user.upsert({
 		where: { id: "user_nurse_pending_001" },
 		update: {
@@ -76,10 +78,11 @@ async function main() {
 			lastName: "山本",
 			role: UserRole.NURSE,
 			status: UserStatus.PENDING,
+			clerkUserId: null,
 		},
 		create: {
 			id: "user_nurse_pending_001",
-			clerkUserId: "user_3Kid0rQHOWx0tnCpJE2JbSPIAL6",
+			clerkUserId: null,
 			email: "c250447@ccg.ac.jp",
 			firstName: "win htut",
 			lastName: "oo",

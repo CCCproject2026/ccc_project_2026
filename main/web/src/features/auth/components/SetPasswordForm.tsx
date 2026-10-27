@@ -14,6 +14,16 @@ interface SetPasswordFormProps {
 // パスワードの最低文字数
 const MIN_PASSWORD_LENGTH = 8;
 
+// ログアウトしたあと戻る先。
+// 今の URL（招待チケット込み）をそのまま使う。
+// チケットを消すと、もう一度招待メールを開き直すしかなくなるため。
+function currentUrlWithTicket(): string {
+	if (typeof window === "undefined") {
+		return "/sign-up";
+	}
+	return window.location.href;
+}
+
 // Clerk のエラーを、画面に出す日本語の文にする
 function toErrorMessage(error: unknown): string {
 	if (
@@ -36,11 +46,32 @@ function toErrorMessage(error: unknown): string {
 		if (code.includes("ticket") || code.includes("invitation")) {
 			return "招待リンクの有効期限が切れているか、既に使われています。管理者（看護師）に再招待を依頼してください。";
 		}
+		if (code === "session_exists") {
+			return "別のアカウントでログインしています。ログアウトしてから、もう一度お試しください。";
+		}
 		if (typeof first?.longMessage === "string") {
 			return first.longMessage;
 		}
 	}
 	return "登録できませんでした。しばらくしてから、もう一度お試しください。";
+}
+
+// Clerk が「すでにサインインしている」と返したかどうか
+function isSessionExistsError(error: unknown): boolean {
+	if (
+		typeof error !== "object" ||
+		error === null ||
+		!("errors" in error) ||
+		!Array.isArray(error.errors)
+	) {
+		return false;
+	}
+	for (const first of error.errors) {
+		if (first?.code === "session_exists") {
+			return true;
+		}
+	}
+	return false;
 }
 
 export function SetPasswordForm({ ticket }: SetPasswordFormProps) {
@@ -60,13 +91,16 @@ export function SetPasswordForm({ ticket }: SetPasswordFormProps) {
 
 	// 別のアカウントでログインしたままのブラウザで開いた場合は、先にログアウトする
 	// （ログアウトしないと、その人のアカウントでダッシュボードが開いてしまう）
-	// ただし、このフォームで登録した直後のログイン（自分で作ったセッション）はログアウトしない
+	//
+	// ただし、ログアウトするとブラウザがログイン画面へ飛んで、招待チケットが失われる。
+	// 失われたチケットはもう書き直せないので、ログアウト後は
+	// 「チケットを残したまま同じページへ戻る」ようにする。
 	useEffect(() => {
 		if (hasCreatedSessionRef.current) {
 			return;
 		}
 		if (isLoaded && isSignedIn) {
-			void signOut();
+			void signOut({ redirectUrl: currentUrlWithTicket() });
 		}
 	}, [isLoaded, isSignedIn, signOut]);
 
@@ -117,6 +151,15 @@ export function SetPasswordForm({ ticket }: SetPasswordFormProps) {
 				`登録を完了できませんでした（不足している項目: ${result.missingFields.join(", ")}）。管理者に連絡してください。`,
 			);
 		} catch (error: unknown) {
+			// ログアウトが間に合わなかった場合など、Clerk が「すでにサインインしている」と返すとき。
+			// このときは、チケットを残したままログアウトし直させる。
+			if (isSessionExistsError(error)) {
+				setErrorMessage(
+					"別のアカウントでログインしていました。ログアウトして、もう一度お試しください。",
+				);
+				void signOut({ redirectUrl: currentUrlWithTicket() });
+				return;
+			}
 			setErrorMessage(toErrorMessage(error));
 		} finally {
 			setIsSubmitting(false);

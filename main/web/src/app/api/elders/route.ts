@@ -1,7 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-import { ElderStatus } from "@/features/elder-management/types/elder.types";
-import { prisma } from "@/lib/prisma";
+import {
+	createElder,
+	listElders,
+} from "@/features/elder-management/server/elder-service";
+import { checkNurseAuth } from "@/features/elder-management/server/elder-auth";
 import { ApiError } from "@/shared/lib/api-error";
 import { requireStaff } from "@/shared/lib/auth";
 import { elderCreateSchema } from "@/shared/validation/schemas";
@@ -27,66 +29,8 @@ export async function GET(request: NextRequest) {
 		const status = searchParams.get("status") as ElderStatus | null;
 		const q = searchParams.get("q") || undefined;
 
-		const where: Record<string, unknown> = {};
-		if (status) where.status = status;
-		if (q) {
-			where.OR = [
-				{ firstName: { contains: q, mode: "insensitive" } },
-				{ lastName: { contains: q, mode: "insensitive" } },
-				{ roomNumber: { contains: q, mode: "insensitive" } },
-			];
-		}
-
-		const [elders, total, allTotal, byStatus] = await Promise.all([
-			prisma.elder.findMany({
-				where,
-				orderBy: { createdAt: "desc" },
-				skip: (page - 1) * limit,
-				take: limit,
-				select: {
-					id: true,
-					firstName: true,
-					lastName: true,
-					roomNumber: true,
-					status: true,
-					dateOfBirth: true,
-					gender: true,
-					createdAt: true,
-					updatedAt: true,
-					deviceAssignments: {
-						where: { unassignedAt: null },
-						select: { deviceId: true },
-						take: 1,
-					},
-				},
-			}),
-			prisma.elder.count({ where }),
-			prisma.elder.count(),
-			prisma.elder.groupBy({
-				by: ["status"],
-				_count: { _all: true },
-			}),
-		]);
-
-		const data = elders.map((e) => ({
-			...e,
-			currentDeviceId: e.deviceAssignments[0]?.deviceId ?? null,
-			deviceAssignments: undefined,
-		}));
-
-		const summary = {
-			total: allTotal,
-			active: byStatus.find((s) => s.status === "ACTIVE")?._count._all ?? 0,
-			inactive: byStatus.find((s) => s.status === "INACTIVE")?._count._all ?? 0,
-		};
-
-		return NextResponse.json({
-			data,
-			total,
-			page,
-			limit,
-			summary,
-		});
+		const result = await listElders({ page, limit, status, q });
+		return NextResponse.json(result);
 	} catch (error) {
 		// requireStaff の 401（未ログイン）・403（ACTIVE でない）
 		if (error instanceof ApiError) {
@@ -105,18 +49,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
 	try {
-		const { userId } = await auth();
-		if (!userId) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		const user = await prisma.user.findUnique({
-			where: { clerkUserId: userId },
-			select: { role: true, status: true },
-		});
-		if (!user || user.role !== "NURSE" || user.status !== "ACTIVE") {
-			return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-		}
+		const authResult = await checkNurseAuth();
+		if ("error" in authResult)
+			return NextResponse.json(
+				{ error: authResult.error },
+				{ status: authResult.status },
+			);
 
 		const body = await request.json();
 		const parsed = elderCreateSchema.safeParse(body);
@@ -127,19 +65,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const { firstName, lastName, roomNumber, dateOfBirth, gender } =
-			parsed.data;
-
-		const elder = await prisma.elder.create({
-			data: {
-				firstName,
-				lastName,
-				roomNumber,
-				dateOfBirth: new Date(dateOfBirth),
-				gender,
-				status: "ACTIVE",
-			},
-		});
+		const elder = await createElder(parsed.data);
 
 		return NextResponse.json(elder, { status: 201 });
 	} catch (error) {

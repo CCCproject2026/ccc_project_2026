@@ -1,4 +1,25 @@
 services:
+  ai-server:
+    build:
+      context: ./main/ai
+      target: runner
+    # 開発用ポート。本番用ポートは未決定。
+    ports:
+      - "8000:8000"
+    # 現段階は外部接続なしの起動骨格。起動入口は Dockerfile に集約。
+    env_file:
+      - ./main/ai/.env.example
+    # ready は実パイプライン未実装のため 503。ここでは live を確認する。
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2).close()"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 5s
+    stop_grace_period: 10s
+    restart: no
+
   web-app:
     build: ./main/web
     ports:
@@ -10,7 +31,7 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    restart: unless-stopped
+    restart: no # no にすることで、コンテナが落ちても再起動しないようにする。開発中は手動で再起動する。バッグしやすくなるため
 
   # 起動時にスキーマを最新化する一度きりのサービス（Exited (0) で正常終了）
   migrate:
@@ -42,15 +63,7 @@ services:
 
   # ユニットテスト（Vitest）。DB 不要。tools プロファイルでのみ有効。
   #   docker compose run --rm test
-  test:
-    build:
-      context: ./main/web
-      target: builder
-    command: pnpm test
-    profiles:
-      - tools
-    restart: "no"
-
+  
   mqtt-broker:
     image: eclipse-mosquitto:2
     container_name: ccc_mqtt_broker

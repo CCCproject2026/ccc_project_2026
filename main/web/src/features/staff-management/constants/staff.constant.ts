@@ -47,6 +47,8 @@ export const SYNC_RESULT_MESSAGES: Record<StaffSyncResult, string> = {
 	SEND_FAILED: "招待メールを送信できませんでした",
 	SEND_UNKNOWN:
 		"招待メールを送信できたか確認できませんでした。「照合」してください",
+	INVITATION_EXISTS:
+		"このメールアドレスには招待が残っています。Clerk の管理画面で確認してください",
 	MANUAL_CHECK_REQUIRED: "自動で処理できない状態です。確認が必要です",
 };
 

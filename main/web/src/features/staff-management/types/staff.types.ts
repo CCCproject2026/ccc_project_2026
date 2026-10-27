@@ -47,6 +47,7 @@ export type StaffSyncResult =
 	| "RETRY_REQUIRED" // Clerk を確認できない
 	| "SEND_FAILED" // 送信が確実に失敗した
 	| "SEND_UNKNOWN" // 送信できたか不明
+	| "INVITATION_EXISTS" // 同じアドレスの招待が残っていて、送れなかった
 	| "MANUAL_CHECK_REQUIRED"; // 手動で確認が必要
 
 // 手動確認が必要な理由
