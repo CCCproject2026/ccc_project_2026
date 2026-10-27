@@ -98,6 +98,7 @@ export function ElderTable({
 								<div className="flex items-center justify-end gap-2">
 									<button
 										onClick={() => onEdit(elder)}
+										type="submit"
 										className="p-2 text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
 										title="編集"
 										aria-label={`${elder.lastName} ${elder.firstName} を編集`}
@@ -105,6 +106,7 @@ export function ElderTable({
 										<HiOutlinePencil className="w-5 h-5" />
 									</button>
 									<button
+										type="submit"
 										onClick={() =>
 											elder.status === "ACTIVE"
 												? onDelete(elder.id)

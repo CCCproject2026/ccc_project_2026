@@ -2,8 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import type {
 	CreateElderInput,
-	UpdateElderInput,
 	ElderStatus,
+	UpdateElderInput,
 } from "@/shared/validation/schemas";
 
 interface ElderListQuery {
