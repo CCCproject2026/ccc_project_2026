@@ -1,9 +1,7 @@
 // 相対パス「../../../app/api/alert/mock」からエイリアス表記に変更
 import Link from "next/link";
-import { AlarmBanner } from "@/features/dashboard/components/AlarmBanner";
 import { ResidentCard } from "@/features/dashboard/components/ResidentCard";
 import {
-	getMockAlarmData,
 	residents,
 	stats,
 } from "@/features/dashboard/constants/mockDashboardData";
@@ -12,20 +10,9 @@ import { StatCard } from "@/shared/ui/StatCard";
 ///api/alert/mock.tsからモックデータを取得する
 
 export async function DashboardPage() {
-	// variant が "alarm" の住民をリスト化して直接渡す
-	const alarmedResidents = residents.filter((r) => r.variant === "alarm");
-	const alarmData = getMockAlarmData();
-	const count = alarmData.count ?? 0;
 	return (
 		<div className="flex flex-col gap-6 pb-6 max-w-[1600px] mx-auto w-full">
-			{/* 全体レイアウト間隔は layout 側に寄せるのが理想（ここでは最小限に） */}
-			{count > 0 && (
-				<AlarmBanner
-					count={alarmData.count}
-					time={alarmData.time}
-					alarmedResidents={alarmedResidents} // 配列をまるごと渡す！
-				/>
-			)}
+			{/* 緊急アラームバナーは (authenticated)/layout.tsx で全ページ共通に表示している */}
 
 			{/* Stat Cards */}
 			<section className="w-full">
