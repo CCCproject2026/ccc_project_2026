@@ -141,7 +141,7 @@ export function ElderManagementPage() {
 					</p>
 				</div>
 				<button
-					type="submit"
+					type="button"
 					onClick={() => {
 						setEditingElder(null);
 						setOpenAddModal(true);
@@ -242,7 +242,7 @@ export function ElderManagementPage() {
 					</p>
 					<div className="flex gap-2">
 						<button
-							type="submit"
+							type="button"
 							onClick={() => setPage((p) => Math.max(1, p - 1))}
 							disabled={page === 1}
 							className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-sm"
@@ -250,7 +250,7 @@ export function ElderManagementPage() {
 							前へ
 						</button>
 						<button
-							type="submit"
+							type="button"
 							onClick={() => setPage((p) => p + 1)}
 							disabled={page >= totalPages}
 							className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-sm"
