@@ -18,7 +18,7 @@ export function EmailVerifiedBadge() {
 	if (isVerified) {
 		return (
 			<span className="ml-2 align-middle bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2 py-0.5 rounded-md">
-			認証済み
+				認証済み
 			</span>
 		);
 	}
