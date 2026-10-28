@@ -3,7 +3,12 @@ import type { User } from "@prisma/client";
 import type { ProfileUpdateInput } from "@/features/profile/schemas/profile-input";
 import type { ProfileInfo } from "@/features/profile/types/profile.type";
 import { ApiError } from "@/shared/lib/api-error";
-import { formatJapaneseDate, fromDbDate, toDbDate } from "@/shared/lib/date";
+import {
+	formatJapaneseDate,
+	formatJapaneseDateTime,
+	fromDbDate,
+	toDbDate,
+} from "@/shared/lib/date";
 import { prisma } from "@/shared/lib/prisma";
 
 // DB の User を、マイページに渡す形に変える
@@ -26,6 +31,7 @@ export function toProfileInfo(user: User): ProfileInfo {
 		dateOfBirthInput: fromDbDate(user.dateOfBirth),
 		nationality: user.nationality,
 		gender: user.gender,
+		updatedAt: formatJapaneseDateTime(user.updatedAt),
 	};
 }
 
