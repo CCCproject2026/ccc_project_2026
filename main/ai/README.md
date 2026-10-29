@@ -1,161 +1,116 @@
 # AI Server
 
-「01 AI Server 詳細設計」と提示画像のモジュールを、役割ごとのフォルダーに分けた初期構成です。
-画像の `ai-server/` を、このリポジトリでは `main/ai/` に配置しています。
-ASGI 入口、設定読込、lifespan を実装した開発用の骨格です。
-センサーデータ処理・外部接続・実モデル推論は未実装です。
+MQTT Brokerから最大100点のセンサーバッチを受信し、既存のJSON検証・UTC時刻変換・Topic照合へ接続しています。
+現在の終点は検証済みバッチの受理件数とログ記録です。Device API、Buffer、モデル推論、結果Publishは未接続です。
 
-## フォルダー構成
+## 起動
 
-```text
-main/ai/
-├── app/
-│   ├── main.py
-│   ├── core/                  # 共通設定・データ構造・ログ
-│   │   ├── config.py
-│   │   ├── lifespan.py
-│   │   ├── schemas.py
-│   │   └── logging_setup.py
-│   ├── integrations/          # 外部システムとの連携
-│   │   ├── mqtt_client.py
-│   │   └── device.py
-│   └── processing/            # センサーデータの処理・推論
-│       ├── pipeline.py
-│       ├── buffer.py
-│       ├── preprocessing.py
-│       ├── inference.py
-│       └── result.py
-├── .env.example
-├── Makefile
-├── Dockerfile
-├── pyproject.toml
-├── uv.lock
-└── README.md
-```
-
-`app/main.py` は起動入口として直下に置き、その他は次の責務で分けています。
-
-- `core/`: 全体で共有する設定、データ検証用スキーマ、ログ設定。
-- `integrations/`: MQTT Broker と Web Device API との通信・状態管理。
-- `processing/`: 受信後の処理順序、Window 生成、前処理、推論、結果生成。
-
-## ファイルごとの役割
-
-| ファイル | 役割 |
-| --- | --- |
-| `app/main.py` | ASGI アプリと live / ready endpoint。Worker 監視は未実装。 |
-| `app/core/config.py` | 環境変数の検証、接続情報・モデルパス・固定ポリシーの管理。 |
-| `app/core/lifespan.py` | 設定読込、Runtime の所有、開始・停止状態の管理。 |
-| `.env.example` | 秘密情報を含まない設定キーとローカル用の例。 |
-| `app/core/schemas.py` | JSON・時刻・6 軸データ・結果の検証と受け渡し用データ構造。 |
-| `app/integrations/mqtt_client.py` | TLS、購読、再接続、受信 Queue 投入、Publish 完了管理。 |
-| `app/processing/pipeline.py` | 単一 Worker の処理順序、エラー境界、欠落・切断・OFFLINE 時の掃除。 |
-| `app/integrations/device.py` | Web API による Device 確認、最小キャッシュ、稼働可否判定。 |
-| `app/processing/buffer.py` | デバイス別の連続サンプル保持と 100 点の Window 生成。 |
-| `app/processing/preprocessing.py` | 既存 StandardScaler の読込・変換とモデル用 Tensor の整形。 |
-| `app/processing/inference.py` | 既存 PyTorch 1D-CNN の読込・推論・確率解釈・閾値 0.5 の判定。 |
-| `app/processing/result.py` | 結果 JSON の生成と MQTT 送信要求。DB 保存や Alarm 制御は対象外。 |
-| `app/core/logging_setup.py` | 共通の構造化ログ、stdout 出力、運用ログ MQTT 転送。 |
-| `Dockerfile` | Python 3.11、uv による依存準備、非 root 実行、単一 worker の起動設定。 |
-| `Makefile` | Ruff による AI Server 全体の自動修正・整形・チェック用コマンド。 |
-| `pyproject.toml` | プロジェクト情報、Python 要件、Python 依存関係の許容範囲。 |
-| `uv.lock` | 間接依存を含む解決済みバージョンの固定。Git 管理する。 |
-| `README.md` | フォルダー構成、ファイルの責務、初期化段階の制約の説明。 |
-
-## コードの自動修正・チェック
-
-`uv`（`uvx` を含む）と `make` が必要です。Web の `biome:write` /
-`biome:check` に相当するコマンドを用意しています。
-リポジトリ直下から次を実行します。
-
-```sh
-# AI Server 全体を自動修正・整形し、最後にチェック
-make -C main/ai fix
-
-# ファイルを変更せずチェック
-make -C main/ai check
-```
-
-`main/ai` に移動済みなら `make fix` / `make check` で実行できます。
-`make lint` は lint のみ、`make format` は整形のみを実行します。
-
-対象は `main/ai` 全体です。Web・IoT は変更しません。
-Ruff のルールは `pyproject.toml` に定義し、`app` をプロジェクト内の
-パッケージとして明示しています。実行場所による import 分類の差を防ぎます。
-Ruff は `uvx` で用意するため、アプリの実行依存関係には追加しません。
-初回は Ruff のダウンロードにネットワーク接続が必要です。
-自動修正できないエラーは表示して停止するため、該当箇所を手動で直してください。
-修正後は `git diff` で差分を確認してください。
-
-## Docker と依存関係
-
-`../web/Dockerfile` に合わせ、`base` → `deps` → `runner` のステージに分けています。
-Python はコンパイル工程を必要としないため、独立した builder ステージは設けていません。
-依存関係は uv で `/opt/venv` に導入し、runner は非 root ユーザーで実行します。
-起動設定は Uvicorn 1 worker、reload なしです。
-開発用ポートは 8000 です。本番用ポートは未決定です。
-
-現段階では FastAPI と Uvicorn のみを定義しています。PyTorch、Scaler 関連、
-MQTT、HTTPS client の依存関係は、モデル実物や外部契約の確認後に追加します。
-依存関係の許容範囲は `pyproject.toml`、解決済みバージョンは `uv.lock` で管理します。
-Docker ビルドは `uv sync --locked --no-install-project --no-dev` を使用し、
-両ファイルが不整合の場合は失敗します。依存変更時は `main/ai` で `uv lock` を実行し、両ファイルをコミットしてください。
-画像の `uv init` はビルド時には実行せず、用意した `pyproject.toml` を使用します。
-
-## 起動入口と設定
-
-ルートの `docker-compose.yml` に `ai-server` サービスを定義しています。
-リポジトリ直下から起動します。
+Docker Composeを使う場合、リポジトリ直下から実行します。
 
 ```sh
 docker compose up -d --build ai-server
+docker compose logs -f ai-server
 ```
 
-全体の `docker compose up -d --build` にも含まれます。
-Compose は `main/ai` の Dockerfile の runner ステージを使用し、
-`.env.example` を読み込んで、設定と lifespan の骨格を起動します。
-開発用に `8000:8000` を公開し、ホストから `http://localhost:8000` でアクセスできます。
-本番用ポートは未決定です。
-起動コマンドは Dockerfile の `app.main:app` を使用し、Compose では上書きしません。
-現段階では外部接続しないため、Web・DB・MQTT への `depends_on` は設けていません。
-healthcheck は `/health/live` を5秒間隔で確認します。起動猶予は10秒です。
-healthy は実推論の準備完了を意味しません。
-異常終了時の再起動は最大3回です。`docker compose up -d` の成功だけでは起動成功とせず、
-`docker compose ps -a ai-server` とログで状態を確認してください。
-独自設定を使う場合は Compose の `env_file` を Git 管理外の `.env` に変更してください。
+依存する `mqtt-broker` も起動します。Compose内の接続先は `mqtt-broker:1883`。
+`.env.example` はローカル開発用で、TLSなし・匿名の既存Brokerへ接続します。
+本番はTLS、必要なCA、認証、Broker ACLを設定してください。
 
-実行ルートは `main/ai`、ASGI の指定は **`app.main:app`** に統一します。
-`main/ai/app.main:app` はディレクトリと import 指定を混ぜた表記なので、
-Uvicorn には渡しません。ローカルでは uv を用意した上で、リポジトリ直下から次を実行します。
-以下の `--port 8000` は開発用ポートです。
+ホストから単体起動する場合:
 
 ```sh
 cd main/ai
+uv sync --locked
 uv run --locked --env-file .env.example uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-独自設定が必要なら `.env.example` を Git 管理外の `.env` にコピーし、
-`--env-file .env` に変更します。アプリ自身は `.env` を自動読込しません。
-Docker では実行時に `--env-file main/ai/.env.example` で注入します。
-Dockerfile は `app/` のみコピーするため、`.env` はイメージへ入りません。
+`.env.example` は `127.0.0.1:1883` を使用します。ComposeのAIが同時起動中なら停止するか、
+HTTPポートと `MQTT_CLIENT_ID` を別の値にしてください。同じclient IDは接続を奪い合います。
+複数プロセスによる二重購読を避けるため1 worker・reloadなしで起動します。
+独自設定はGit管理外の `.env` に保存して `--env-file .env` で読み込みます。
 
-- 起動時は設定と lifespan のみ初期化します。モード切替の環境変数はありません。
-- Window 100、Sampling rate 50、閾値 0.5 を検証します。Step は 1〜100、既定 50 は開発用の候補値です。
-- MQTT / Device API / モデル設定は将来用の保持項目です。実接続用の必須・TLS・ファイル検証は未実装です。
-- password / token / username / API URL は設定オブジェクトの repr に含めません。設定全体はログや health へ出しません。
+## 処理経路とコードを読む順序
 
-`/health/live` は lifespan 起動後に 200、停止状態では 503 です。
-Worker が未実装のため、現時点ではアプリの起動状態のみを表します。
-`/health/ready` は常に 503 (`pipeline_not_implemented`) です。
-実モデル・MQTT・Worker の接続と稼働判定は未実装です。
+```text
+main.py → core/lifespan.py が依存関係を組み立てる
+  → processing/pipeline.py: InputPipeline.start()
+    → integrations/mqtt_client.py: MqttConnection.start()
+      → CONNACK → fall/+/data をsubscribe → SUBACK
+      → on_message → MqttSensorInput.receive() → 有限Queue
+    → 単一Worker → MqttSensorInput.process()
+      → integrations/sensor_json.py: decode_batch()
+      → application/sensor_input.py: accept()
+      → InputPipeline._accept_batch(): 世代の再確認・受理件数・ログ
+```
 
-起動骨格について、Docker ビルド、非 root 実行、live=200 / ready=503、
-設定不正時の終了コード3と最大3回の再起動後の停止を確認済みです。
-依存指定と lock の不整合が `--locked` で失敗すること、Ruff の lint・整形チェックも確認済みです。
-実モデル・MQTT・Device API の結合試験は、各機能の実装後に実施します。
+| モジュール | 責務 |
+|---|---|
+| `main.py` | HTTP healthのみ。センサー用HTTP POSTは設けない |
+| `core/config.py` | 環境設定の読込・検証 |
+| `core/lifespan.py` | 全体の組立て、起動と停止の所有 |
+| `integrations/mqtt_client.py` | Paho接続・購読・再接続と既存受信アダプター |
+| `integrations/sensor_json.py` | 外部JSONの検証と内部型への変換 |
+| `application/sensor_input.py` | Topicとcodeの照合、注入したconsumeの呼出し |
+| `domain/sensor.py` | 不変のSensorBatch / SensorSample |
+| `processing/pipeline.py` | 単一Worker、Queue掃除、今回の受理終点 |
 
-旧 `features/inference/` の説明文のみの雛形は `app/` に整理し、
-`requirements.txt` は `pyproject.toml` に置き換えています。
-設計上、画像化による推論、モデル学習、PostgreSQL への直接接続は対象外です。
+依存は外部アダプターからapplication/domainへ向けます。domainはPahoやFastAPIに依存しません。
+`processing/pipeline.py` は今回の受信処理を組み立てる側で、既存配置を維持しています。
+データ型は `domain/sensor.py` から直接importします。未使用の再公開用 `core/schemas.py` は削除しました。その他のprocessingモジュールは今後の実装です。
 
-設計根拠: [01 AI Server 詳細設計](../../docs/detailed_design/ai-server/01_AI_Server_詳細設計.md)
+## 接続と障害時の動作
+
+- Paho 2.1.0、Callback API v2、MQTT 3.1.1、clean sessionを使用。
+- `fall/+/data` を購読。既定QoS=0はローカル用設定で、環境変数で0/1を選択可能。
+- 初回接続不能・一時切断は1〜30秒のbackoffで再接続。再接続ごとに再購読。
+- 認証/CONNACK拒否・SUBACK拒否・証明書検証エラーは切断して受信不可にする。設定修正後に再起動する。
+- callbackは受信サイズ/Retain判定と非ブロッキングQueue投入のみ。JSON解析はWorker側。
+- 最大64KiB/メッセージ、16バッチのQueue。payload自体は最大1MiB（オブジェクト分は別）。
+- 切断・満杯時に全体の連続性欠落を通知する。再購読前には旧Queueと通知を消し込み、新着を保護する。
+  満杯時の掃除は保守的な全Queue破棄。不正JSON・サイズ超過・Retain等は当該入力だけを拒否する。
+- 接続世代をdecode前と受理直前に照合し、処理中の切断にも対応する。
+- 現在Bufferは未実装。将来追加する場合は世代変更・満杯時の全Buffer reset、入力不良時の対象DeviceのみのresetをWorkerへ追加する。
+- 正常な入力は `SENSOR_BATCH_ACCEPTED samples=100`、不正入力は安全な理由コードを記録。
+  生payload・認証情報はログへ出さない。今回のカウンターは再起動で0に戻り、DB保存はしない。
+- 終了時は受付停止→MQTT停止→Worker終了待ち→残りQueue破棄。MQTT/Workerの待機予算は合計5秒。超過は異常終了として報告する。Pythonの稼働中スレッドを強制終了する保証はない。未処理データは再送・復元しない。
+- Envelopeは受信UTCに加えてmonotonic時刻を持つ。待機時間の計測用であり、未合意の鮮度閾値はまだ適用しない。
+
+## Health
+
+| Endpoint | 200の条件 |
+|---|---|
+| `/health/live` | アプリ起動中かつ入力Workerが生存 |
+| `/health/input` | Broker接続・SUBACK成功・入力Worker生存。受理/拒否件数も返す |
+| `/health/ready` | 現在は常に503。理由は `inference_not_implemented` |
+
+受信できることと、転倒推論できることを分けて表示します。
+`rejected_batches` はWorkerで拒否した件数です。Queue投入前のサイズ/Retain拒否・満杯破棄は含みません。
+Broker切断だけではliveを落とさず、inputを503にします。
+
+## 設定
+
+| 設定 | ローカル既定値 / 用途 |
+|---|---|
+| `MQTT_HOST`, `MQTT_PORT` | `127.0.0.1`, `1883`。Composeはhostを上書き |
+| `MQTT_CLIENT_ID` | `ccc-ai-input`。並行起動時は別ID |
+| `MQTT_KEEPALIVE` | 60秒 |
+| `MQTT_QOS` | 0（0/1対応） |
+| `MQTT_TLS` | false。TLS利用時はtrue、通常port=8883 |
+| `MQTT_CA_FILE` | 空ならOS標準CA。指定時はTLS必須 |
+| `MQTT_USERNAME`, `MQTT_PASSWORD` | 空。認証利用時に設定 |
+
+Window/モデル/API設定は将来用の既存項目。未合意のStepや鮮度許容を今回の受信処理へ適用していません。
+
+## 確認結果と開発ツール
+
+2026-10-29、ローカルMosquittoと別ポート18080の新実装で、既存IoT生成器由来の100点を送信。
+受理100点→不正JSON拒否1件→正常データを再受理し累計200点、input/live=200、ready=503を確認。
+テストファイルは追加せず、一時的なコマンドで実通信を確認しました。TLS/認証付きBrokerは未検証です。
+
+依存は `pyproject.toml` と `uv.lock` で管理し、変更時は `uv lock` を実行します。
+Dockerは `uv sync --locked` で不整合を拒否します。
+既存の整形・静的チェックは `make -C main/ai fix` / `make -C main/ai check` を利用できます。
+
+入力項目の詳細: [バッチ入力設計](../../docs/detailed_design/ai-server/07_Batch_Input実装.md)
+
+設計レビュー後、正常・不正・正常を連続送信して正常200点/不正1件を確認。停止所要約0.15秒。停止待ち上限と証明書エラー分類は一時的な異常再現でも確認した。Worker異常時のプロセス終了・自動復旧、ログ集約、鮮度検査は後続タスクであり、全設計実装済みとは扱わない。
