@@ -1,5 +1,7 @@
 # 01 AI Server 詳細設計
 
+> 2026-10-29追記: 最大100点バッチの入力形式・Queue上限・段階的な受信実装の範囲は[07](07_Batch_Input実装.md)を参照。以下は推論まで完成した段階の全体設計であり、現時点の全機能実装を意味しない。
+
 作成日: 2026-10-06 ／ 状態: レビュー用（外部契約・モデル実物の確認待ち）
 
 ## 1. 目的・設計根拠
@@ -51,7 +53,7 @@ FastAPIは1 workerで起動する。複数Uvicorn workerや本番auto-reloadはM
 |---|---|---|---|---|
 | `main.py` | lifespan、開始・停止、health、Worker監視 | 起動・終了要求 | HTTP health、実行状態 | 全モジュール |
 | `config.py` | 環境変数検証、固定ポリシー | env、対応表 | 検証済み設定 | 標準ライブラリ |
-| `schemas.py` | JSON・時刻・6軸・結果の検証 | payload、内部結果 | SensorSample / Result | Pydantic等 |
+| `integrations/sensor_json.py` / `domain/sensor.py` | 入力JSON・時刻・6軸の検証と内部データ型の定義。型はdomainから直接importする | payload | SensorSample / SensorBatch | 標準ライブラリ |
 | `mqtt_client.py` | TLS、subscribe、再接続、Publish完了管理 | Broker設定、送信要求 | 受信Queue、接続状態 | paho-mqtt |
 | `pipeline.py` | 処理順序、エラー境界、OFFLINE掃除 | 受信Envelope | 推論・送信要求 | 下記モジュール |
 | `device.py` | API参照、最小キャッシュ、稼働可否 | device_code | ACTIVE / INACTIVE / UNKNOWN | HTTPS client |

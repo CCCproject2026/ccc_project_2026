@@ -3,7 +3,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
 
-# 現段階では FastAPI / Uvicorn の依存関係のみを準備する。
+# FastAPI / Uvicorn / MQTTクライアントの固定依存を準備する。
 FROM base AS deps
 WORKDIR /app
 RUN pip install --no-cache-dir uv

@@ -1,5 +1,6 @@
 # 03 Buffer・Window・Preprocessing 詳細設計
 
+> 2026-10-27更新: 最大100点バッチを採用。入力形式と受信サイズは[07 バッチ入力実装](07_Batch_Input実装.md)を優先する。以下の1点送信前提は旧設計。Step・時系列許容などの未決事項は引き続き未確定。
 ## 1. Buffer契約
 
 `BufferManager`は`dict[device_code, DeviceBuffer]`を持つ。各DeviceBufferは`deque(maxlen=100)`、直前計測時刻、最後の有効受信monotonic時刻、連続区間内の受付点数、次のWindow生成点数を持つ。Workerだけが更新する。UNKNOWN/INACTIVEをキー登録の契機にしない。
