@@ -10,7 +10,9 @@
  */
 export type ReverificationHint = { clerk_error: unknown };
 
-export function isReverificationHint(body: unknown): body is ReverificationHint {
+export function isReverificationHint(
+	body: unknown,
+): body is ReverificationHint {
 	return typeof body === "object" && body !== null && "clerk_error" in body;
 }
 

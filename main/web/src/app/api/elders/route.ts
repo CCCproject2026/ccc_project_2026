@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkNurseAuth } from "@/features/elder-management/server/elder-auth";
 import {
 	createElder,
 	listElders,
 } from "@/features/elder-management/server/elder-service";
-import { checkNurseAuth } from "@/features/elder-management/server/elder-auth";
 import { ApiError } from "@/shared/lib/api-error";
 import { requireStaff } from "@/shared/lib/auth";
-import { ElderStatus } from "@/features/elder-management/types/elder.types";
-import { elderCreateSchema } from "@/shared/validation/schemas";
+import {
+	type ElderStatus,
+	elderCreateSchema,
+} from "@/shared/validation/schemas";
 
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 20;

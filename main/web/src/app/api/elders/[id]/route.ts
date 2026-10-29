@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
 import { auth, reverificationErrorResponse } from "@clerk/nextjs/server";
+import { type NextRequest, NextResponse } from "next/server";
+import { checkNurseAuth } from "@/features/elder-management/server/elder-auth";
 import {
 	deactivateElder,
 	getElder,
 	updateElder,
 } from "@/features/elder-management/server/elder-service";
-import { checkNurseAuth } from "@/features/elder-management/server/elder-auth";
 import { ApiError } from "@/shared/lib/api-error";
 import { requireStaff } from "@/shared/lib/auth";
-import { elderUpdateSchema } from "@/shared/validation/schemas";
 import { requiresReverification } from "@/shared/lib/reverification";
+import { elderUpdateSchema } from "@/shared/validation/schemas";
 
 interface RouteParams {
 	params: Promise<{ id: string }>;
