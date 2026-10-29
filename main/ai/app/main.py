@@ -20,7 +20,10 @@ async def live(request: Request) -> JSONResponse:
         content={"status": "live" if running else "stopped"},
     )
 
+
 """現在ではモデル未接続なので常に503を返す。将来は推論Workerの状態を反映する。"""
+
+
 @app.get("/health/ready")
 async def ready() -> JSONResponse:
     """入力受信と推論の準備状態を混同しない。モデル未接続なので非Ready。"""
