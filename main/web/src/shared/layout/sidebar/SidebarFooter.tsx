@@ -1,7 +1,10 @@
+"use client";
+
 import type { UserRole } from "@prisma/client";
 import Link from "next/link";
-import { DesktopSignOutButton } from "./DesktopSignOutButton";
 import { SidebarAvatar } from "./SidebarAvatar";
+import { useSidebar } from "./SidebarContext";
+import { SidebarSignOutButton } from "./SidebarSignOutButton";
 
 // 名前とロールは DB の User から受け取る
 // （ロールの正は DB。Clerk の publicMetadata は使わない）
@@ -16,6 +19,7 @@ export function SidebarFooter({
 	lastName,
 	firstName,
 }: SidebarFooterProps) {
+	const { isCollapsed, closeMobile } = useSidebar();
 	const displayName = `${lastName} ${firstName}`;
 	const initial = lastName.charAt(0) || firstName.charAt(0) || "?";
 
@@ -25,16 +29,26 @@ export function SidebarFooter({
 		roleLabel = "看護師（管理者）";
 	}
 
+	// アイコンだけの表示では、名前を隠して写真を中央に寄せる
+	let layoutClass = "";
+	let labelClass = "";
+	if (isCollapsed) {
+		layoutClass = "lg:justify-center lg:px-0";
+		labelClass = "lg:hidden";
+	}
+
 	return (
-		<div className="mt-auto md:w-full">
+		<div className="mt-auto w-full">
 			{/* クリックするとマイページ（自分のスタッフ情報）を開く */}
 			<Link
 				href="/profile"
+				onClick={closeMobile}
+				aria-label="マイページ"
 				title="マイページ"
-				className="hidden md:flex items-center gap-3 px-2 py-3 border-t border-slate-800 hover:bg-slate-800/50 rounded-xl transition-colors cursor-pointer group"
+				className={`flex items-center gap-3 px-2 py-3 border-t border-slate-800 hover:bg-slate-800/50 rounded-xl transition-colors cursor-pointer group ${layoutClass}`}
 			>
-				<SidebarAvatar initial={initial} name={displayName} size="md" />
-				<div>
+				<SidebarAvatar initial={initial} name={displayName} />
+				<div className={`whitespace-nowrap ${labelClass}`}>
 					<p className="text-white text-sm leading-tight group-hover:text-primary transition-colors">
 						{displayName}
 					</p>
@@ -42,7 +56,7 @@ export function SidebarFooter({
 				</div>
 			</Link>
 
-			<DesktopSignOutButton />
+			<SidebarSignOutButton />
 		</div>
 	);
 }

@@ -26,8 +26,7 @@ const ROUTE_META: Record<string, { title: string; breadcrumb?: string }> = {
 		breadcrumb: "アカウント",
 	},
 	"/response": {
-		title: "対応履歴一覧",
-		breadcrumb: "対応履歴",
+		title: "対応記録",
 	},
 };
 

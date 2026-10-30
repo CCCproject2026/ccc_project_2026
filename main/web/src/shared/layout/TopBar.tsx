@@ -1,4 +1,5 @@
 import { Bell } from "lucide-react";
+import { SidebarToggleButton } from "./sidebar/SidebarToggleButton";
 
 interface TopBarProps {
 	title: string;
@@ -26,8 +27,9 @@ export function TopBar({
 			: [];
 	return (
 		<header className="h-16 bg-white/90 backdrop-blur-xs border-b border-gray-100 flex items-center justify-between px-4 md:px-6 shrink-0 w-full sticky top-0 z-40 transition-all">
-			<div className="min-w-0 flex-1 mr-4">
-				<h1 className="text-sm md:text-base font-black text-gray-900 tracking-tight truncate">
+			<div className="flex items-center gap-2 min-w-0 flex-1 mr-4">
+				<SidebarToggleButton />
+				<h1 className="min-w-0 text-sm md:text-base font-black text-gray-900 tracking-tight truncate">
 					{crumbs.map((crumb, idx) => (
 						<span key={idx} className="text-gray-400 font-medium mr-1">
 							{crumb}
