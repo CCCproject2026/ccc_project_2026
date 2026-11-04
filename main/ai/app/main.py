@@ -21,7 +21,6 @@ async def live(request: Request) -> JSONResponse:
     )
 
 
-
 @app.get("/health/ready")
 async def ready() -> JSONResponse:
     """入力受信と推論の準備状態を混同しない。モデル未接続なので非Ready。"""
