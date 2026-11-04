@@ -9,7 +9,7 @@ export async function checkNurseAuth() {
 		where: { clerkUserId: userId },
 		select: { role: true, status: true },
 	});
-	if (!user || user.role !== "NURSE" || user.status !== "ACTIVE") {
+	if (user?.role !== "NURSE" || user.status !== "ACTIVE") {
 		return { error: "Forbidden", status: 403 };
 	}
 

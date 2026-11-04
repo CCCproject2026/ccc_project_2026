@@ -45,3 +45,24 @@ export function formatJapaneseDate(value: Date): string {
 	const day = Number(parts[2]);
 	return `${year}年${month}月${day}日`;
 }
+
+// 日時（DB の Timestamptz など）を、日本時間の「2026年10月28日 14:05」の形にする（画面に表示する用）
+// サーバーは UTC で動くことが多いので、timeZone で日本時間を指定する
+export function formatJapaneseDateTime(value: Date): string {
+	// "en-CA" + hourCycle h23 で "2026-10-28, 14:05" の形になる
+	const text = value.toLocaleString("en-CA", {
+		timeZone: "Asia/Tokyo",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hourCycle: "h23",
+	});
+	const [datePart, timePart] = text.split(", ");
+	const parts = datePart.split("-");
+	const year = Number(parts[0]);
+	const month = Number(parts[1]);
+	const day = Number(parts[2]);
+	return `${year}年${month}月${day}日 ${timePart}`;
+}

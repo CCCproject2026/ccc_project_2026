@@ -57,7 +57,10 @@ function parseDateOfBirth(value: string): Date | null {
 function calculateAge(birth: Date, today: Date): number {
 	let age = today.getUTCFullYear() - birth.getUTCFullYear();
 	const monthDiff = today.getUTCMonth() - birth.getUTCMonth();
-	if (monthDiff < 0 || (monthDiff === 0 && today.getUTCDate() < birth.getUTCDate())) {
+	if (
+		monthDiff < 0 ||
+		(monthDiff === 0 && today.getUTCDate() < birth.getUTCDate())
+	) {
 		age -= 1;
 	}
 	return age;
@@ -81,7 +84,9 @@ const dateOfBirthSchema = z
 			const date = parseDateOfBirth(value);
 			if (!date) return false;
 			const today = todayAsCalendarDate();
-			return date.getTime() <= today.getTime() && calculateAge(date, today) <= 130;
+			return (
+				date.getTime() <= today.getTime() && calculateAge(date, today) <= 130
+			);
 		},
 		{
 			message: "有効な生年月日を入力してください（0〜130歳、未来日不可）",

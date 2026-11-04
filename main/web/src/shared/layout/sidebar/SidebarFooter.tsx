@@ -1,6 +1,7 @@
 import type { UserRole } from "@prisma/client";
 import Link from "next/link";
 import { DesktopSignOutButton } from "./DesktopSignOutButton";
+import { SidebarAvatar } from "./SidebarAvatar";
 
 // 名前とロールは DB の User から受け取る
 // （ロールの正は DB。Clerk の publicMetadata は使わない）
@@ -32,9 +33,7 @@ export function SidebarFooter({
 				title="マイページ"
 				className="hidden md:flex items-center gap-3 px-2 py-3 border-t border-slate-800 hover:bg-slate-800/50 rounded-xl transition-colors cursor-pointer group"
 			>
-				<div className="w-9 h-9 rounded-full bg-violet-600 flex items-center justify-center text-white text-sm font-medium">
-					{initial}
-				</div>
+				<SidebarAvatar initial={initial} name={displayName} size="md" />
 				<div>
 					<p className="text-white text-sm leading-tight group-hover:text-primary transition-colors">
 						{displayName}
