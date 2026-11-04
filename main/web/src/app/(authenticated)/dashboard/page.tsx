@@ -1,12 +1,11 @@
-import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
-import { requireStaffPage } from "@/shared/lib/auth";
 import { dashboardPageNumber } from "@/features/dashboard/lib/resident-profile";
+import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 
-export default async function DashboardRoute({ searchParams }: {
+export default async function DashboardRoute({
+	searchParams,
+}: {
 	searchParams: Promise<{ page?: string | string[] }>;
 }) {
-	await requireStaffPage();
-
 	const { page } = await searchParams;
 	return (
 		<>

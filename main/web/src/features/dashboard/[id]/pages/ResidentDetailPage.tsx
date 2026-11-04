@@ -1,14 +1,12 @@
 import { ChevronLeft, User } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getElder } from "@/features/elder-management/server/elder-service";
 import { residentAge } from "@/features/dashboard/lib/resident-profile";
-import { requireStaffPage } from "@/shared/lib/auth";
+import { getDashboardResident } from "@/features/dashboard/server/dashboard-service";
 import { formatJapaneseDate } from "@/shared/lib/date";
 
 export async function ResidentDetailPage({ id }: { id: string }) {
-	await requireStaffPage();
-	const resident = await getElder(id);
+	const resident = await getDashboardResident(id);
 	if (!resident) notFound();
 	const residentDetail = {
 		name: `${resident.lastName} ${resident.firstName}`.trim() || "氏名未登録",
