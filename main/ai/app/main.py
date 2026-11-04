@@ -21,8 +21,6 @@ async def live(request: Request) -> JSONResponse:
     )
 
 
-"""現在ではモデル未接続なので常に503を返す。将来は推論Workerの状態を反映する。"""
-
 
 @app.get("/health/ready")
 async def ready() -> JSONResponse:

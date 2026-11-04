@@ -36,14 +36,47 @@ class MqttSensorInput:
         self.queue: Queue[Envelope] = Queue(maxsize=capacity)
         self.service = service
         self.discontinuity = Event()
+        self._rejection_lock = Lock()
+        self._rejections = {
+            "retained_sensor": 0,
+            "empty_payload": 0,
+            "payload_too_large": 0,
+            "queue_full": 0,
+        }
+        self._queue_discards = {
+            "continuity_reset": 0,
+            "reconnect": 0,
+            "shutdown": 0,
+        }
+
+    def queue_discard_counts(self) -> dict[str, int]:
+        """Queueから実際に取り除いた未処理バッチ数を返す。"""
+        with self._rejection_lock:
+            return self._queue_discards.copy()
+
+    def rejection_counts(self) -> dict[str, int]:
+        """Queue投入前の拒否件数を理由別に返す。Thread-safeのためコピーを返す。"""
+        with self._rejection_lock:
+            return self._rejections.copy()
+
+    def _reject(self, reason: str) -> bool:
+        with self._rejection_lock:
+            self._rejections[reason] += 1
+        # Topicや生payloadを含めず、安全な理由コードだけを記録する。
+        logger.warning("SENSOR_BATCH_REJECTED stage=receive reason=%s", reason)
+        return False
 
     def receive(
         self, payload: bytes, topic: str, retained: bool, generation: int
     ) -> bool:
         """callback用。検証・HTTP・推論をせず、非ブロッキングで投入する。"""
-        if retained or not payload or len(payload) > MAX_PAYLOAD_BYTES:
-            # この入力だけを拒否する。他Deviceの正常なQueueは破棄しない。
-            return False
+        # この入力だけを拒否する。他Deviceの正常なQueueは破棄しない。
+        if retained:
+            return self._reject("retained_sensor")
+        if not payload:
+            return self._reject("empty_payload")
+        if len(payload) > MAX_PAYLOAD_BYTES:
+            return self._reject("payload_too_large")
         envelope = Envelope(
             bytes(payload), topic, retained, datetime.now(UTC), generation, monotonic()
         )
@@ -51,7 +84,7 @@ class MqttSensorInput:
             self.queue.put_nowait(envelope)
         except Full:
             self.discontinuity.set()
-            return False
+            return self._reject("queue_full")
         return True
 
     def process(self, envelope: Envelope, *, generation: int) -> None:
@@ -67,14 +100,23 @@ class MqttSensorInput:
         # Buffer追加時には、信頼できるTopicから対象Deviceだけをresetする。
         self.service.accept(batch, topic=envelope.topic, retained=envelope.retained)
 
-    def discard_pending(self) -> None:
+    def discard_pending(self, *, reason: str) -> int:
         """呼出元で受信と同期する。Queueのtaskカウントも必ず消し込む。"""
+        discarded = 0
         while True:
             try:
                 self.queue.get_nowait()
             except Empty:
-                return
+                break
             self.queue.task_done()
+            discarded += 1
+        if discarded:
+            with self._rejection_lock:
+                self._queue_discards[reason] += discarded
+            logger.warning(
+                "SENSOR_QUEUE_DISCARDED reason=%s batches=%d", reason, discarded
+            )
+        return discarded
 
 
 class _VerifiedMqttClient(mqtt.Client):
@@ -181,7 +223,7 @@ class MqttConnection:
             # 再購読前に旧Queueを掃除する。SUBACK直後の新着バッチを
             # Workerの遅れたresetで捨てないよう、ここで通知も消し込む。
             # Buffer追加時は世代変更をWorker側でも検知してresetすること。
-            self.receiver.discard_pending()
+            self.receiver.discard_pending(reason="reconnect")
             self.receiver.discontinuity.clear()
             self.connected = True
             result, mid = client.subscribe("fall/+/data", qos=self.settings.mqtt_qos)

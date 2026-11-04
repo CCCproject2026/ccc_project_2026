@@ -43,22 +43,28 @@ class InputPipeline:
             if self.worker.is_alive():
                 raise RuntimeError("sensor input worker did not stop")
             with self.connection.state_lock:
-                self._discard_queue()
+                self._discard_queue(reason="shutdown")
 
     def snapshot(self) -> dict:
         with self.connection.state_lock:
+            receive_rejections = self.receiver.rejection_counts()
+            queue_discards = self.receiver.queue_discard_counts()
             return {
                 "connected": self.connection.connected,
                 "subscribed": self.connection.subscribed,
                 "worker_alive": self.worker.is_alive(),
                 "accepted_batches": self.accepted_batches,
                 "accepted_samples": self.accepted_samples,
-                "rejected_batches": self.rejected_batches,
+                "rejected_batches": self.rejected_batches
+                + sum(receive_rejections.values()),
+                "receive_rejections": receive_rejections,
+                "discarded_batches": sum(queue_discards.values()),
+                "queue_discards": queue_discards,
                 "queue_size": self.receiver.queue.qsize(),
             }
 
-    def _discard_queue(self) -> None:
-        self.receiver.discard_pending()
+    def _discard_queue(self, *, reason: str) -> int:
+        return self.receiver.discard_pending(reason=reason)
 
     def _accept_batch(self, batch: SensorBatch) -> None:
         # decode中に切断や欠落が発生する場合があるため、受理の直前に再確認する。
@@ -82,7 +88,7 @@ class InputPipeline:
                 # 同じlockで通知解除とQueue掃除を行い、新しい欠落通知を消さない。
                 with self.connection.state_lock:
                     if self.receiver.discontinuity.is_set():
-                        self._discard_queue()
+                        self._discard_queue(reason="continuity_reset")
                         self.receiver.discontinuity.clear()
                         logger.info("SENSOR_CONTINUITY_RESET")
                 try:
@@ -101,4 +107,4 @@ class InputPipeline:
                     self.receiver.queue.task_done()
         except Exception:
             # 想定外エラーを握り潰して生存扱いにしない。live/受信healthが503になる。
-            logger.error("SENSOR_WORKER_FAILED")
+            logger.exception("SENSOR_WORKER_FAILED")

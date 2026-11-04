@@ -70,6 +70,10 @@ main.py → core/lifespan.py が依存関係を組み立てる
   満杯時の掃除は保守的な全Queue破棄。不正JSON・サイズ超過・Retain等は当該入力だけを拒否する。
 - 接続世代をdecode前と受理直前に照合し、処理中の切断にも対応する。
 - 現在Bufferは未実装。将来追加する場合は世代変更・満杯時の全Buffer reset、入力不良時の対象DeviceのみのresetをWorkerへ追加する。
+- 満杯時の全破棄は暫定方針であり、1台のバーストが他端末にも影響する。
+  端末間の連続性を共有する要件は現実装にはないため、端末単位の欠落通知・Buffer resetと、
+  満杯時は新着だけを拒否する方式への見直しを検討する。公平性が必要なら端末別Queue・上限も検討する。
+  切断時の世代失効とは分けて設計し、方針決定までは現在の全破棄動作を維持する。
 - 正常な入力は `SENSOR_BATCH_ACCEPTED samples=100`、不正入力は安全な理由コードを記録。
   生payload・認証情報はログへ出さない。今回のカウンターは再起動で0に戻り、DB保存はしない。
 - 終了時は受付停止→MQTT停止→Worker終了待ち→残りQueue破棄。MQTT/Workerの待機予算は合計5秒。超過は異常終了として報告する。Pythonの稼働中スレッドを強制終了する保証はない。未処理データは再送・復元しない。
@@ -84,7 +88,17 @@ main.py → core/lifespan.py が依存関係を組み立てる
 | `/health/ready` | 現在は常に503。理由は `inference_not_implemented` |
 
 受信できることと、転倒推論できることを分けて表示します。
-`rejected_batches` はWorkerで拒否した件数です。Queue投入前のサイズ/Retain拒否・満杯破棄は含みません。
+`rejected_batches` はWorkerの拒否とQueue投入前の拒否の合計です。
+`receive_rejections` はQueue投入前の拒否を `retained_sensor` / `empty_payload` /
+`payload_too_large` / `queue_full` 別に集計します。同じ理由コードをWARNINGログにも記録します。
+Queueから掃除した未処理データは `discarded_batches` に別集計し、`rejected_batches` には含めません。
+`queue_discards` は掃除の契機別の件数です。`continuity_reset` は満杯・切断による欠落通知をWorkerが
+処理した場合、`reconnect` は再購読前、`shutdown` は終了時の掃除を表します。
+欠落通知は共有Eventのため、`continuity_reset` だけでは満杯と切断を区別できません。
+実際に取り除いた件数を `SENSOR_QUEUE_DISCARDED reason=... batches=...` のWARNINGログにも記録します。
+Queue投入を拒否した新着やWorkerが取り出し済みのバッチは、この破棄件数に二重計上しません。
+拒否・破棄の合計は `rejected_batches + discarded_batches` で確認できます。
+200 `receiving` は受信準備状態を表し、拒否がないことは保証しません。
 Broker切断だけではliveを落とさず、inputを503にします。
 
 ## 設定
