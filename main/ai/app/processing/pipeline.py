@@ -12,6 +12,9 @@ from app.integrations.mqtt_client import MqttConnection, MqttSensorInput
 
 logger = logging.getLogger(__name__)
 
+# Queue待機（0.2秒）から復帰して終了するための予算を、合計5秒の内側に残す。
+WORKER_SHUTDOWN_RESERVE_SECONDS = 0.5
+
 
 class InputPipeline:
     def __init__(self, settings: Settings) -> None:
@@ -35,7 +38,11 @@ class InputPipeline:
         self.stop_requested.set()
         deadline = monotonic() + Settings.SHUTDOWN_TIMEOUT_SECONDS
         try:
-            self.connection.stop(timeout=max(0.0, deadline - monotonic()))
+            self.connection.stop(
+                timeout=max(
+                    0.0, deadline - monotonic() - WORKER_SHUTDOWN_RESERVE_SECONDS
+                )
+            )
         finally:
             # MQTT停止が失敗してもWorker終了とQueue解放を省略しない。
             if self.worker.ident is not None:

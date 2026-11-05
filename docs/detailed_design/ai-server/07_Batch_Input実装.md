@@ -24,7 +24,7 @@ applicationはdomainだけに依存する。domainは標準ライブラリだけ
 - `samples` は1〜100点。各点は `t, ax, ay, az, gx, gy, gz` が必須。
 - `ts_ms` はバッチ先頭のUnix epochミリ秒。`t` は先頭からのミリ秒差。最初のtは0、以後は厳密増加。
 - 各点のUTC計測時刻は `ts_ms + t`。バッチ全点に受信時刻を付与する方式ではない。
-- `ts` は `ts_ms` と同一の時刻であること。timezoneなしの場合は明示された `tz_offset_sec` を使う。timezone付きの場合もoffset一致を確認する。
+- `ts` は `ts_ms` と同一の時刻を表すこと。小数精度や丸め方の違いを考慮し、UTCでの差の絶対値が1ms以下なら受理、1ms超なら拒否する。計測時刻の正本は引き続き `ts_ms` とする。timezoneなしの場合は明示された `tz_offset_sec` を使う。timezone付きの場合もoffset一致を確認する。
 - `ts_ms`, `boot_ms`, `t` は非負整数。boolは不可。`boot_ms` はメタデータであり計測時刻の正本にはしない。
 - 6軸は有限のJSON数値のみ。文字列、bool、null、NaN、Infinityを拒否。ゼロは許可。
 - UTF-8以外、重複キー、不正JSONを拒否。不正点があればバッチ全体を拒否し、部分投入しない。
@@ -58,7 +58,7 @@ applicationはdomainだけに依存する。domainは標準ライブラリだけ
 | 不正1バッチで正常な他DeviceまでQueue破棄 | 入力不良は当該バッチだけを拒否。全体破棄は満杯・切断に限定 |
 | 旧接続の掃除が購読後の新着を破棄し得る | 再購読前のロック区間で旧Queueと通知を消し込む |
 | Envelopeにmonotonic時刻がない | 受信時に記録。鮮度閾値は未合意なので追加しない |
-| Paho loop_stopに待機上限がない | 停止処理をdaemonスレッドへ分離し、Workerと共通の5秒予算で待機。超過は例外で通知 |
+| Paho loop_stopに待機上限がない | 停止処理をdaemonスレッドへ分離し、Workerと共通の5秒予算で待機。MQTTには最大4.5秒を割り当て、Worker用に0.5秒を予約する。超過は例外で通知 |
 | 証明書検証失敗も通信障害として再試行 | SSLCertVerificationErrorを区別して再接続を停止。設定修正を要するERRORを出力 |
 | 標準loggingの既定出力先がstderr | lifespanでstdoutを明示 |
 
