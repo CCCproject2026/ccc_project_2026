@@ -1,0 +1,171 @@
+{
+  "manifest_version": 1,
+  "issue": "https://github.com/CCCproject2026/ccc_project_2026/issues/189",
+  "status": "blocked_missing_trained_artifacts",
+  "model_version": null,
+  "receipt": {
+    "provider_code": "received_issue_comments",
+    "trained_model": "not_provided_confirmed_by_user",
+    "scaler": "not_received",
+    "known_io": "not_received"
+  },
+  "artifacts": {
+    "model": {
+      "filename": "best_1dcnn_pytorch.pth",
+      "path": null,
+      "sha256": null,
+      "format_from_provider_code": "pytorch_state_dict",
+      "format_verified_on_file": false
+    },
+    "scaler": {
+      "filename": "scaler.pkl",
+      "path": null,
+      "sha256": null,
+      "format_from_provider_code": "joblib",
+      "class": "sklearn.preprocessing.StandardScaler",
+      "fitted_on": "training_windows_only",
+      "n_features_expected": 6
+    },
+    "model_class": {
+      "path": "app/model_artifacts/conv1d.py",
+      "symbol": "Conv1DNet",
+      "sha256": "862bd10aed6db12499be56d70ee2ed84bea0b546db009e3ab52a78faaf14657e"
+    },
+    "loader": {
+      "path": "app/model_artifacts/loader.py",
+      "symbol": "load_model",
+      "sha256": "ce24393201f2a5bb4b2ff2b3d82e17c63813ea20df7038d29812274a7a72e5ce",
+      "origin": "project_cpu_adapter",
+      "map_location": "cpu",
+      "weights_only": true,
+      "strict": true,
+      "eval": true
+    }
+  },
+  "provider_sources": [
+    {
+      "path": "artifacts/provider/preprocessing.txt",
+      "sha256": "67ec967162042ba710ddbb1329566314f8c13cb4147818dfe6557094f240dba3",
+      "url": "https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630212905"
+    },
+    {
+      "path": "artifacts/provider/training.txt",
+      "sha256": "dfb4b01dc83f9bf4ecaf93eed3a4baa76b8c312f3b5d2f7574b7e9b7adf67e60",
+      "url": "https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630219944"
+    },
+    {
+      "path": "artifacts/provider/evaluation.txt",
+      "sha256": "15d7ca6aa699b9b8c28725bd99ff6283273a0d6fc17019965914f86e70752d59",
+      "url": "https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630224801"
+    }
+  ],
+  "input": {
+    "raw_window_shape": [
+      100,
+      6
+    ],
+    "sampling_rate_hz": 50,
+    "window_size": 100,
+    "step_size": 50,
+    "raw_dtype": "float32",
+    "feature_order": [
+      "ax",
+      "ay",
+      "az",
+      "gx",
+      "gy",
+      "gz"
+    ],
+    "feature_order_status": "project_mapping_pending_provider_confirmation",
+    "provider_columns": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "units_from_provider_code": [
+      "g",
+      "g",
+      "g",
+      "deg/s",
+      "deg/s",
+      "deg/s"
+    ],
+    "axis_orientation": null,
+    "scaler_input_shape": [
+      100,
+      6
+    ],
+    "tensor_layout": "NCL",
+    "tensor_shape": [
+      1,
+      6,
+      100
+    ],
+    "tensor_dtype": "float32"
+  },
+  "preprocessing": {
+    "training_source_rate_hz": 200,
+    "training_downsample": "mean_of_4_consecutive_rows",
+    "training_acceleration_multiplier": "(2 * 16) / (2 ** 13)",
+    "training_gyroscope_multiplier": "(2 * 2000) / (2 ** 16)",
+    "runtime": [
+      "physical_50hz_window",
+      "scaler.transform",
+      "astype_float32",
+      "transpose_to_6_100",
+      "add_batch_dimension"
+    ],
+    "fit_at_runtime": false,
+    "iot_unit_and_axis_compatibility": "unconfirmed"
+  },
+  "output": {
+    "shape": [
+      1,
+      1
+    ],
+    "kind": "binary_fall_logit",
+    "dtype_expected": "float32",
+    "labels": {
+      "0": "normal",
+      "1": "fall"
+    },
+    "fall_label": 1,
+    "fall_output_index": 0,
+    "class_axis": null,
+    "probability_transform": "sigmoid_once",
+    "threshold": 0.5,
+    "comparison": ">=",
+    "verified_on_weights": false
+  },
+  "runtime": {
+    "python": null,
+    "torch": null,
+    "numpy": null,
+    "scikit_learn": null,
+    "joblib": null,
+    "training_device": null,
+    "deployment_device_candidate": "cpu",
+    "cpu_compatibility_verified": false
+  },
+  "known_io": {
+    "path": null,
+    "sha256": null,
+    "template": "artifacts/fixtures/known_io.template.json",
+    "atol": null,
+    "rtol": null,
+    "reproduced": false,
+    "execution": "not_run_per_project_policy"
+  },
+  "blockers": [
+    "trained_model_and_sha256",
+    "matching_fitted_scaler_and_sha256",
+    "artifact_pair_model_version",
+    "provider_known_input_scaled_output_logit_probability",
+    "provider_numerical_tolerances",
+    "compatible_runtime_versions",
+    "feature_order_and_iot_axis_confirmation"
+  ]
+}
