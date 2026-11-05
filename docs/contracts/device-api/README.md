@@ -1,22 +1,24 @@
 # Device API・キャッシュ契約（AI-03）
 
-更新日: 2026-11-04。対象: [Issue #190](https://github.com/CCCproject2026/ccc_project_2026/issues/190)。
-状態: 実装用の契約案。Web/AI/IoT担当者間の合意・実APIの提供完了を表すものではない。
-本変更はAPI契約・状態表・応答fixtureのみで、API、HTTPクライアント、キャッシュの実装は含まない。
+更新日: 2026-11-06。対象: [Issue #190](https://github.com/CCCproject2026/ccc_project_2026/issues/190)。
+状態: Web API・AIクライアント・キャッシュをコード実装済み。実環境での通信確認・担当者間の合意は未完了。
+ユーザーの追加指示により、#190の元の資料範囲を拡張してコード実装とWorkerへの接続を含める。テストは追加・実行しない。
 
 ## 根拠と実装先
 
 - [Web詳細設計 #222 §7・§9・§12](https://github.com/CCCproject2026/ccc_project_2026/issues/222#issuecomment-6546020998): code検索、Bearer認証、応答形式、30秒の反映遅延の提案元。
-- Web実装の関連Issue: [#102 デバイスAPI](https://github.com/CCCproject2026/ccc_project_2026/issues/102)、[#149 GET /api/devices](https://github.com/CCCproject2026/ccc_project_2026/issues/149)。いずれも一覧APIが元の範囲であり、code検索・サービス認証の追加対応はWeb担当との調整が必要。リンクがあることをcode検索実装済みの根拠にはしない。
+- Web実装の関連Issue: [#102 デバイスAPI](https://github.com/CCCproject2026/ccc_project_2026/issues/102)、[#149 GET /api/devices](https://github.com/CCCproject2026/ccc_project_2026/issues/149)。いずれも一覧APIが元の範囲。今回のcode検索の実装根拠は下記ソースコードであり、これらのIssueを完了扱いにはしない。
 - AI実装先: [#193 HTTP境界](https://github.com/CCCproject2026/ccc_project_2026/issues/193)、[#194 キャッシュ](https://github.com/CCCproject2026/ccc_project_2026/issues/194)、[#198 Worker・OFFLINE掃除](https://github.com/CCCproject2026/ccc_project_2026/issues/198)。
 - [現行DB定義](../../../main/web/prisma/schema.prisma): `Device.deviceCode` は一意、状態は `ACTIVE` / `INACTIVE`。`MAINTENANCE` は#222の追加予定で、現行DBにはない。
-- 確認したローカルHEAD: `a0d8ddb05e874a30b350522bbdee018d433e1bb1`。`src/app/api/devices/` は存在せず、AIの `app/integrations/device.py` も未実装。実稼働Endpointは未確認。
+- Web実装: [GET handler](../../../main/web/src/app/api/devices/by-code/[deviceCode]/route.ts)、[Bearer認証](../../../main/web/src/features/device-management/server/device-token.ts)、[code検索](../../../main/web/src/features/device-management/server/device-lookup.ts)。稼働URLは未設定・未確認。
+- AI実装: [HTTP・キャッシュ](../../../main/ai/app/integrations/device.py)、[Worker接続](../../../main/ai/app/processing/pipeline.py)。
+- 機械可読なHTTP契約: [openapi.json](openapi.json)。サーバーURLは未確定のため記載しない。
 
 ## HTTP契約
 
-以下は#222に合わせた実装予定の契約。例示URLへ接続できることは保証しない。
+以下は#222に合わせた実装契約。ローカルのRoute Handlerは実装済みだが、デプロイ済みEndpointを意味しない。
 
-| 項目 | 契約案 |
+| 項目 | 契約 |
 |---|---|
 | Method / path | `GET /api/devices/by-code/{deviceCode}` |
 | Base URL | 配置担当が提供するWebのHTTPS origin。AIの `DEVICE_API_URL` はoriginとして扱い、末尾の `/` を除いて固定pathを結合する |
@@ -28,7 +30,7 @@
 | 200 body | `{ "device_code": "ESP32-001", "status": "ACTIVE" }`。DBのcodeと状態を返す。割当の有無を利用可否に変換しない |
 | 404 body | `{ "code": "NOT_FOUND", "message": "Device not found" }`。認証後、未登録またはcode形式違反。AIは有効なcodeに対する契約通りのJSON 404だけをnegative cache化 |
 | 401 / 403 | `{ "code": "UNAUTHENTICATED", "message": "Unauthorized" }` / `{ "code": "FORBIDDEN", "message": "Forbidden" }`。401は欠落・不正トークン、403は認証済みだが参照権限なしの場合 |
-| 障害応答 | 429・5xxは未登録扱いにしない。Web共通の `{ code, message }` 形式。AIの分岐はHTTP statusと安全な機械判定コードを使用し、messageには依存しない |
+| 障害応答 | 429・5xxは未登録扱いにしない。Webアプリの5xxは共通の `{ code, message }` 形式。429は将来のrate limiter/proxyからの応答も想定し、本文形式を要求しない（Web共通ErrorCodeにRATE_LIMITEDは未定義）。AIの分岐はHTTP statusと安全な機械判定コードを使用し、messageには依存しない |
 | Redirect | 自動追従しない。3xxは契約違反、別originへトークンを転送しない |
 | 全体timeout | 1要求2秒。接続・TLS・応答本文読取までの全体deadlineをmonotonicで制御し、超過時は要求を中止。個別のconnect/read timeoutだけで全体上限を満たしたとみなさない |
 | Retry | 同じ要求内で再試行しない。後述のcooldown後、次の入力で要求する |
@@ -68,11 +70,11 @@ API要求は単一Workerで直列化し、MQTT callback・health handlerから�
 
 429/503等の `Retry-After` が有効なら、5秒と指定待機時間の長い方を使う。秒数とHTTP-dateを受け付け、日付は受信時のUTCとの差を求めてからmonotonic期限へ変換する。過去日付・不正値・負数は5秒へfallbackする。cooldown中の入力で期限を延長しない。
 
-将来の推論readyはAPI障害中503とし、有効キャッシュの継続処理と区別する。404やINACTIVE自体はAPI障害ではない。現在の `/health/ready` はモデル未接続のため常に503で、本Taskでは変更しない。`/health/input` の接続・購読・Worker判定とも区別する。
+将来の推論readyはAPI障害中503とし、有効キャッシュの継続処理と区別する。404やINACTIVE自体はAPI障害ではない。現在の `/health/ready` は推論Pipeline未接続のため常に503で、本Taskでは変更しない。`/health/input` の接続・購読・Worker判定とも区別する。
 
 ## OFFLINEの責務
 
-| 項目 | 契約案 |
+| 項目 | 契約 |
 |---|---|
 | 利用可否 | Web/DBがACTIVE・INACTIVE・MAINTENANCEを管理。通信状態で書き換えない |
 | 通信状態 | AIが有効なACTIVE入力の処理時刻をmonotonicで記録。最後の受理から5秒以上でOFFLINE |
@@ -86,14 +88,31 @@ API要求は単一Workerで直列化し、MQTT callback・health handlerから�
 
 | 項目 | この文書で具体化した内容 | 残る確認 |
 |---|---|---|
-| T05 | #222のcode検索path・200/404、応答fixture | Web実装Issueへのcode検索範囲の追加、実URL提供 |
+| T05 | #222のcode検索path・200/404、応答fixture | code検索実装済み。稼働URLの設定・通信確認 |
 | T06（API部分） | 専用Bearer参照トークン、Clerkと分離 | Web/AIの認証契約承認、秘密情報の配置担当 |
 | T07 | positive TTL30秒、negative TTL5秒、origin共通cooldown5秒、上限128 | 反映遅延と認証停止範囲のWeb/AI承認 |
 | T08 | AIが5秒でOFFLINE、1秒ごと掃除、DB非更新 | IoT送信周期との適合、外部通知経路・payload合意 |
-| T16（API部分） | 要求全体2秒、要求内retryなし | 実装ライブラリで全体deadlineを満たすこと。MQTT/ACK条件は本Task外 |
+| T16（API部分） | 要求全体2秒、要求内retryなし | HTTPX個別timeout＋asyncio.timeout(2)で実装。実通信での確認は未実施。MQTT/ACK条件は本Task外 |
 
 #190の「合意」は本変更だけでは完了しない。担当者承認と上記未決事項の解消を確認してから完了扱いにする。GitHub Issueへの投稿・更新は本変更では行っていない。
 
 ## 応答fixture
 
 [responses.json](fixtures/responses.json) は架空codeによる契約例で、実APIから採取した応答ではない。status・headers・bodyをHTTP応答として使い、`expected` はAI側の解釈を示すメタデータである。MAINTENANCEは将来例、invalid系は意図的な契約違反例。自動テストは追加・実行しない。
+
+## 設定と実装上の制約
+
+- Web: `DEVICE_API_TOKEN` は起動時の必須項目。32文字以上の乱数（英数字・`+/_=-`）を設定し、AIと同じ値を秘密情報として配布する。未設定でWebを起動しない。`.env.example`の空欄は雛形である。
+- AI: `DEVICE_API_URL=https://<Webのホスト>` と `DEVICE_API_TOKEN` を両方設定する。URLはoriginのみ（`/api`・userinfo・queryは禁止）。HTTPやTLS検証の無効化は認めない。
+- AIで両方が空の場合は既存の入力検証専用モードを維持し、`DEVICE_API_DISABLED` を記録する。このモードの受理件数はACTIVE確認済みを意味しない。片方だけの設定は起動エラー。
+- Webの認証例外は `/api/devices/by-code/` の1セグメントだけ。検索handlerは認証を先に行い、コード形式違反・未登録は404、返却項目はcode/statusだけ。ClerkのCookieをサービス認証として使わない。
+- AIはWorker専用のasyncio RunnerとHTTPX clientを再利用し、HTTP待機中にMQTT状態lockを保持しない。要求前後に停止・購読・世代・連続性を照合する。Worker終了時にHTTP clientを閉じる。
+- HTTPX transportのretry=0、redirect追従なし、全体2秒、応答本文は最大64KiB。標準のCA/hostname検証を維持する。
+- Cache削除・失効・更新時はPipelineへreset通知を行う。Buffer本体は未実装なので、現時点の受け手はログ出力のみ。Bufferの削除処理を実装済みとは扱わない。
+- `/health/input` と `/health/ready` の `device_api` に設定有無・障害状態・認証停止・cache数・HTTP要求数・hit数・エラー数を表示する。スナップショットはWorkerの要求完了後に更新する。
+- OFFLINEの定期判定とWebへの通知は今回のAPI/Cache実装外。表は責務を定義する契約であり、動作実装済みを意味しない。
+
+## 静的確認
+
+TypeScript型チェック、変更したWebファイルのESLint/Biome、PythonのRuff、lockfile整合性を確認する。
+APIへの実リクエスト、DB問い合わせ、MQTT結合、テストの追加・実行は行わない。

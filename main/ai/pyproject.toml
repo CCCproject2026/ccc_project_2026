@@ -14,6 +14,7 @@ dependencies = [
     "numpy>=2,<2.3",
     "scikit-learn==1.6.1",
     "joblib>=1.4,<2",
+    "httpx>=0.28,<0.29",
 ]
 
 # 配置先はCPU。Linux/WindowsでCUDA runtimeを持ち込まない。
