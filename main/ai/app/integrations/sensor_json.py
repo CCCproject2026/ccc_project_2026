@@ -10,6 +10,7 @@ from app.domain.sensor import InvalidSensorBatch, SensorBatch, SensorSample
 
 MAX_PAYLOAD_BYTES = 64 * 1024
 MAX_BATCH_SAMPLES = 100
+TIMESTAMP_TOLERANCE = timedelta(milliseconds=1)
 ROOT_FIELDS = {"device_id", "ts", "ts_ms", "boot_ms", "tz_offset_sec", "samples"}
 AXES = ("ax", "ay", "az", "gx", "gy", "gz")
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
@@ -71,7 +72,9 @@ def decode_batch(
             display = display.replace(tzinfo=timezone(timedelta(seconds=offset)))
         if display.utcoffset() != timedelta(seconds=offset):
             _fail("timezone_mismatch")
-        if display.astimezone(UTC) != base:
+        # 表示時刻の小数精度・丸め方の差だけを許容し、時刻のクロスチェックは残す。
+        # 計測時刻の正本は ts_ms とし、許容差内でも display には置き換えない。
+        if abs(display.astimezone(UTC) - base) > TIMESTAMP_TOLERANCE:
             _fail("timestamp_mismatch")
     except InvalidSensorBatch:
         raise
