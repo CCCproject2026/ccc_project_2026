@@ -11,9 +11,20 @@ dependencies = [
     "uvicorn>=0.54,<0.55",
     "paho-mqtt==2.1.0",
     "torch>=2.6,<3",
-    "numpy>=2,<3",
+    "numpy>=2,<2.3",
     "scikit-learn==1.6.1",
     "joblib>=1.4,<2",
+]
+
+# 配置先はCPU。Linux/WindowsでCUDA runtimeを持ち込まない。
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [tool.ruff]

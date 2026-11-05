@@ -10,13 +10,17 @@ from dataclasses import dataclass
 from fastapi import FastAPI
 
 from app.core.config import Settings
+from app.processing.inference import InferenceEngine
 from app.processing.pipeline import InputPipeline
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class Runtime:
     settings: Settings
     pipeline: InputPipeline
+    inference: InferenceEngine
     started: bool = False
 
 
@@ -29,7 +33,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         format="%(levelname)s %(name)s %(message)s",
     )
     settings = Settings.from_env()
-    runtime = Runtime(settings=settings, pipeline=InputPipeline(settings))
+    # 設計04: MQTT受付より前に一度ロードする。失敗時は起動を中止する。
+    try:
+        inference = await asyncio.to_thread(InferenceEngine.load, settings)
+    except Exception:
+        logger.exception("MODEL_LOAD_FAILED")
+        raise
+    logger.info("MODEL_LOADED model_version=%s", inference.model_version)
+    runtime = Runtime(
+        settings=settings, pipeline=InputPipeline(settings), inference=inference
+    )
     app.state.runtime = runtime
     try:
         runtime.pipeline.start()

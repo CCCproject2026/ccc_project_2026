@@ -1,7 +1,7 @@
 """Issue #189の提供モデル。層・順序・state_dictのキーを維持する。
 
 出典: https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630219944
-PyTorchの互換versionと学習済み重みは未受領。アプリ起動時にはimportしない。
+受領済みstate_dictをlifespanからCPUへロードする。層構造は変更しない。
 """
 
 from torch import nn

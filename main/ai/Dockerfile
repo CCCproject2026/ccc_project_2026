@@ -3,7 +3,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
 
-# FastAPI / Uvicorn / MQTTクライアントの固定依存を準備する。
+# HTTP・MQTT・モデル推論の固定依存を準備する。
 FROM base AS deps
 WORKDIR /app
 RUN pip install --no-cache-dir uv
@@ -17,6 +17,8 @@ RUN groupadd --system appuser \
     && useradd --system --gid appuser appuser
 COPY --from=deps /opt/venv /opt/venv
 COPY --chown=appuser:appuser app ./app
+COPY --chown=appuser:appuser artifacts/model_manifest.json ./artifacts/model_manifest.json
+COPY --chown=appuser:appuser artifacts/sisfall_model/ ./artifacts/sisfall_model/
 USER appuser
 # 開発用の待受ポート。本番用ポートは未決定。
 EXPOSE 8000

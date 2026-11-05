@@ -45,10 +45,13 @@ class InferenceEngine:
             or inp["tensor_shape"] != [1, 6, 100]
             or inp["tensor_layout"] != "NCL"
             or inp["tensor_dtype"] != "float32"
+            or inp["raw_dtype"] != "float32"
             or inp["sampling_rate_hz"] != settings.sampling_rate
             or inp["window_size"] != settings.window_size
             or out["shape"] != [1, 1]
             or out["kind"] != "binary_fall_logit"
+            or out["dtype_expected"] != "float32"
+            or out["labels"] != {"0": "normal", "1": "fall"}
             or out["fall_label"] != 1
             or out["fall_output_index"] != 0
             or out["probability_transform"] != "sigmoid_once"
@@ -56,6 +59,13 @@ class InferenceEngine:
             or out["comparison"] != ">="
         ):
             raise ValueError("model_contract_mismatch")
+        if (
+            manifest["artifacts"]["model"]["format_from_provider_code"]
+            != "pytorch_state_dict"
+            or manifest["artifacts"]["scaler"]["format_from_provider_code"] != "joblib"
+            or manifest["artifacts"]["model_class"]["symbol"] != "Conv1DNet"
+        ):
+            raise ValueError("model_artifact_format")
 
         def artifact(name, override):
             entry = manifest["artifacts"][name]
@@ -67,9 +77,7 @@ class InferenceEngine:
         model_path, model_hash = artifact("model", settings.model_path)
         scaler_path, scaler_hash = artifact("scaler", settings.scaler_path)
         model = load_model(model_path, expected_sha256=model_hash)
-        preprocessor = WindowPreprocessor.load(
-            scaler_path, expected_sha256=scaler_hash
-        )
+        preprocessor = WindowPreprocessor.load(scaler_path, expected_sha256=scaler_hash)
         return cls(model, preprocessor, version)
 
     def predict(self, values) -> Prediction:

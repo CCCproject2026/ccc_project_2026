@@ -1,4 +1,4 @@
-"""環境変数の検証。MQTT接続設定と今後の推論設定を管理する。"""
+"""環境変数の検証。MQTT接続・モデル設定を管理する。"""
 
 import os
 from collections.abc import Mapping
