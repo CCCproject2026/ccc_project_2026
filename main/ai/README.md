@@ -3,6 +3,14 @@
 MQTT Brokerから最大100点のセンサーバッチを受信し、既存のJSON検証・UTC時刻変換・Topic照合へ接続しています。
 現在の終点は検証済みバッチの受理件数とログ記録です。Device API、Buffer、モデル推論、結果Publishは未接続です。
 
+Issue #189の提供モデルクラス・CPU loaderは `app/model_artifacts/` に取り込み済みです。
+学習済み重み・Scalerは未受領のため、推論には接続していません。
+[モデル受領状況・manifest・再現手順](artifacts/README.md)を参照してください。
+
+Device APIの実装予定契約・キャッシュ状態表・応答例は
+[AI-03 Device API・キャッシュ契約](../../docs/contracts/device-api/README.md)を参照してください。
+契約案の追加であり、API接続や担当者間の合意完了を表すものではありません。
+
 ## 起動
 
 Docker Composeを使う場合、リポジトリ直下から実行します。

@@ -1,0 +1,18 @@
+{
+  "status": "template_not_a_known_fixture",
+  "model_version": null,
+  "model_sha256": null,
+  "scaler_sha256": null,
+  "window_shape": [
+    100,
+    6
+  ],
+  "window": null,
+  "expected_scaled_window": null,
+  "expected_logit": null,
+  "expected_p_fall": null,
+  "expected_result": null,
+  "atol": null,
+  "rtol": null, 
+  "provider_runtime": null
+}

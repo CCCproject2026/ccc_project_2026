@@ -1,0 +1,155 @@
+Source: https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630219944
+
+        import torch
+        import torch.nn as nn
+        import torch.optim as optim
+        from torch.utils.data import DataLoader
+        from sklearn.metrics import classification_report, confusion_matrix
+        
+        # ==========================================
+        # 0. デバイスの設定 ＆ CPU負荷対策 DataLoader
+        # ==========================================
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"使用デバイス: {device}")
+        
+        # 💡 CPU負担を抑えるためのDataLoader設定
+        # - batch_size を 32 ➔ 64 に変更（CPUの反復処理回数を削減）
+        # - num_workers を 2 に固定（スレッドのオーバーヘッドを防止）
+        # - pin_memory=True (GPU転送効率化)
+        train_loader = DataLoader(
+            train_dataset, 
+            batch_size=64, 
+            shuffle=True, 
+            num_workers=2, 
+            pin_memory=(device.type == "cuda")
+        )
+        
+        val_loader = DataLoader(
+            val_dataset, 
+            batch_size=64, 
+            shuffle=False, 
+            num_workers=2, 
+            pin_memory=(device.type == "cuda")
+        )
+        
+        
+        # ==========================================
+        # 1. 各層に ReLU を配置した 1D-CNN モデル
+        # ==========================================
+        class Conv1DNet(nn.Module):
+            def __init__(self):
+                super(Conv1DNet, self).__init__()
+                self.features = nn.Sequential(
+                    nn.Conv1d(in_channels=6, out_channels=32, kernel_size=3, padding=1),
+                    nn.BatchNorm1d(32),
+                    nn.ReLU(),
+                    nn.MaxPool1d(kernel_size=2),
+                    
+                    nn.Conv1d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
+                    nn.BatchNorm1d(64),
+                    nn.ReLU(),
+                    nn.MaxPool1d(kernel_size=2),
+        
+                    nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(),
+                    
+                    nn.AdaptiveAvgPool1d(1)
+                )
+                
+                self.classifier = nn.Sequential(
+                    nn.Flatten(),
+                    nn.Linear(128, 64),
+                    nn.BatchNorm1d(64),
+                    nn.ReLU(),
+                    nn.Dropout(0.3),
+                    nn.Linear(64, 1)
+                )
+        
+            def forward(self, x):
+                x = self.features(x)
+                x = self.classifier(x)
+                return x
+        
+        model = Conv1DNet().to(device)
+        
+        
+        # ==========================================
+        # 2. 軽量化学習ループ
+        # ==========================================
+        criterion = nn.BCEWithLogitsLoss()
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        
+        epochs = 50
+        best_val_loss = float('inf')
+        
+        print("\n🚀 学習を開始します...")
+        for epoch in range(epochs):
+            # --- 訓練フェーズ ---
+            model.train()
+            train_loss = 0.0
+            for inputs, labels_b in train_loader:
+                # non_blocking=True で GPU 転送時の CPU 待ちをカット
+                inputs = inputs.to(device, non_blocking=True)
+                labels_b = labels_b.to(device, non_blocking=True)
+                
+                optimizer.zero_grad()
+                outputs = model(inputs).squeeze(1)
+                loss = criterion(outputs, labels_b)
+                loss.backward()
+                optimizer.step()
+                train_loss += loss.item() * inputs.size(0)
+                
+            train_loss /= len(train_loader.dataset)
+        
+            # --- 検証フェーズ ---
+            model.eval()
+            val_loss = 0.0
+            correct, total = 0, 0
+            with torch.no_grad():
+                for inputs, labels_b in val_loader:
+                    inputs = inputs.to(device, non_blocking=True)
+                    labels_b = labels_b.to(device, non_blocking=True)
+                    
+                    outputs = model(inputs).squeeze(1)
+                    loss = criterion(outputs, labels_b)
+                    val_loss += loss.item() * inputs.size(0)
+                    
+                    preds = (torch.sigmoid(outputs) >= 0.5).float()
+                    correct += (preds == labels_b).sum().item()
+                    total += labels_b.size(0)
+                    
+            val_loss /= len(val_loader.dataset)
+            val_acc = correct / total
+            
+            if (epoch + 1) % 5 == 0 or epoch == epochs - 1:
+                print(f"Epoch {epoch+1:02d}/{epochs:02d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc*100:.2f}%")
+            
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                torch.save(model.state_dict(), "best_1dcnn_pytorch.pth")
+        
+        print("\n✅ 学習完了！評価レポートを作成します。")
+        
+        
+        # ==========================================
+        # 3. 評価レポート作成
+        # ==========================================
+        model.load_state_dict(torch.load("best_1dcnn_pytorch.pth"))
+        model.eval()
+        
+        y_preds, y_trues = [], []
+        with torch.no_grad():
+            for inputs, labels_b in val_loader:
+                inputs = inputs.to(device, non_blocking=True)
+                outputs = model(inputs).squeeze(1)
+                preds = (torch.sigmoid(outputs) >= 0.5).float().cpu().numpy()
+                y_preds.extend(preds)
+                y_trues.extend(labels_b.numpy())
+        
+        print("\n📊 詳細評価レポート:")
+        print(classification_report(y_trues, y_preds, target_names=["日常(0)", "転倒(1)"]))
+        
+        print("混同行列 (Confusion Matrix):")
+        print(confusion_matrix(y_trues, y_preds))
+

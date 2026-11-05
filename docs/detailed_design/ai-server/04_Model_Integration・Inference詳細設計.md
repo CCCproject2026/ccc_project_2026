@@ -1,5 +1,12 @@
 # 04 Model Integration・Inference 詳細設計
 
+2026-11-04更新: Issue #189で前処理・Conv1DNet・学習/評価コードを受領した。
+最新の受領状況・確定できた入出力・manifestは
+[AI-04受領契約](../../../main/ai/artifacts/README.md)を参照する。
+以下の未入手記述は当初の設計時点のもの。提供コード上はstate_dict保存、入力 `(1,6,100)`、
+単一Fall logit `(1,1)` と確認できたが、学習済み重み・Scaler・既知入出力は未受領。
+クラスとCPU loaderのみ取り込み、Pipelineには未接続。互換性確認・再現作業は未実行。
+
 ## 1. 既存モデルを使う範囲
 
 `best_1dcnn_pytorch.pth`と、その学習時に使用したStandardScalerを再利用する。モデルアーキテクチャ、学習、データセット、精度改善は本作業の対象外。既存モデルクラスの定義と既存推論処理を正とする。Conv層数・kernel・hidden units等を推定して実装しない。
