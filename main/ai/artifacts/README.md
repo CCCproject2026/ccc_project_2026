@@ -1,27 +1,49 @@
 # AI-04 モデル・Scaler受領契約
 
-対象: [Issue #189](https://github.com/CCCproject2026/ccc_project_2026/issues/189)。更新日: 2026-11-04。
+対象: [Issue #189](https://github.com/CCCproject2026/ccc_project_2026/issues/189)。更新日: 2026-11-06。
 
-提供者の前処理・学習・評価コードは受領済み。学習済み成果物はまだ提供していない旨をユーザーに確認した。
-重み・Scaler本体・既知入出力・互換runtimeは未受領であり、**AI-04は完了していない**。
-学習を実行して代替成果物を作ったり、乱数weightやゼロ入力の出力を既知fixtureにしない。
+提供者のコードと、ユーザーが配置した `sisfall_model/best_1dcnn_pytorch.pth` / `scaler.pkl` を受領済み。
+SHA-256・保存形式のメタデータを取得し、manifestへ記録した。学習・推論・テストは実行していない。
+既知入出力・許容誤差・学習runtimeの全versionは未受領のため、**AI-04の再現性確認は未完了**。
+
+## 実装済みの読込・推論経路
+
+`core/lifespan.py` → `InferenceEngine.load()` → manifest検証 → モデル/Scalerのhash照合・ロード → MQTT受付開始。
+モデル・Scalerのロード失敗は起動失敗とし、`MODEL_LOAD_FAILED` を記録する。
+起動時の生成物は `Runtime.inference` が所有する。HTTPの推論Endpointは追加しない。
+
+後続の単一Workerから呼ぶ処理は `Runtime.inference.predict(window_values)`。
+`processing/preprocessing.py` で100×6・数値型・有限性を確認し、float32化、既存Scalerのtransform、
+contiguousな `(1,6,100)` Tensor化を行う。`processing/inference.py` はinference_mode内でモデルを実行し、
+float32の `(1,1)` logitを検証してsigmoidを1回適用する。0.5以上をfallとし、NaNや不正shapeをnormalに変換しない。
+補間・再fit・重力除去・単位変換・再学習は行わない。
+
+Device判定・Window連続性・結果送信は未接続なので、MQTT入力から直接predictを呼んでそれらを省略しない。
+`/health/ready` は503を維持し、`model_loaded`、`model_version`、`model_compatibility_verified=false` を返す。
+既知入力が未受領のため、設計04の起動時既知入力確認も未実施。ロード成功は互換性確認済みを意味しない。
 
 ## 追加したコードと成果物
 
 - [Conv1DNet](../app/model_artifacts/conv1d.py): 提供クラスを抽出。層順・引数・forward・state_dictキーを維持し、importと書式のみ整理。学習ループは含まない。
-- [CPU loader](../app/model_artifacts/loader.py): プロジェクト側の読込adapter。配布元と照合したSHA-256を必須とし、`map_location="cpu"`、`weights_only=True`、`strict=True`、`eval()`でロード。不一致時は例外とし、unsafe/非strict読込へfallbackしない。
-- [model_manifest.json](model_manifest.json): 提供コードから確定できる仕様、ソースhash、未受領項目、後続の阻害条件を記録。
+- [CPU loader](../app/model_artifacts/loader.py): プロジェクト側の読込adapter。ユーザー配置ファイルから固定したSHA-256を必須とし、`map_location="cpu"`、`weights_only=True`、`strict=True`、`eval()`でロード。不一致時は例外とし、unsafe/非strict読込へfallbackしない。
+- [model_manifest.json](model_manifest.json): 提供コードから確定できる仕様、成果物・ソースhash、未受領項目、後続の阻害条件を記録。
 - [provider](provider/): Issueコメント原文の保存。`.txt`で保管し、自動実行しない。学習・評価コードは参照専用。
 - [known_io.template.json](fixtures/known_io.template.json): 提供者が埋める入出力の形式。期待値は未受領のためnull。実fixtureではない。
 
-loader成功だけで配布元の信頼性やScalerとの対応は証明できない。SHA-256には、受領したファイルから算出した値を無条件に採用せず、提供者が示した値との照合結果を記録する。
-現在のFastAPI/Workerはこのコードをimportしない。PyTorch等の依存versionは推測で追加せず、提供環境の情報を受領してから固定する。既存のモデル未接続・ready=503は維持する。
+loader成功だけでScalerとの対応や意味的互換性は証明できない。
+今回のhashはユーザーが配置したファイルを固定するための値であり、提供者の別経路の署名・hash照合ではない。
+model_versionは2ファイルのhashから作成したローカル識別子で、提供者のrelease名ではない。
+
+scikit-learnはファイル内のversionに合わせ1.6.1へ固定。その他は導入候補環境を `uv.lock` に固定した。
+NumPyは2.x（2.3未満）、Linux/WindowsのPyTorchは公式CPU配布を使い、CUDA runtimeを導入しない。
+学習環境との一致は未確認であり、version情報受領後に更新する。
+[scikit-learnの保存形式と互換性](https://scikit-learn.org/stable/model_persistence.html)も参照。
 
 ## 提供コードから確認した推論契約
 
 | 項目           | 契約と確認状態                                                                                      |
 | -------------- | --------------------------------------------------------------------------------------------------- |
-| モデル保存     | `torch.save(model.state_dict(), "best_1dcnn_pytorch.pth")`。実ファイル内容は未照合                  |
+| モデル保存     | `torch.save(model.state_dict(), "best_1dcnn_pytorch.pth")`。ZIP内のstate_dictキー・cuda:0保存をメタデータで確認。ロード実行は未実施                  |
 | Scaler保存     | 学習WindowだけでfitしたStandardScalerを `joblib.dump(..., "scaler.pkl")`。推論でfitし直さない       |
 | Window         | 50Hz、100点、6列、Step50                                                                            |
 | 特徴順         | 提供コードはCSV先頭6列。プロジェクトの `ax,ay,az,gx,gy,gz` との列・軸向き対応は提供者/IoTの確認待ち |
@@ -39,7 +61,7 @@ SisFallでの学習前処理が分かったことは、MPU6050実機の軸向き
 
 本プロジェクトではテストの追加・実行を行わない。以下は提供者の再現結果を受け取るための手順であり、今回の実行実績ではない。
 
-1. 同じ学習runの重みと学習済みScaler、配布元、model_version、双方のSHA-256を受領する。バイナリは既存のgitignoreに従い `main/ai/models/` 等へ置き、manifestに実際の相対pathを記録する。
+1. 同じ学習runの重みと学習済みScaler、配布元、model_version、双方のSHA-256を受領する。バイナリは既存のgitignoreに従い `main/ai/artifacts/sisfall_model/` へ置き、manifestに実際の相対pathを記録する。
 2. Python・PyTorch・NumPy・scikit-learn・joblibの正確なversion、CPU/GPU・OS情報を提供者から受領する。学習時CUDAと配置先CPUでの再現性を区別する。
 3. 提供者は小さな物理単位Window `(100,6)` と、同じScalerでtransformした `(100,6)`、生logit、sigmoid確率、判定を保存する。テンプレートのnullを実値で埋め、model/scaler hashと結び付ける。数値のatol/rtolは提供者の根拠とともに記録し、候補値を勝手に確定しない。
 4. 互換環境で、信頼済みScalerをjoblibで読む。学習済み統計と6特徴を確認する。提供コードどおりWindowへtransformしfloat32にした後、転置・batch軸追加で `(1,6,100)` にする。再fit、再学習、暗黙の単位換算はしない。
@@ -51,11 +73,10 @@ SisFallでの学習前処理が分かったことは、MPU6050実機の軸向き
 
 | 未受領・未確認               | 影響                                        |
 | ---------------------------- | ------------------------------------------- |
-| 学習済みpthとhash            | 実モデルをロードできない                    |
-| 対応する学習済みScalerとhash | 標準化を再現できない                        |
-| 成果物組のmodel_version      | モデルとScalerの対応版を固定できない        |
+| 受領済みpth・Scalerの学習run対応確認 | ファイル配置と同じ学習runの証明を区別する |
+| 提供者のrelease識別子 | 現状は成果物組のhashによるローカルversionを使用 |
 | 既知入出力と許容誤差         | 推論の再現性を確認できない                  |
 | 互換runtime                  | 依存version・CPU互換性を固定できない        |
 | 特徴列・軸向きと実機の照合   | IoT入力を学習時の入力契約と同一扱いできない |
 
-モデル読込・前処理・推論の本番接続はこれらが揃うまでブロックする。モデルクラスの取り込みをもってIssue #189や推論機能を完了扱いにしない。
+モデル読込・前処理・推論コードは実装済み。本番の推論Ready化は残る契約・再現性確認とPipeline接続の完了まで行わない。

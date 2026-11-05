@@ -26,13 +26,19 @@ def verified_artifact(path: str | Path, *, expected_sha256: str):
 def load_model(path: str | Path, *, expected_sha256: str):
     """CPUで厳密にロードする。既知出力の再現性は別途確認する。"""
     with verified_artifact(path, expected_sha256=expected_sha256) as source:
-
-        # 未接続の入力サーバーにPyTorch依存を要求しない。
+        # hash照合が終わってからモデル依存をロードする。
         import torch
 
         from app.model_artifacts.conv1d import Conv1DNet
 
         state_dict = torch.load(source, map_location="cpu", weights_only=True)
+        if not isinstance(state_dict, dict) or not state_dict:
+            raise ValueError("model_state_dict_invalid")
+        for value in state_dict.values():
+            if not isinstance(value, torch.Tensor):
+                raise ValueError("model_state_dict_invalid")
+            if value.is_floating_point() and value.dtype != torch.float32:
+                raise ValueError("model_weight_dtype")
         model = Conv1DNet().to("cpu")
         model.load_state_dict(state_dict, strict=True)
         if any(
