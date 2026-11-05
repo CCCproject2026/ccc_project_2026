@@ -33,6 +33,9 @@ async def ready(request: Request) -> JSONResponse:
             "model_loaded": runtime is not None and runtime.started,
             "model_version": runtime.inference.model_version if runtime else None,
             "model_compatibility_verified": False,
+            "device_api": runtime.pipeline.snapshot()["device_api"]
+            if runtime
+            else {"configured": False},
         },
     )
 
