@@ -28,7 +28,7 @@ def read_packets(path: Path, limit: int | None) -> list[dict]:
                 raise ValueError(f"line {number}: payload exceeds 64 KiB")
             packet = json.loads(line)
             if not isinstance(packet, dict):
-                raise ValueError(f"line {number}: expected JSON object")
+                raise TypeError(f"line {number}: expected JSON object")
             code = packet.get("device_id")
             if (
                 not isinstance(code, str)
@@ -188,6 +188,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Stopped.", file=sys.stderr)
         sys.exit(130)
-    except (OSError, ValueError, RuntimeError) as error:
+    except (OSError, ValueError, TypeError, RuntimeError) as error:
         print(f"Publish failed: {error}", file=sys.stderr)
         sys.exit(1)
