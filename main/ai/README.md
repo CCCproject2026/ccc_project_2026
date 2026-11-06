@@ -1,12 +1,12 @@
 # AI Server
 
 MQTT Brokerから最大100点のセンサーバッチを受信し、既存のJSON検証・UTC時刻変換・Topic照合へ接続しています。
-現在の終点は検証済みバッチの受理件数とログ記録です。Device API設定時は利用可否も確認します。
-Buffer、モデル推論、結果Publishへの受信経路は未接続です。
+単一Workerで入力検証→Device確認（設定時）→デバイス別Buffer→100点Window→実モデル判定→MQTT結果配信まで接続しています。
+Device API未設定時はローカル検証用に推論します。実機の特徴軸・既知入出力との照合は未完了で、本番Readyとは区別します。
 
 学習済み重み・Scalerは `artifacts/sisfall_model/` から起動時に一度ロードします。
 `processing/preprocessing.py` に標準化、`processing/inference.py` にCPU推論を実装済みです。
-連続Window生成・結果配信との接続と、既知入出力による互換性確認は未完了です。
+既知入出力による意味的互換性確認は未完了です。結果配信は#192のレビュー案（基本4項目＋event_id）をローカル試験用に採用しています。
 [モデル受領状況・manifest・再現手順](artifacts/README.md)を参照してください。
 
 Device APIの実装契約・キャッシュ状態表・応答例は
@@ -14,6 +14,64 @@ Device APIの実装契約・キャッシュ状態表・応答例は
 Webの検索API・AIクライアント・キャッシュ・Worker接続は実装済みです。実通信と担当者間の合意は未確認です。
 
 ## 起動
+
+### ダミーデータから判定結果を確認する
+
+以下はすべてリポジトリルートで実行します。モデル・Scaler配置後、AIと依存Brokerを起動します。
+
+```sh
+docker compose up -d --build ai-server
+docker compose logs -f ai-server
+```
+
+`MQTT_SUBSCRIBED`後、別ターミナルで**送信前に**結果を購読します。
+
+```sh
+docker compose exec -T mqtt-broker mosquitto_sub -h 127.0.0.1 -t 'fall/+/events' -q 1 -v
+```
+
+さらに別ターミナルで送信します（既存の仮想環境を使用）。
+
+```sh
+main/ai/.venv/bin/python main/iot/mock-data/publish_telemetry.py --limit 3
+curl -sS http://localhost:8000/health/input | main/ai/.venv/bin/python -m json.tool
+```
+
+購読側へ`device_code / result / detected_at / model_version / event_id`のJSONが届きます。
+AIログには`INFERENCE_RESULT result=fall`または`normal`、確率、処理時間が出ます。
+ダミーデータの名称と実モデルの分類が一致する保証はありません。結果を決め打ち・改変しません。
+healthの`inference.completed_windows / last_result / publish`で計算と配信を確認します。
+last_resultは最後の生成結果であり、現在の人物状態やWeb受信成功を示すものではありません。
+`publish.accepted`はclient受付、`acked`はBroker ACK、`delivery_unknown`は送達不明を観測した累計です。
+timeout後にACKが来る場合はunknownとackedの両方に含まれます。
+切断直前のpublishがNO_CONNの場合、Paho内部に残る可能性があるためunknownに数え、ACK追跡対象にはしません。
+新規Publishで再送せず、Paho内部送信Queueも100件に制限します。
+結果はretain=falseで、後から購読しても以前の結果は取得できません。Web画面・Alert機能は本変更の対象外です。
+
+### ローカル推論の時系列方針
+
+- 50Hzの間隔10〜30ms、100点の幅1.88〜2.08秒を許容。補間・ゼロ埋めはしない。
+- 最大100点バッチでは先頭が元々約2秒古いため、**バッチ末尾の古さ2秒・未来1秒**と全体幅2.08秒以下を別々に検査する。
+  受信時・Worker処理時・Device API待機後で確認する。単点送信時はその点が末尾となる。
+- Window生成後、推論の前後にもWindow末尾の古さ2秒・未来1秒、5秒OFFLINE、世代、欠落、停止を確認する。
+  これらは開発用候補値であり、実機の時刻精度・バッチ配送遅延との合意済み値ではない。
+- 検証エラーは当該バッチを拒否し対象Bufferをresetする。構造的推論エラーはWorker停止、その他の推論例外は3連続で停止。
+  Worker停止はlive/inputの503で検知できるが、自動再起動は未実装。
+- MQTT再接続でclient内の古いQoS 1結果が遅延配送される可能性がある。Webのevent_id・鮮度検査は別途必要。
+
+### 検証コマンド
+
+```sh
+cd main/ai
+.venv/bin/python -m unittest discover -s tests -v
+# 実モデル＋専用localhost Brokerでの結合試験（通常の開発Brokerと分離する）
+MQTT_TEST_PORT=18884 .venv/bin/python -m unittest discover -s tests -p test_mqtt_inference.py -v
+```
+
+結合試験はローカルモデル・Scalerと、指定portの匿名・平文テストBrokerが必要です。
+環境変数未指定時は結合試験のみskipします。ランダムなテストdevice/client IDを使います。
+
+### 通常の起動手順
 
 Docker Composeを使う場合、リポジトリ直下から実行します。
 
@@ -57,7 +115,11 @@ main.py → core/lifespan.py が依存関係を組み立てる
       → integrations/sensor_json.py: decode_batch()
       → application/sensor_input.py: accept()
       → integrations/device.py: Cache / HTTPS照会（設定時のみ）
-      → InputPipeline._accept_batch(): 世代の再確認・受理件数・ログ
+      → InputPipeline._accept_batch(): 世代・鮮度の再確認
+        → BufferManager: 100点Window、Stepごとにimmutableコピー
+        → InferenceEngine.predict(): 前処理・CPU推論
+        → 終了／欠落／世代／鮮度／Deviceキャッシュ失効の再確認
+        → ResultPublisher: fall/{device_code}/events、QoS 1、retain=false
 ```
 
 | モジュール | 責務 |
@@ -69,11 +131,13 @@ main.py → core/lifespan.py が依存関係を組み立てる
 | `integrations/sensor_json.py` | 外部JSONの検証と内部型への変換 |
 | `application/sensor_input.py` | Topicとcodeの照合、注入したconsumeの呼出し |
 | `domain/sensor.py` | 不変のSensorBatch / SensorSample |
-| `processing/pipeline.py` | 単一Worker、Queue掃除、今回の受理終点 |
+| `processing/pipeline.py` | 単一Worker、Queue・Buffer掃除、推論・送信の組立て |
+| `processing/buffer.py` | 最大128デバイス、各100点、連続性・鮮度検証 |
+| `processing/result.py` | UTC結果JSON・event_id、有限送信・非ブロッキングACK追跡 |
 
 依存は外部アダプターからapplication/domainへ向けます。domainはPahoやFastAPIに依存しません。
 `processing/pipeline.py` は今回の受信処理を組み立てる側で、既存配置を維持しています。
-データ型は `domain/sensor.py` から直接importします。未使用の再公開用 `core/schemas.py` は削除しました。その他のprocessingモジュールは今後の実装です。
+データ型は `domain/sensor.py` から直接importします。未使用の再公開用 `core/schemas.py` は削除しました。運用ログの構造化・転送は今後の実装です。
 
 ## 接続と障害時の動作
 
@@ -86,15 +150,16 @@ main.py → core/lifespan.py が依存関係を組み立てる
 - 切断・満杯時に全体の連続性欠落を通知する。再購読前には旧Queueと通知を消し込み、新着を保護する。
   満杯時の掃除は保守的な全Queue破棄。不正JSON・サイズ超過・Retain等は当該入力だけを拒否する。
 - 接続世代をdecode前と受理直前に照合し、処理中の切断にも対応する。
-- 現在Bufferは未実装。将来追加する場合は世代変更・満杯時の全Buffer reset、入力不良時の対象DeviceのみのresetをWorkerへ追加する。
+- Workerが接続世代変更・満杯時に全Bufferをresetし、JSON/Schema不良時は安全に解析できるTopicの対象Deviceをresetする。
+- Bufferはデバイス別100点・最大128台。5秒無通信で削除。重複最終時刻は点数に加えず、逆行は拒否、欠測は新しい区間から開始する。
 - 満杯時の全破棄は暫定方針であり、1台のバーストが他端末にも影響する。
   端末間の連続性を共有する要件は現実装にはないため、端末単位の欠落通知・Buffer resetと、
   満杯時は新着だけを拒否する方式への見直しを検討する。公平性が必要なら端末別Queue・上限も検討する。
   切断時の世代失効とは分けて設計し、方針決定までは現在の全破棄動作を維持する。
 - 正常な入力は `SENSOR_BATCH_ACCEPTED samples=100`、不正入力は安全な理由コードを記録。
   生payload・認証情報はログへ出さない。今回のカウンターは再起動で0に戻り、DB保存はしない。
-- 終了時は受付停止→MQTT停止→Worker終了待ち→残りQueue破棄。MQTT/Workerの待機予算は合計5秒。MQTTの待機は最大4.5秒とし、Queue待機中のWorkerが終了するために0.5秒を予約する。超過は異常終了として報告する。Pythonの稼働中スレッドを強制終了する保証はない。未処理データは再送・復元しない。
-- Envelopeは受信UTCに加えてmonotonic時刻を持つ。待機時間の計測用であり、未合意の鮮度閾値はまだ適用しない。
+- 終了時は受付停止→Worker終了待ち→受付済み結果のACK待ち→MQTT停止→残りQueue破棄。全体5秒、通信終了用0.5秒を予約する。超過は異常終了として報告する。Pythonの稼働中スレッドを強制終了する保証はない。未処理データは再送・復元しない。
+- Envelopeは受信UTCに加えてmonotonic時刻を持つ。待機時間の計測用。ローカルの鮮度方針は下記に明記する。
 
 ## Health
 
@@ -102,7 +167,7 @@ main.py → core/lifespan.py が依存関係を組み立てる
 |---|---|
 | `/health/live` | アプリ起動中かつ入力Workerが生存 |
 | `/health/input` | Broker接続・SUBACK成功・入力Worker生存。受理/拒否件数も返す |
-| `/health/ready` | 現在は常に503。理由は `inference_pipeline_not_connected`。モデル読込状態・version・互換性未確認も返す |
+| `/health/ready` | 現在は常に503。理由は `model_compatibility_unverified`。モデル読込状態・version・互換性未確認も返す |
 
 受信できることと、転倒推論できることを分けて表示します。
 `rejected_batches` はWorkerの拒否とQueue投入前の拒否の合計です。
@@ -132,7 +197,7 @@ Broker切断だけではliveを落とさず、inputを503にします。
 | `DEVICE_API_URL` | WebのHTTPS origin。`/api`は含めない |
 | `DEVICE_API_TOKEN` | Webと共通の32文字以上の専用参照トークン |
 
-Device APIの両設定が空の場合は入力検証専用です。片方だけ・HTTP URL・不正tokenは起動エラー。
+Device APIの両設定が空の場合はDevice確認を省略するローカル推論です。片方だけ・HTTP URL・不正tokenは起動エラー。
 設定時はACTIVEだけを受理し、INACTIVE/NOT_FOUND/UNKNOWNは拒否件数へ加算します。
 キャッシュはACTIVE/INACTIVEが30秒、404が5秒、最大128件。失敗時は共通5秒cooldownと
 Retry-Afterを適用し、401/403では再起動まで要求を停止します。
@@ -141,7 +206,7 @@ API障害でも入力Workerが生存していれば `/health/input` のHTTP stat
 
 `MODEL_PATH` / `SCALER_PATH` / `MODEL_VERSION` が空の場合はmanifestの値を使います。
 相対pathは作業ディレクトリによらず `main/ai` 基準です。上書きpathもmanifestのhashと照合します。
-Window設定は後続接続用。未合意のStepや鮮度許容を今回の受信処理へ適用していません。
+Window設定は後続接続用。StepはWINDOW_STEP（既定50）を使用します。鮮度許容値は下記のローカル方針であり、実機での合意は未完了です。
 
 ## 確認結果と開発ツール
 

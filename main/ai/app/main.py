@@ -29,7 +29,8 @@ async def ready(request: Request) -> JSONResponse:
         status_code=503,
         content={
             "status": "not_ready",
-            "reason": "inference_pipeline_not_connected",
+            "reason": "model_compatibility_unverified",
+            "inference_pipeline_connected": runtime is not None and runtime.started,
             "model_loaded": runtime is not None and runtime.started,
             "model_version": runtime.inference.model_version if runtime else None,
             "model_compatibility_verified": False,
