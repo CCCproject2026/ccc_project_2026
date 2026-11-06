@@ -2,6 +2,7 @@ import "server-only";
 import { auth } from "@clerk/nextjs/server";
 import type { User, UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { ApiError } from "./api-error";
 import { prisma } from "./prisma";
 
@@ -55,7 +56,9 @@ export async function requireRole(role: UserRole): Promise<User> {
 // 注意: redirect() は特別なエラーを投げて動くので、try / catch の中で呼ばないこと
 
 // ACTIVE なスタッフだけ通す。それ以外は案内ページへ
-export async function requireStaffPage(): Promise<User> {
+// 同一の Server Component リクエスト内だけ結果を共有し、layout と取得処理の重複照会を防ぐ。
+// 次のリクエストでは再度 DB を確認するため、停止・権限変更をリクエスト間で保持しない。
+export const requireStaffPage = cache(async (): Promise<User> => {
 	const { isSignedIn, user } = await getLoginUser();
 
 	if (!isSignedIn) {
@@ -65,7 +68,7 @@ export async function requireStaffPage(): Promise<User> {
 		redirect("/account-status");
 	}
 	return user;
-}
+});
 
 // ACTIVE で、かつ指定したロールの人だけ通す。ロールが違う人はダッシュボードへ
 export async function requireRolePage(role: UserRole): Promise<User> {

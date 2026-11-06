@@ -1,20 +1,19 @@
 import { BatteryBar } from "@/shared/ui/BatteryBar";
 
 export interface ResidentCardProps {
-	//? って意味があってもなくてもいい/ 許しますって意味ですので本project では欠かせない情報になってますのでUI 側でも一応厳しくしておきましょう!!
 	name: string;
 	age: number;
 	room: string;
-	deviceName: string;
-	batteryLevel: number;
-	falls: number;
-	falseAlarms: number;
-	totalAlarms: number;
-	variant: "normal" | "alarm";
+	// DB 連携済みの基本情報だけでも表示できる。未取得の値を 0 やモックで補わない。
+	deviceName?: string;
+	batteryLevel?: number;
+	falls?: number;
+	falseAlarms?: number;
+	totalAlarms?: number;
+	variant?: "normal" | "alarm";
 }
 
 export function ResidentCard({
-	//props 定義で ? を抜けば ここの初期化がいらないです!
 	name,
 	age,
 	room,
@@ -53,7 +52,7 @@ export function ResidentCard({
 						<p className="font-semibold text-gray-900">{name}</p>
 
 						<div className="flex gap-2 text-xs text-gray-500">
-							{age && <span>{age}歳</span>}
+							<span>{age}歳</span>
 							<span>{room}</span>
 						</div>
 					</div>
@@ -75,7 +74,7 @@ export function ResidentCard({
 			)}
 
 			{/* Battery */}
-			<div className="mt-3">
+			{batteryLevel !== undefined && <div className="mt-3">
 				<div className="mb-1 flex items-center justify-between">
 					<span className="text-xs text-gray-500">バッテリー</span>
 					<span className="text-xs font-medium text-gray-700">
@@ -84,10 +83,10 @@ export function ResidentCard({
 				</div>
 
 				<BatteryBar level={batteryLevel} />
-			</div>
+			</div>}
 
 			{/* Statistics */}
-			<div className="mt-4 border-t border-gray-100 pt-3">
+			{falls !== undefined && falseAlarms !== undefined && totalAlarms !== undefined && <div className="mt-4 border-t border-gray-100 pt-3">
 				<div className="grid grid-cols-3 gap-2 text-center">
 					<div>
 						<p className="text-lg font-bold text-red-600">{falls}</p>
@@ -104,7 +103,7 @@ export function ResidentCard({
 						<p className="text-xs text-gray-500">総アラーム</p>
 					</div>
 				</div>
-			</div>
+			</div>}
 		</article>
 	);
 }

@@ -1,7 +1,6 @@
 import type { UserRole } from "@prisma/client";
 import { Cpu, LayoutDashboard, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
-import { getMockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { MobileSignOutButton } from "./MobileSignOutButton";
 import { SiberHeader } from "./SiberHeader";
 import { SidebarAvatar } from "./SidebarAvatar";
@@ -16,8 +15,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ role, lastName, firstName }: SidebarProps) {
-	const alarmCount = getMockAlarmData().count ?? 0;
-
 	// スタッフ管理は NURSE だけが使えるので、NURSE のときだけメニューに出す
 	// （メニューを隠すだけでなく、ページと API でも NURSE かどうかチェックしている）
 	const canManageStaff = role === "NURSE";
@@ -28,15 +25,7 @@ export function Sidebar({ role, lastName, firstName }: SidebarProps) {
 				<aside className="w-full h-full flex flex-col gap-2 p-4">
 					<SiberHeader />
 
-					{alarmCount > 0 && (
-						<button
-							type="button"
-							className="flex items-center gap-2 mt-2 px-4 py-3 rounded-xl bg-red-950/70 text-red-300 text-sm font-semibold hover:bg-red-900/70"
-						>
-							<span className="w-2 h-2 rounded-full bg-alarm animate-pulse" />
-							緊急アラーム {alarmCount}件
-						</button>
-					)}
+					{/* 実データ連携までは、架空の緊急アラームを表示しない。 */}
 					<nav className="flex flex-col gap-1 mt-4 flex-1">
 						<SidebarItem
 							href="/dashboard"
@@ -87,9 +76,6 @@ export function Sidebar({ role, lastName, firstName }: SidebarProps) {
 				>
 					<Cpu className="w-5 h-5" />
 					<span>デバイス</span>
-					{alarmCount > 0 && (
-						<span className="absolute top-1 right-5 w-2 h-2 rounded-full bg-alarm animate-pulse" />
-					)}
 				</Link>
 
 				{canManageStaff && (
