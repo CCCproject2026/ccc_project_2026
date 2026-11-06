@@ -18,7 +18,8 @@ contiguousな `(1,6,100)` Tensor化を行う。`processing/inference.py` はinfe
 float32の `(1,1)` logitを検証してsigmoidを1回適用する。0.5以上をfallとし、NaNや不正shapeをnormalに変換しない。
 補間・再fit・重力除去・単位変換・再学習は行わない。
 
-Device判定・Window連続性・結果送信は未接続なので、MQTT入力から直接predictを呼んでそれらを省略しない。
+2026-11-07: 入力WorkerへDevice確認（設定時）・Window連続性・結果送信を接続した。
+Device API未設定時の実行はローカル推論扱いであり、既知入出力による互換性確認とは区別する。
 `/health/ready` は503を維持し、`model_loaded`、`model_version`、`model_compatibility_verified=false` を返す。
 既知入力が未受領のため、設計04の起動時既知入力確認も未実施。ロード成功は互換性確認済みを意味しない。
 
@@ -79,4 +80,4 @@ SisFallでの学習前処理が分かったことは、MPU6050実機の軸向き
 | 互換runtime                  | 依存version・CPU互換性を固定できない        |
 | 特徴列・軸向きと実機の照合   | IoT入力を学習時の入力契約と同一扱いできない |
 
-モデル読込・前処理・推論コードは実装済み。本番の推論Ready化は残る契約・再現性確認とPipeline接続の完了まで行わない。
+モデル読込・前処理・推論コードは実装済み。本番の推論Ready化は残る契約・再現性確認の完了まで行わない。
