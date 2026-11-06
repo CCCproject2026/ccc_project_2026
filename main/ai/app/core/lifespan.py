@@ -1,5 +1,8 @@
-"""起動・終了とリソース所有の骨格。MQTT / Worker / 実モデルは未接続。"""
+"""起動時に依存を組み立て、終了時に所有リソースを解放する。"""
 
+import asyncio
+import logging
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -7,22 +10,32 @@ from dataclasses import dataclass
 from fastapi import FastAPI
 
 from app.core.config import Settings
+from app.processing.pipeline import InputPipeline
 
 
 @dataclass
 class Runtime:
     settings: Settings
+    pipeline: InputPipeline
     started: bool = False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    runtime = Runtime(settings=Settings.from_env())
+    # logging_setupの運用ログ転送は別作業。今回は標準ログを使う。
+    logging.basicConfig(
+        level=logging.INFO,
+        stream=sys.stdout,
+        format="%(levelname)s %(name)s %(message)s",
+    )
+    settings = Settings.from_env()
+    runtime = Runtime(settings=settings, pipeline=InputPipeline(settings))
     app.state.runtime = runtime
     try:
-        # 実装時: モデル検証 → Worker 開始 → MQTT 接続・SUBACK 確認。
+        runtime.pipeline.start()
         runtime.started = True
         yield
     finally:
-        # 実リソースの停止・解放は各モジュールの接続時に追加する。
         runtime.started = False
+        # thread joinでASGIイベントループを止めない。
+        await asyncio.to_thread(runtime.pipeline.stop)

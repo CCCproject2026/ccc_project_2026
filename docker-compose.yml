@@ -6,9 +6,14 @@ services:
     # 開発用ポート。本番用ポートは未決定。
     ports:
       - "8000:8000"
-    # 現段階は外部接続なしの起動骨格。起動入口は Dockerfile に集約。
+    # 起動入口は Dockerfile に集約。Broker接続はアプリ側で再試行。
     env_file:
       - ./main/ai/.env.example
+    environment:
+      MQTT_HOST: mqtt-broker
+    depends_on:
+      mqtt-broker:
+        condition: service_started
     # ready は実パイプライン未実装のため 503。ここでは live を確認する。
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2).close()"]

@@ -340,6 +340,8 @@ Statusは依頼文とリポジトリの関連資料に対する確認結果。�
 
 ## 10. 実装しやすいPythonプロジェクト構成
 
+以下は初期提案。現在のレイヤー構成は[07](07_Batch_Input実装.md)を参照する。入力型は `domain/sensor.py`、入力検証は `integrations/sensor_json.py` に配置し、未使用の再公開用 `core/schemas.py` は削除した。
+
 既存の`main/ai`配下に収める提案。ファイル単位のモジュールを優先し、mqtt/device/bufferごとの多層ディレクトリを作らない。
 
 ```text
