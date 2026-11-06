@@ -1,10 +1,12 @@
-"""環境変数の検証。MQTT接続設定と今後の推論設定を管理する。"""
+"""環境変数の検証。MQTT接続・モデル設定を管理する。"""
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from math import isfinite
 from typing import ClassVar, TypeVar
+from urllib.parse import urlsplit
 
 Number = TypeVar("Number", int, float)
 
@@ -36,6 +38,25 @@ class Settings:
     SHUTDOWN_TIMEOUT_SECONDS: ClassVar[float] = 5.0
 
     def __post_init__(self) -> None:
+        if self.device_api_url or self.device_api_token:
+            url = urlsplit(self.device_api_url)
+            if (
+                url.scheme != "https"
+                or not url.hostname
+                or url.username is not None
+                or url.password is not None
+                or url.path not in ("", "/")
+                or url.query
+                or url.fragment
+                or any(char.isspace() for char in self.device_api_url)
+            ):
+                raise ValueError("DEVICE_API_URL: HTTPS originを指定してください")
+            if url.port is not None and not 1 <= url.port <= 65535:
+                raise ValueError("DEVICE_API_URL: portが不正です")
+            if re.fullmatch(r"[A-Za-z0-9+/_=-]{32,}", self.device_api_token) is None:
+                raise ValueError(
+                    "DEVICE_API_TOKEN: 32文字以上の参照専用tokenが必要です"
+                )
         if not self.mqtt_host.strip() or not self.mqtt_client_id.strip():
             raise ValueError("MQTT_HOST / MQTT_CLIENT_ID: 空にはできません")
         if self.mqtt_qos not in (0, 1) or not 1 <= self.mqtt_keepalive <= 65535:

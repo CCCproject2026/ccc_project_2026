@@ -182,3 +182,17 @@ Key UI components used: `AddStaffModal`, `StaffTable`, `PendingInviteRow`, `Devi
    - Email: `c250321@ccg.ac.jp`
    - Password: `Test9102000`
    - (for development only; Clerk handles auth in production)1
+
+## AI向けDevice検索API
+
+`GET /api/devices/by-code/{deviceCode}` は専用のBearerトークンで認証します。
+起動前に `DEVICE_API_TOKEN` へ32文字以上の乱数（hex/base64等）を設定してください。
+AI側にも同じ値を設定し、`NEXT_PUBLIC_` を付けたりブラウザへ渡したりしないでください。
+この環境変数は必須で、未設定ではWebの起動時検証が失敗します。
+
+返却値は `{ device_code, status }` のみです。認証不正は401、認証後の形式違反・未登録は404、
+全応答に `Cache-Control: no-store` を設定します。スタッフのセッションCookieでは認証しません。
+既存のDeviceテーブルを参照し、DB更新・高齢者情報の取得は行いません。
+
+AI側の `DEVICE_API_URL` には公開HTTPS originを指定してください。デプロイ・実通信確認は未実施です。
+[API契約・状態表・OpenAPI・応答例](../../docs/contracts/device-api/README.md)を参照してください。

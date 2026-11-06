@@ -5,11 +5,27 @@ description = "MQTT センサーデータによる転倒推論サーバーの雛
 requires-python = ">=3.11"
 # HTTP healthとMQTT入力の依存関係。
 # 解決済みバージョンは uv.lock で固定する。
-# 推論・Device API client の依存関係は実装時に追加する。
+# Device API client の依存関係は実装時に追加する。
 dependencies = [
     "fastapi>=0.156,<0.157",
     "uvicorn>=0.54,<0.55",
     "paho-mqtt==2.1.0",
+    "torch>=2.6,<3",
+    "numpy>=2,<2.3",
+    "scikit-learn==1.6.1",
+    "joblib>=1.4,<2",
+    "httpx>=0.28,<0.29",
+]
+
+# 配置先はCPU。Linux/WindowsでCUDA runtimeを持ち込まない。
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [tool.ruff]
