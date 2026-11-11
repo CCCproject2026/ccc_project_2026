@@ -5,6 +5,10 @@ __pycache__/
 *.pyd
 .Python
 venv/
+.venv/
+.ruff_cache/
+artifacts/provider/
+artifacts/fixtures/
 env/
 .env
 .DS_Store

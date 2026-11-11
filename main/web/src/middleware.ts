@@ -15,6 +15,8 @@ const isPublicRoute = createRouteMatcher([
 	// ここで auth.protect() を通すと、未ログインの API 呼び出しが 401 ではなく 404 になり、
 	// 画面で「ログインしてください」と案内できないため、middleware では止めない
 	"/api/staff(.*)",
+	// AI専用GETはhandlerでBearer認証する。その他のDevice APIは公開しない。
+	"/api/devices/by-code/([^/]+)",
 ]);
 
 export default clerkMiddleware(

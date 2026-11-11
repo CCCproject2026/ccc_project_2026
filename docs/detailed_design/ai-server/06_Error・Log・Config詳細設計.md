@@ -295,7 +295,7 @@ Statusは依頼文とリポジトリの関連資料に対する確認結果。�
 | T02 | MQTT Topic | fall/+/data、fall/{device_code}/events、別運用ログTopic | IoT/AI/Web/インフラ、Week1 |
 | T03 | QoS | センサー0・結果1・ログ0候補。既存資料の表間差異も整理 | IoT/Web/インフラ、Week1 |
 | T04 | Retain | 全てfalse推奨。既存結果trueとの差異解消 | Web/インフラ、Week1 |
-| T05 | Device API Endpoint | code検索GET、200/404/enum/認証契約。例は未実装の候補 | Web、Week1 |
+| T05 | Device API Endpoint | code検索GET、200/404/enum/認証契約。[#190契約案・合意状況](../../contracts/device-api/README.md)にT05–08/T16のAPI部分を集約。実APIは未提供 | Web、Week1 |
 | T06 | Authentication | MQTT専用account/ACL、API service認証、WSS権限、CA配布 | Web/インフラ、Week1 |
 | T07 | Cache TTL | ACTIVE/INACTIVE 30秒、404 5秒、API失敗cooldown 5秒候補 | AI/Web、Week1 |
 | T08 | OFFLINE Timeout | 5秒候補。利用可否と別管理、Web通知経路も確認 | AI/IoT/Web、Week3前 |

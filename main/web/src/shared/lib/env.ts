@@ -15,6 +15,7 @@ const serverEnvSchema = z.object({
 	DATABASE_URL: z.string().min(1),
 	CLERK_SECRET_KEY: z.string().min(1),
 	CLERK_WEBHOOK_SECRET: z.string().min(1),
+	DEVICE_API_TOKEN: z.string().regex(/^[A-Za-z0-9+/_=-]{32,}$/),
 	// このアプリの URL（例: http://localhost:3000）。招待メールのリンク先に使う
 	// 任意：未設定なら、招待メールのリンクは Clerk の画面を開く
 	// （本番では、招待から本システムのパスワード設定ページを開くために設定する）

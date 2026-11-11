@@ -75,6 +75,11 @@ Topicが`fall/{device_code}/data`に合意された場合、Topicのキーと本
 
 ## 4. Device API / Cache
 
+2026-11-04追記: #190の具体的な契約案・状態表・応答fixtureは
+[Device API・キャッシュ契約](../../contracts/device-api/README.md)を参照する。
+以下は当初の提案であり、API実装済み・担当者合意済みを意味しない。
+新契約案では#222のWeb設計に合わせ、MAINTENANCEをINACTIVEへ正規化する。
+
 ```text
 validated message → device_code → 有効なCache?
   Yes → status確認
@@ -102,6 +107,8 @@ Cacheは`dict[device_code]`でcode・正規化status・期限のみを保持す�
 TTL中のACTIVEは有効とみなすため、Web無効化の反映に最大TTL程度の遅延がある。即時無効化は保証しない。期限切れ時の再取得失敗は対象Bufferをクリアする。INACTIVE→ACTIVE復帰、Cacheから削除されたDeviceの再登場時も新規Windowから開始する。Device検証後に03の鮮度を再確認し、API待機中に古くなったサンプルを使わない。
 
 ## 5. Device statusと通信状態
+
+OFFLINEの責務分担・未合意の外部通知についても上記契約案を参照する。
 
 Webで管理する利用可否`ACTIVE/INACTIVE`（実enum `[TBD]`）と、AIが観測する`ONLINE/OFFLINE`を混同しない。割当の有無からAIがElderや稼働可否を推測しない。MAINTENANCE等の実enumはWeb担当と正規化表を確定するまでUNKNOWN扱いとする。
 

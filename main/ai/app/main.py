@@ -22,11 +22,21 @@ async def live(request: Request) -> JSONResponse:
 
 
 @app.get("/health/ready")
-async def ready() -> JSONResponse:
-    """入力受信と推論の準備状態を混同しない。モデル未接続なので非Ready。"""
+async def ready(request: Request) -> JSONResponse:
+    """モデル読込と、Device確認から結果配信までの準備完了を区別する。"""
+    runtime = getattr(request.app.state, "runtime", None)
     return JSONResponse(
         status_code=503,
-        content={"status": "not_ready", "reason": "inference_not_implemented"},
+        content={
+            "status": "not_ready",
+            "reason": "inference_pipeline_not_connected",
+            "model_loaded": runtime is not None and runtime.started,
+            "model_version": runtime.inference.model_version if runtime else None,
+            "model_compatibility_verified": False,
+            "device_api": runtime.pipeline.snapshot()["device_api"]
+            if runtime
+            else {"configured": False},
+        },
     )
 
 

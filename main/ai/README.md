@@ -1,11 +1,25 @@
 # AI Server
 
 MQTT Brokerから最大100点のセンサーバッチを受信し、既存のJSON検証・UTC時刻変換・Topic照合へ接続しています。
-現在の終点は検証済みバッチの受理件数とログ記録です。Device API、Buffer、モデル推論、結果Publishは未接続です。
+現在の終点は検証済みバッチの受理件数とログ記録です。Device API設定時は利用可否も確認します。
+Buffer、モデル推論、結果Publishへの受信経路は未接続です。
+
+学習済み重み・Scalerは `artifacts/sisfall_model/` から起動時に一度ロードします。
+`processing/preprocessing.py` に標準化、`processing/inference.py` にCPU推論を実装済みです。
+連続Window生成・結果配信との接続と、既知入出力による互換性確認は未完了です。
+[モデル受領状況・manifest・再現手順](artifacts/README.md)を参照してください。
+
+Device APIの実装契約・キャッシュ状態表・応答例は
+[AI-03 Device API・キャッシュ契約](../../docs/contracts/device-api/README.md)を参照してください。
+Webの検索API・AIクライアント・キャッシュ・Worker接続は実装済みです。実通信と担当者間の合意は未確認です。
 
 ## 起動
 
 Docker Composeを使う場合、リポジトリ直下から実行します。
+
+事前に `artifacts/sisfall_model/best_1dcnn_pytorch.pth` と `scaler.pkl` を配置してください。
+両ファイルはGit管理外です。Dockerにも同じファイルとmanifestをコピーします。
+欠落・hash不一致・ロード失敗時はMQTT受付前に起動を中止します。
 
 ```sh
 docker compose up -d --build ai-server
@@ -33,6 +47,8 @@ HTTPポートと `MQTT_CLIENT_ID` を別の値にしてください。同じclie
 
 ```text
 main.py → core/lifespan.py が依存関係を組み立てる
+  → processing/inference.py: InferenceEngine.load()
+    → manifest・hash確認 → CPUモデル・Scalerを一度ロード
   → processing/pipeline.py: InputPipeline.start()
     → integrations/mqtt_client.py: MqttConnection.start()
       → CONNACK → fall/+/data をsubscribe → SUBACK
@@ -40,6 +56,7 @@ main.py → core/lifespan.py が依存関係を組み立てる
     → 単一Worker → MqttSensorInput.process()
       → integrations/sensor_json.py: decode_batch()
       → application/sensor_input.py: accept()
+      → integrations/device.py: Cache / HTTPS照会（設定時のみ）
       → InputPipeline._accept_batch(): 世代の再確認・受理件数・ログ
 ```
 
@@ -85,7 +102,7 @@ main.py → core/lifespan.py が依存関係を組み立てる
 |---|---|
 | `/health/live` | アプリ起動中かつ入力Workerが生存 |
 | `/health/input` | Broker接続・SUBACK成功・入力Worker生存。受理/拒否件数も返す |
-| `/health/ready` | 現在は常に503。理由は `inference_not_implemented` |
+| `/health/ready` | 現在は常に503。理由は `inference_pipeline_not_connected`。モデル読込状態・version・互換性未確認も返す |
 
 受信できることと、転倒推論できることを分けて表示します。
 `rejected_batches` はWorkerの拒否とQueue投入前の拒否の合計です。
@@ -112,8 +129,19 @@ Broker切断だけではliveを落とさず、inputを503にします。
 | `MQTT_TLS` | false。TLS利用時はtrue、通常port=8883 |
 | `MQTT_CA_FILE` | 空ならOS標準CA。指定時はTLS必須 |
 | `MQTT_USERNAME`, `MQTT_PASSWORD` | 空。認証利用時に設定 |
+| `DEVICE_API_URL` | WebのHTTPS origin。`/api`は含めない |
+| `DEVICE_API_TOKEN` | Webと共通の32文字以上の専用参照トークン |
 
-Window/モデル/API設定は将来用の既存項目。未合意のStepや鮮度許容を今回の受信処理へ適用していません。
+Device APIの両設定が空の場合は入力検証専用です。片方だけ・HTTP URL・不正tokenは起動エラー。
+設定時はACTIVEだけを受理し、INACTIVE/NOT_FOUND/UNKNOWNは拒否件数へ加算します。
+キャッシュはACTIVE/INACTIVEが30秒、404が5秒、最大128件。失敗時は共通5秒cooldownと
+Retry-Afterを適用し、401/403では再起動まで要求を停止します。
+`/health/input` と `/health/ready` の `device_api` で設定有無・障害・認証停止・要求数・hit数を確認できます。
+API障害でも入力Workerが生存していれば `/health/input` のHTTP statusは200のままです。
+
+`MODEL_PATH` / `SCALER_PATH` / `MODEL_VERSION` が空の場合はmanifestの値を使います。
+相対pathは作業ディレクトリによらず `main/ai` 基準です。上書きpathもmanifestのhashと照合します。
+Window設定は後続接続用。未合意のStepや鮮度許容を今回の受信処理へ適用していません。
 
 ## 確認結果と開発ツール
 

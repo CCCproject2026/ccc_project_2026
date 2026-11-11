@@ -1,4 +1,4 @@
-"""受信Queueを処理する単一Worker。今回は入力検証までを担当する。"""
+"""受信Queueを処理する単一Worker。入力検証とDevice利用可否を担当する。"""
 
 import logging
 from queue import Empty
@@ -8,6 +8,7 @@ from time import monotonic
 from app.application.sensor_input import SensorInputService
 from app.core.config import Settings
 from app.domain.sensor import InvalidSensorBatch, SensorBatch
+from app.integrations.device import DeviceApiClient, DeviceManager
 from app.integrations.mqtt_client import MqttConnection, MqttSensorInput
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,18 @@ class InputPipeline:
         self.accepted_batches = 0
         self.accepted_samples = 0
         self.rejected_batches = 0
+        self.device_manager = (
+            DeviceManager(DeviceApiClient(settings), self._reset_device)
+            if settings.device_api_url
+            else None
+        )
+        self.device_api_state = (
+            self.device_manager.snapshot()
+            if self.device_manager
+            else {"configured": False}
+        )
+        if self.device_manager is None:
+            logger.warning("DEVICE_API_DISABLED mode=input_validation_only")
         self.receiver = MqttSensorInput(
             SensorInputService(consume=self._accept_batch), Settings.QUEUE_CAPACITY
         )
@@ -68,30 +81,59 @@ class InputPipeline:
                 "discarded_batches": sum(queue_discards.values()),
                 "queue_discards": queue_discards,
                 "queue_size": self.receiver.queue.qsize(),
+                "device_api": self.device_api_state.copy(),
             }
+
+    def _reset_device(self, code: str | None, reason: str) -> None:
+        # Bufferは未実装。接続時はここでcodeのBuffer（Noneなら全体）を削除する。
+        logger.info(
+            "DEVICE_CONTINUITY_RESET reason=%s scope=%s",
+            reason,
+            "all" if code is None else "device",
+        )
+
+    def _update_device_snapshot(self) -> None:
+        if self.device_manager is not None:
+            with self.connection.state_lock:
+                self.device_api_state = self.device_manager.snapshot()
 
     def _discard_queue(self, *, reason: str) -> int:
         return self.receiver.discard_pending(reason=reason)
 
     def _accept_batch(self, batch: SensorBatch) -> None:
+        with self.connection.state_lock:
+            self._ensure_current_batch(batch)
+        # HTTPはstate_lock外・Worker内で直列実行。待機後に世代を再確認する。
+        if self.device_manager is not None:
+            state = self.device_manager.resolve(batch.device_code)
+            self._update_device_snapshot()
+            if state != "ACTIVE":
+                raise InvalidSensorBatch(f"device_{state.lower()}")
         # decode中に切断や欠落が発生する場合があるため、受理の直前に再確認する。
         with self.connection.state_lock:
-            if (
-                self.stop_requested.is_set()
-                or not self.connection.subscribed
-                or batch.generation != self.connection.generation
-                or self.receiver.discontinuity.is_set()
-            ):
-                raise InvalidSensorBatch("interrupted_batch")
+            self._ensure_current_batch(batch)
             self.accepted_batches += 1
             self.accepted_samples += len(batch.samples)
         # 今回の終点。生payloadは保存・出力しない。推論成功とは区別する。
-        # Device API / Buffer実装時はここから検証済みbatchを引き渡す。
+        # Buffer実装時はここからACTIVEの検証済みbatchを引き渡す。
         logger.info("SENSOR_BATCH_ACCEPTED samples=%d", len(batch.samples))
+
+    def _ensure_current_batch(self, batch: SensorBatch) -> None:
+        """呼出元がstate_lockを持つ。HTTP待機前後の受付条件を共通化する。"""
+        if (
+            self.stop_requested.is_set()
+            or not self.connection.subscribed
+            or batch.generation != self.connection.generation
+            or self.receiver.discontinuity.is_set()
+        ):
+            raise InvalidSensorBatch("interrupted_batch")
 
     def _run(self) -> None:
         try:
             while not self.stop_requested.is_set():
+                if self.device_manager is not None:
+                    self.device_manager.expire()
+                    self._update_device_snapshot()
                 # 同じlockで通知解除とQueue掃除を行い、新しい欠落通知を消さない。
                 with self.connection.state_lock:
                     if self.receiver.discontinuity.is_set():
@@ -115,3 +157,6 @@ class InputPipeline:
         except Exception:
             # 想定外エラーを握り潰して生存扱いにしない。live/受信healthが503になる。
             logger.exception("SENSOR_WORKER_FAILED")
+        finally:
+            if self.device_manager is not None:
+                self.device_manager.close()

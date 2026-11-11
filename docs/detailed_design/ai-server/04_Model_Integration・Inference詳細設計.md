@@ -1,23 +1,28 @@
 # 04 Model Integration・Inference 詳細設計
 
+2026-11-06更新: 提供コードと学習済みpth・Scalerを受領した。
+実装・manifest・残る確認事項は[AI-04受領契約](../../../main/ai/artifacts/README.md)を参照する。
+CPUロード・標準化・推論を実装し、lifespanでMQTT受付前にロードする。
+既知入出力・許容誤差・学習runtimeの全versionは未受領。再現作業は未実行で、推論Pipelineは未接続。
+
 ## 1. 既存モデルを使う範囲
 
 `best_1dcnn_pytorch.pth`と、その学習時に使用したStandardScalerを再利用する。モデルアーキテクチャ、学習、データセット、精度改善は本作業の対象外。既存モデルクラスの定義と既存推論処理を正とする。Conv層数・kernel・hidden units等を推定して実装しない。
 
-`.pth`の内容は未入手のため、state_dict、checkpoint辞書、保存済みModule等の形式も`[TBD]`。state_dictだけではforwardの全処理やラベル意味は復元できない。既存クラスと提供時の利用コードが必要である。基本設計のCNN構造と実物が異なる場合は実物を優先し、差分表を更新する。
+受領した`.pth`は提供コードのstate_dict保存に対応するキーを持つ。CPU loaderはweights_only・strictで照合する。state_dictだけではforwardの全処理やラベル意味は復元できない。既存クラスと提供時の利用コードが必要である。基本設計のCNN構造と実物が異なる場合は実物を優先し、差分表を更新する。
 
 ## 2. 実装開始前に受領する成果物
 
 | 成果物・情報 | 確認内容 | 現状 |
 |---|---|---|
-| モデルファイル | best_1dcnn_pytorch.pth、配布元、hash | ファイル名のみ指定済み |
-| 既存model class / loader | クラス定義、引数、forward、checkpointキー | `[TBD]` |
-| 既存Scaler | ファイル、保存方式、学習済み統計、対応するmodel | `[TBD]` |
+| モデルファイル | best_1dcnn_pytorch.pth、配布元、hash | 受領済み。manifestにpath・SHA-256を記録 |
+| 既存model class / loader | クラス定義、引数、forward、checkpointキー | Conv1DNet受領済み、CPU loader実装済み |
+| 既存Scaler | ファイル、保存方式、学習済み統計、対応するmodel | joblib形式受領済み。sklearn 1.6.1、6特徴。ロード時に型・統計を検査 |
 | Input契約 | 100 samples、50Hz、6 axes、順序・単位・軸向き・前処理・layout・dtype | 前半3項目以外 `[TBD]` |
-| Output契約 | shape、logits/probability、Fallのclass index | `[TBD]` |
+| Output契約 | shape、logits/probability、Fallのclass index | (1,1)の単一Fall logit。要素index=0、ラベル1=Fall、sigmoidを1回 |
 | Runtime | Python、PyTorch、NumPy、scikit-learn、joblib等の互換version | `[TBD]` |
 | 既知入出力fixture | 固定Window、期待Scaler出力、期待モデル出力、許容誤差 | `[TBD]`。精度評価用Datasetの作成ではない |
-| version | 成果物組を識別するmodel_version | `[TBD]`。prototype-phase-1は例示値 |
+| version | 成果物組を識別するmodel_version | manifestに両ファイルhash由来のローカル識別子。提供者release名は未受領 |
 
 受領済み情報はモデルと同梱する小さな`model_manifest.json`（追加の環境変数は不要）に固定する。記録項目はmodel_version、model/scaler SHA-256、既存クラス識別、feature_order、単位・座標、window_size、sampling_rate、scaler入力形式、input_layout/dtype、output_kind/class index、互換runtime。自動モデル管理サービスは作らない。
 
