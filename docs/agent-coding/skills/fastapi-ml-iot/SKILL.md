@@ -1,0 +1,42 @@
+---
+name: fastapi-ml-iot
+description: "FastAPI/MQTT受信・Worker・Device API・既存ML推論を変更し、前処理契約と障害時動作を維持する。"
+---
+
+# fastapi-ml-iot
+
+## 目的・使用場面
+
+main/aiの入力、通信、推論やhealthの変更。FastAPI/MQTT受信・Worker・Device API・既存ML推論を変更し、前処理契約と障害時動作を維持する。
+
+## 使用しない場面
+
+Web画面のみ、未依頼のモデル再学習・置換。
+
+## 事前調査
+
+リポジトリルート基準で `AGENTS.md` と main/ai/README.md、main/ai/app/core/lifespan.py、main/ai/app/processing/pipeline.py、main/ai/uv.lock、main/ai/artifacts/model_manifest.json、docs/contracts/device-api/README.md を必要な範囲だけ読む。以下のパスはすべてリポジトリルート基準。情報が未確認なら推測せず記録する。
+
+## 実行手順
+
+1. 実接続経路を追い、未実装モジュールを切り分ける。
+2. callbackは軽量、重い処理はWorkerとする。queue/lock/世代と停止予算を保つ。
+3. 全体timeout・再試行・認証停止とcache TTLを確認する。
+4. モデル/Scalerのhash・float32・(100,6)→(1,6,100)を確認し、再fitせず既存interfaceを保つ。
+5. 異常値、欠損、重複、遅延、再接続の検証を選定する。
+
+## 成果物
+
+最小実装差分、契約影響、障害時動作と検証記録
+
+## 検証
+
+docs/agent-coding/commands.mdのRuff。推論は既知IO・許容誤差・承認済みartifactが必要。lint成功を互換性確認としない。
+
+## よくある失敗
+
+READMEの画像CNNを実装する、ready=503を隠す、callbackでHTTPを待つ、100点バッチを連続Windowと同一視する。
+
+## 必要時の参照
+
+検証コマンドは `docs/agent-coding/commands.md`、領域間契約の現状は `docs/agent-coding/investigation.md`、レビューと承認は `docs/agent-coding/workflow.md`。すべてを常時読み込まず対象Taskに必要なものだけ読む。
