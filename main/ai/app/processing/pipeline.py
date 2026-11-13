@@ -68,7 +68,11 @@ class InputPipeline:
             self.connection.stopping = True
         try:
             if self.worker.ident is not None:
-                self.worker.join(timeout=max(0.0, deadline - monotonic() - NETWORK_SHUTDOWN_RESERVE_SECONDS))
+                self.worker.join(
+                    timeout=max(
+                        0.0, deadline - monotonic() - NETWORK_SHUTDOWN_RESERVE_SECONDS
+                    )
+                )
             if self.worker.is_alive():
                 raise RuntimeError("sensor input worker did not stop")
             # ネットワークループは動かしたまま、受付済み結果だけを上限付きで待つ。
@@ -88,7 +92,9 @@ class InputPipeline:
                     if not self.worker.is_alive():
                         self.buffers.reset(None)
                         self.publisher.poll(now=monotonic())
-                    logger.info("RESULT_SHUTDOWN pending=%d", len(self.publisher.pending))
+                    logger.info(
+                        "RESULT_SHUTDOWN pending=%d", len(self.publisher.pending)
+                    )
 
     def snapshot(self) -> dict:
         with self.connection.state_lock:
