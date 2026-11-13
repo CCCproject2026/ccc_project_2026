@@ -159,6 +159,8 @@ class MqttConnection:
             protocol=mqtt.MQTTv311,
         )
         self.client.connect_timeout = 3.0
+        self.client.max_queued_messages_set(100)
+        self.client.max_inflight_messages_set(10)
         self.client.reconnect_delay_set(min_delay=1, max_delay=30)
         if settings.mqtt_username:
             self.client.username_pw_set(settings.mqtt_username, settings.mqtt_password)
