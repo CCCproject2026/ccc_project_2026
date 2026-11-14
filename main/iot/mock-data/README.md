@@ -19,6 +19,8 @@ uv run --no-project --python 3.11 --with paho-mqtt==2.1.0 \
 送信先の既定値は `127.0.0.1:1883`。生成ファイルの1行を1メッセージとし、2秒間隔、QoS 0、retain=falseで送ります。
 Topicは各行のdevice_idから `fall/{device_id}/data` を作ります。既定の生成データでは `fall/esp32-mpu6050-01/data` です。
 
+`--limit 3` は接続・通常データの確認用です。転倒風のバッチは46番目のため、そこまで送る場合は `--limit 46` 以上を指定します。各パケットの `samples[].t` は受信契約どおりパケット内の相対時刻（0〜1980ms）を保持し、センサー値の位相だけを変えて同一Windowの繰返しを避けます。
+
 送信前にBrokerとAIを起動し、AIの `MQTT_SUBSCRIBED` ログを確認してください。
 AIでDevice API確認を有効にしている場合、同じdeviceCodeをWebのDBにACTIVEで登録する必要があります。
 

@@ -102,6 +102,15 @@ class ResultPublisher:
             remaining.append(item)
         self.pending = remaining
 
+    def reset_generation(self) -> None:
+        """再接続前のPUBACK待機を新しいclean sessionへ持ち越さない。"""
+        if not self.pending:
+            return
+        discarded = len(self.pending)
+        self.pending.clear()
+        self.unknown += discarded
+        logger.warning("RESULT_DELIVERY_UNKNOWN reason=reconnect count=%d", discarded)
+
     def snapshot(self) -> dict[str, int]:
         return {
             "accepted": self.accepted,

@@ -28,8 +28,10 @@ NORMAL_POINTS = [
 ]
 
 
-def interpolate_normal_sample(sample_time_ms: int) -> dict[str, float | int]:
-    point_time = sample_time_ms % 1_000
+def interpolate_normal_sample(
+    sample_time_ms: int, *, signal_time_ms: int | None = None
+) -> dict[str, float | int]:
+    point_time = (signal_time_ms if signal_time_ms is not None else sample_time_ms) % 1_000
     point_index = min(point_time // 100, len(NORMAL_POINTS) - 1)
     left = NORMAL_POINTS[point_index]
     right = NORMAL_POINTS[(point_index + 1) % len(NORMAL_POINTS)]
@@ -90,10 +92,13 @@ def make_packet(packet_index: int, start_time: datetime) -> dict:
     samples = []
     for sample_index in range(SAMPLES_PER_PACKET):
         sample_time_ms = sample_index * SAMPLE_INTERVAL_MS
+        signal_time_ms = packet_index * 37 + sample_time_ms
         sample = (
             make_fall_sample(sample_time_ms)
             if packet_index == FALL_PACKET_INDEX
-            else interpolate_normal_sample(sample_time_ms)
+            else interpolate_normal_sample(
+                sample_time_ms, signal_time_ms=signal_time_ms
+            )
         )
         samples.append(sample)
 
@@ -120,6 +125,7 @@ def validate_packets(packets: list[dict]) -> None:
         for packet in packets
         for sample_index, sample in enumerate(packet["samples"])
     )
+    assert packets[0]["samples"] != packets[1]["samples"]
     fall_packet = packets[FALL_PACKET_INDEX]
     assert (
         max(

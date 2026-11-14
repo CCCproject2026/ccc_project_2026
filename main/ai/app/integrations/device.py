@@ -166,7 +166,6 @@ class DeviceManager:
         for code, entry in list(self.cache.items()):
             if now >= entry.expires_at:
                 del self.cache[code]
-                self.on_reset(code, "cache_expired")
 
     def resolve(self, code: str) -> str:
         self.expire()
@@ -194,7 +193,6 @@ class DeviceManager:
                 logger.error("DEVICE_API_AUTHENTICATION_FAILED")
             else:
                 self.retry_at = now + max(COOLDOWN, result.retry_after)
-                self.on_reset(code, "api_failure")
                 logger.warning("DEVICE_API_FAILED reason=%s", result.error)
             return "UNKNOWN"
         if self.degraded:
@@ -207,8 +205,6 @@ class DeviceManager:
             self.on_reset(evicted, "cache_evicted")
         ttl = NEGATIVE_TTL if result.state == "NOT_FOUND" else POSITIVE_TTL
         self.cache[code] = CacheEntry(result.state, now + ttl)
-        # 新規/再登場のACTIVEも過去の連続区間を再使用しない。
-        self.on_reset(code, "device_state_refreshed")
         logger.info("DEVICE_STATE_RESOLVED state=%s", result.state)
         return result.state
 

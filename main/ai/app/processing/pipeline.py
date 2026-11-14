@@ -15,6 +15,7 @@ from app.integrations.device import DeviceApiClient, DeviceManager
 from app.integrations.mqtt_client import MqttConnection, MqttSensorInput
 from app.processing.buffer import BufferManager
 from app.processing.inference import InferenceEngine
+from app.processing.preprocessing import InvalidInferenceInput
 from app.processing.result import ResultPublisher, make_result
 
 logger = logging.getLogger(__name__)
@@ -169,9 +170,7 @@ class InputPipeline:
         for window in windows:
             with self.connection.state_lock:
                 self._ensure_current_batch(batch)
-            if not self.buffers.is_current(
-                window, now=datetime.now(UTC), now_mono=monotonic()
-            ):
+            if not self.buffers.is_current(window, now_mono=monotonic()):
                 with self.connection.state_lock:
                     self.suppressed_results += 1
                 continue
@@ -184,10 +183,12 @@ class InputPipeline:
                     self.inference_errors += 1
                     self.consecutive_errors += 1
                 logger.error("INFERENCE_FAILED error_type=%s", type(error).__name__)
-                if (
-                    isinstance(error, (ValueError, TypeError))
-                    or self.consecutive_errors >= 3
-                ):
+                if isinstance(error, InvalidInferenceInput):
+                    with self.connection.state_lock:
+                        self._reset_device(batch.device_code, "inference_invalid_input")
+                        self.consecutive_errors = 0
+                    continue
+                if self.consecutive_errors >= 3:
                     raise RuntimeError("inference_worker_failed") from None
                 continue
             # 推論中にキャッシュが失効した場合も、そのWindowは送らない。
@@ -195,18 +196,16 @@ class InputPipeline:
                 self.device_manager.expire()
                 self._update_device_snapshot()
             with self.connection.state_lock:
-                self.inferred_windows += 1
-                self.consecutive_errors = 0
                 try:
                     self._ensure_current_batch(batch)
                 except InvalidSensorBatch:
                     self.suppressed_results += 1
                     raise
-                if not self.buffers.is_current(
-                    window, now=datetime.now(UTC), now_mono=monotonic()
-                ):
+                if not self.buffers.is_current(window, now_mono=monotonic()):
                     self.suppressed_results += 1
                     continue
+                self.inferred_windows += 1
+                self.consecutive_errors = 0
                 self.last_result = result.copy()
                 accepted = self.publisher.publish(result, now=monotonic())
             logger.info(
@@ -239,6 +238,7 @@ class InputPipeline:
                     self.publisher.poll(now=monotonic())
                     if self.buffer_generation != self.connection.generation:
                         self.buffers.reset(None)
+                        self.publisher.reset_generation()
                         self.buffer_generation = self.connection.generation
                     if self.receiver.discontinuity.is_set():
                         self._discard_queue(reason="continuity_reset")
@@ -257,6 +257,7 @@ class InputPipeline:
                         # 新世代の最初のバッチより前にresetする。
                         if self.buffer_generation != generation:
                             self.buffers.reset(None)
+                            self.publisher.reset_generation()
                             self.buffer_generation = generation
                     self.receiver.process(envelope, generation=generation)
                 except InvalidSensorBatch as error:

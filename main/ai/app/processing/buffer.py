@@ -100,8 +100,6 @@ class BufferManager:
                 if not MIN_INTERVAL <= delta <= MAX_INTERVAL:
                     state = DeviceBuffer(generation=batch.generation)
                     self.devices[code] = state
-                    # このバッチ内で既に生成したWindowも欠落を跨いで送らない。
-                    windows.clear()
             state.samples.append(sample)
             state.count += 1
             state.last_received = now_mono
@@ -125,12 +123,10 @@ class BufferManager:
             state.next_emit += self.step
         return windows
 
-    def is_current(self, window: Window, *, now: datetime, now_mono: float) -> bool:
+    def is_current(self, window: Window, *, now_mono: float) -> bool:
         state = self.devices.get(window.device_code)
-        age = (now - window.ended_at).total_seconds()
         return (
             state is not None
             and state.generation == window.generation
             and now_mono - state.last_received < OFFLINE_SECONDS
-            and -FUTURE_TOLERANCE_SECONDS <= age <= MAX_BATCH_AGE_SECONDS
         )
