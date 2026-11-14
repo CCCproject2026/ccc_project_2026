@@ -25,17 +25,23 @@ async def live(request: Request) -> JSONResponse:
 async def ready(request: Request) -> JSONResponse:
     """モデル読込と、Device確認から結果配信までの準備完了を区別する。"""
     runtime = getattr(request.app.state, "runtime", None)
+    pipeline = runtime.pipeline.snapshot() if runtime else None
+    pipeline_connected = bool(
+        pipeline
+        and pipeline["connected"]
+        and pipeline["subscribed"]
+        and pipeline["worker_alive"]
+    )
     return JSONResponse(
         status_code=503,
         content={
             "status": "not_ready",
-            "reason": "inference_pipeline_not_connected",
-            "model_loaded": runtime is not None and runtime.started,
+            "reason": "model_compatibility_unverified",
+            "inference_pipeline_connected": pipeline_connected,
+            "model_loaded": runtime is not None,
             "model_version": runtime.inference.model_version if runtime else None,
             "model_compatibility_verified": False,
-            "device_api": runtime.pipeline.snapshot()["device_api"]
-            if runtime
-            else {"configured": False},
+            "device_api": pipeline["device_api"] if pipeline else {"configured": False},
         },
     )
 

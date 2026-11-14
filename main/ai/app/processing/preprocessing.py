@@ -15,6 +15,10 @@ from app.model_artifacts.loader import verified_artifact
 FEATURE_ORDER = ("ax", "ay", "az", "gx", "gy", "gz")
 
 
+class InvalidInferenceInput(ValueError):
+    """特定Windowの前処理入力が推論契約を満たさない。"""
+
+
 class WindowPreprocessor:
     def __init__(self, scaler: StandardScaler) -> None:
         if type(scaler) is not StandardScaler:
@@ -53,20 +57,20 @@ class WindowPreprocessor:
     def transform(self, values) -> torch.Tensor:
         window = np.asarray(values)
         if window.shape != (100, 6) or window.dtype.kind not in "iuf":
-            raise ValueError("window_shape_or_dtype")
+            raise InvalidInferenceInput("window_shape_or_dtype")
         if not np.isfinite(window).all():
-            raise ValueError("window_nonfinite")
+            raise InvalidInferenceInput("window_nonfinite")
         # 学習コードと同様、transform前もfloat32にする。
         with np.errstate(over="ignore", invalid="ignore"):
             window = np.array(window, dtype=np.float32, copy=True)
         if not np.isfinite(window).all():
-            raise ValueError("window_float32_overflow")
+            raise InvalidInferenceInput("window_float32_overflow")
         scaled = self.scaler.transform(window)
         if scaled.shape != (100, 6) or not np.isfinite(scaled).all():
-            raise ValueError("scaled_window_invalid")
+            raise InvalidInferenceInput("scaled_window_invalid")
         with np.errstate(over="ignore", invalid="ignore"):
             scaled = np.asarray(scaled, dtype=np.float32)
         if not np.isfinite(scaled).all():
-            raise ValueError("scaled_float32_overflow")
+            raise InvalidInferenceInput("scaled_float32_overflow")
         # 行=time、列=featureからNCLへ。元のWindowは変更しない。
         return torch.from_numpy(np.ascontiguousarray(scaled.T)).unsqueeze(0)

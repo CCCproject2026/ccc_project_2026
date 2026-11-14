@@ -41,7 +41,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         raise
     logger.info("MODEL_LOADED model_version=%s", inference.model_version)
     runtime = Runtime(
-        settings=settings, pipeline=InputPipeline(settings), inference=inference
+        settings=settings,
+        pipeline=InputPipeline(settings, inference),
+        inference=inference,
     )
     app.state.runtime = runtime
     try:
