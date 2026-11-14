@@ -31,7 +31,9 @@ NORMAL_POINTS = [
 def interpolate_normal_sample(
     sample_time_ms: int, *, signal_time_ms: int | None = None
 ) -> dict[str, float | int]:
-    point_time = (signal_time_ms if signal_time_ms is not None else sample_time_ms) % 1_000
+    point_time = (
+        signal_time_ms if signal_time_ms is not None else sample_time_ms
+    ) % 1_000
     point_index = min(point_time // 100, len(NORMAL_POINTS) - 1)
     left = NORMAL_POINTS[point_index]
     right = NORMAL_POINTS[(point_index + 1) % len(NORMAL_POINTS)]
