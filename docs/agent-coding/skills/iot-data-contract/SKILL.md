@@ -1,0 +1,42 @@
+---
+name: iot-data-contract
+description: "IoT/MQTT/ML/Webをまたぐデータ契約を実装・設計・担当者合意に分けて照合する。"
+---
+
+# iot-data-contract
+
+## 目的・使用場面
+
+Topic、Payload、時間、単位、軸順序、Window、出力契約を変更またはレビューするとき。IoT/MQTT/ML/Webをまたぐデータ契約を実装・設計・担当者合意に分けて照合する。
+
+## 使用しない場面
+
+単一画面のスタイル変更、単位や軸を推測するための利用。
+
+## 事前調査
+
+リポジトリルート基準で `AGENTS.md` と main/ai/app/integrations/sensor_json.py、main/ai/app/application/sensor_input.py、main/iot/mock-data/README.md、main/ai/artifacts/model_manifest.json、docs/contracts/device-api/README.md を必要な範囲だけ読む。以下のパスはすべてリポジトリルート基準。情報が未確認なら推測せず記録する。
+
+## 実行手順
+
+1. producer→decoder→domain→preprocessing→consumerの表を作る。
+2. fall/{device_id}/dataとcode一致、root6項目、samplesのt/6軸、UTC ts_ms+t、時刻許容差1ms、最大100点/64KiBを照合。
+3. 50Hz/100点/step50はモデル設定で、実機周波数・物理軸の証明ではないと区別する。
+4. g/deg/sと軸の対応、遅延閾値、結果Topic/Payload/QoS、重複識別と再送方針に未確認欄を設ける。
+5. 互換変更/破壊的変更と移行方法を提示し、担当者の合意を記録する。
+
+## 成果物
+
+根拠ファイル付き契約表、合成fixture、未決事項/担当/合意記録
+
+## 検証
+
+producerとconsumer双方で同じfixtureを照合。境界1/100/101点、不正数値、code不一致、時刻ずれ、重複/遅延/欠損を対象とする。
+
+## よくある失敗
+
+模擬データを実機仕様と断定、学習時200Hzを入力50Hzへ再適用、未合意結果Topicを既定値として実装。
+
+## 必要時の参照
+
+検証コマンドは `docs/agent-coding/commands.md`、領域間契約の現状は `docs/agent-coding/investigation.md`、レビューと承認は `docs/agent-coding/workflow.md`。すべてを常時読み込まず対象Taskに必要なものだけ読む。
