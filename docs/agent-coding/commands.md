@@ -9,7 +9,7 @@
 | root | `git diff --check` | 追跡差分の空白エラー。未追跡内容は別途確認 |
 | main/web | `pnpm install --frozen-lockfile` | 依存取得。ネットワークとinstall scriptを伴う |
 | main/web | `pnpm lint` | CIのESLint |
-| main/web | `pnpm biome:check` | 補助の整形/lint。全ファイル自動修正はしない |
+| main/web | `pnpm biome:check` | CI必須ではない補助の整形/lint。変更ファイルを中心に確認し、無関係な既存エラーの一括修正はしない |
 | main/web | `pnpm prisma:validate` | schema検査。環境設定が必要 |
 | main/web | `pnpm build` | Prisma client生成 + Next build。実行環境・認証設定依存 |
 | root | `make -C main/ai check` | uvx Ruff lint/format check。未キャッシュなら取得が必要 |

@@ -78,6 +78,18 @@ docker-compose.override.yml
 # Local Codex/app state
 .codex/
 .agents/
+# 共有する生成物だけは追跡し、個人設定・認証情報・セッション類は引き続き除外する。
+!.codex/
+.codex/*
+!.codex/agents/
+!.codex/agents/*.toml
+!.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/*/
+.agents/skills/*/*
+!.agents/skills/*/SKILL.md
 
 # Ignore IoT folder leftovers on non-IoT branches
 main/iot/*

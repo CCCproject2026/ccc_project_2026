@@ -20,9 +20,10 @@ Python推論のみ、Firmwareのみ、全体のセキュリティ監査のみ。
 ## 実行手順
 
 1. 既存のserver/client境界とデータ取得を追跡する。
-2. server-only、サーバー側認可、Zod検証を保ち、ローディング/空/失敗状態を設計する。
-3. キーボード操作、ラベル、フォーカス、色以外の警告表現を確認する。
-4. 最小差分で実装し、API担当との契約とReact Query等の既存状態管理を維持する。
+2. server-only、サーバー側認可、Zod検証を保ち、ローディング/空/失敗状態を設計する。API Routeでは `@/shared/lib/auth` の `requireStaff` / `requireRole`、ページでは `requireStaffPage` / `requireRolePage` を使い、Clerk認証だけでDB上の無効スタッフを許可しない。
+3. JSON本文は `@/shared/lib/api-error` の `readJsonBody` で読む。既に `{ code, message }` 契約を使うAPI Routeでは `ApiError` と `errorResponse` を使う。`{ error }` を返す既存高齢者APIの形式は、このSkill変更で変えず、契約合意後に別Taskで扱う。Prismaは `@/shared/lib/prisma` を使う。
+4. キーボード操作、ラベル、フォーカス、色以外の警告表現を確認する。
+5. 最小差分で実装し、API担当との契約とReact Query等の既存状態管理を維持する。
 
 ## 成果物
 
@@ -30,7 +31,7 @@ Python推論のみ、Firmwareのみ、全体のセキュリティ監査のみ。
 
 ## 検証
 
-pnpm lintと必要なbuild、表示/操作の正常・失敗ケース。既存テスト基盤がない場合は明記する。
+pnpm lintと必要なbuild、表示/操作の正常・失敗ケース。Prisma schemaまたはmigrationを変更した場合は `pnpm prisma:validate` も実行し、migration作成の要否と結果を報告する。`pnpm biome:check` はCI必須ではない補助確認であり、既存の無関係な整形エラーをこのTaskで自動修正しない。既存テスト基盤がない場合は明記する。
 
 ## よくある失敗
 
