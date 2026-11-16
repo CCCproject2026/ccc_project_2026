@@ -2,6 +2,20 @@
 
 実施日: 2026-11-13。リポジトリルートで実施。実アプリ・DB・Brokerへの接続、モデルdeserialize、クラウド変更、commit/push/merge/deployは未実施。
 
+## 2026-11-16: ローカルLLM対象の追加
+
+OpenCode 向けに `.opencode/skills/` と `.opencode/agents/` を生成対象へ追加した。OpenCode はこの環境に未導入のため、Agent/Skillの実際の発見・Ollamaとの接続・モデルのtool callingは未実行である。Ollama CLIの存在だけを確認したが、モデルの取得・起動・推論は行っていない。
+
+| コマンド/検査 | 結果 |
+|---|---|
+| `python3 scripts/agent-coding/sync.py --write` | 成功。OpenCode向け7 Skill・3 Agentを含む43管理ファイルが一致する状態に生成 |
+| `python3 scripts/agent-coding/sync.py --check` | 成功。43管理ファイルの一致とCodex TOML parseを確認 |
+| `python3 -m unittest discover -s scripts/agent-coding -p 'test_*.py' -v` | 成功。4件。生成器の一致・未管理ファイル・余剰生成物・symlink保護を一時ディレクトリで確認 |
+| `git diff --check` | 成功 |
+| `command -v ollama` / `command -v opencode` | Ollamaは検出、OpenCodeは未検出。Ollamaのserver/model状態は確認していない |
+
+OpenCode導入後はリポジトリルートで `/models` からローカルのcompletion/tool対応モデルを選択し、`senior-code-reviewer` の編集・shell・Web送信拒否を含めて [対応表](tool-support.md) の読込テストを実施する。OpenCodeの導入やモデル取得は外部取得を伴うため、この変更には含めない。
+
 ## 実機で確認できたこと
 
 | AIツール | 確認バージョン | 指示の自動読込 | Skillの発見/本文/明示呼出 | 専門Agent | 結果・限界 |
