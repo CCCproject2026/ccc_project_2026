@@ -79,7 +79,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 			if (reverification) return reverification;
 		}
 
-		const elder = await updateElder(id, parsed.data);
+		const elder = await updateElder(id, parsed.data, authResult.staffId);
 		if (!elder) {
 			return NextResponse.json(
 				{ error: "No fields to update" },
@@ -115,7 +115,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
 		const { id } = await params;
 
-		await deactivateElder(id);
+		await deactivateElder(id, authResult.staffId);
 
 		return new NextResponse(null, { status: 204 });
 	} catch (error) {
