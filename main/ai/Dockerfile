@@ -1,4 +1,9 @@
-FROM python:3.11-slim AS base
+# Pinned to current python:3.11-slim index digest for reproducible builds (resolved 3.11.18-slim-trixie at pin time).
+ARG PYTHON_IMAGE=python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535
+ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.13.8
+FROM ${UV_IMAGE} AS uv-bin
+
+FROM ${PYTHON_IMAGE} AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
@@ -6,10 +11,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # HTTP・MQTT・モデル推論の固定依存を準備する。
 FROM base AS deps
 WORKDIR /app
-RUN pip install --no-cache-dir uv
+COPY --from=uv-bin /uv /uvx /bin/
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-install-project --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-install-project --no-dev
 
 FROM base AS runner
 WORKDIR /app
