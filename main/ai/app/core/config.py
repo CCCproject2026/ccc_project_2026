@@ -33,6 +33,7 @@ class Settings:
     model_path: str = ""
     scaler_path: str = ""
     model_version: str = ""
+    offline_timeout_seconds: float | None = None
 
     QUEUE_CAPACITY: ClassVar[int] = 16
     SHUTDOWN_TIMEOUT_SECONDS: ClassVar[float] = 5.0
@@ -75,6 +76,11 @@ class Settings:
             raise ValueError("INFERENCE_THRESHOLD: 0.5 のみ対応しています")
         if not 1 <= self.mqtt_port <= 65535:
             raise ValueError("MQTT_PORT: 1〜65535 を指定してください")
+        if self.offline_timeout_seconds is not None and (
+            not isfinite(self.offline_timeout_seconds)
+            or self.offline_timeout_seconds <= 0
+        ):
+            raise ValueError("OFFLINE_TIMEOUT_SECONDS: 正の秒数を指定してください")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -90,6 +96,12 @@ class Settings:
         tls = source.get("MQTT_TLS", "false").lower()
         if tls not in ("true", "false"):
             raise ValueError("MQTT_TLS: true / false を指定してください")
+        offline_timeout = source.get("OFFLINE_TIMEOUT_SECONDS", "")
+        offline_timeout_seconds = (
+            None
+            if offline_timeout == ""
+            else number("OFFLINE_TIMEOUT_SECONDS", offline_timeout, float)
+        )
 
         return cls(
             window_size=number("WINDOW_SIZE", "100", int),
@@ -110,4 +122,5 @@ class Settings:
             model_path=source.get("MODEL_PATH", ""),
             scaler_path=source.get("SCALER_PATH", ""),
             model_version=source.get("MODEL_VERSION", ""),
+            offline_timeout_seconds=offline_timeout_seconds,
         )
