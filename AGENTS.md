@@ -5,6 +5,7 @@
 ## 最初に確認すること
 
 - `git status --short` と対象実装を読み、ユーザーの未コミット変更を保護する。既存ファイルを無条件に上書きしない。
+- 最初の調査では `PROJECT_CONTEXT.md` を読み、このリポジトリの構成・現行のデータフロー・未接続部分を把握する。これは入口用の要約であり、変更前には対象コード・契約・lockfileを正とする。
 - `docs/agent-coding/investigation.md` は調査時点の索引。現在のコード・lockfile・契約を再確認する。古いREADMEのHTTP/画像CNN説明を現行仕様とみなさない。
 - `main/web` はNext.js App Router、`main/ai/app` はFastAPI/MQTT、`main/iot/mock-data` は模擬データ、`main/broker` はBroker設定。実機Firmwareは確認できていない。
 - AIのBuffer・結果配信は未実装、入力から推論への接続は未完了。`/health/ready` の503を実装済みと誤認しない。
