@@ -1,17 +1,30 @@
-FROM node:20-alpine AS base
+# Pinned to current node:20-alpine index digest for reproducible builds.
+ARG NODE_IMAGE=node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+FROM ${NODE_IMAGE} AS base
 RUN corepack enable
 
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 ENV PUPPETEER_SKIP_DOWNLOAD=true
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
-FROM base AS builder
+# Prisma CLI/マイグレーション専用ステージ（Next.js のフロントエンドビルドをスキップして高速化）
+FROM deps AS prisma-cli
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN pnpm build
+COPY package.json tsconfig.json prisma.config.ts ./
+COPY prisma ./prisma
+RUN pnpm prisma generate --generator client
+
+FROM prisma-cli AS builder
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY next.config.mjs postcss.config.js next-env.d.ts eslint.config.mjs ./
+COPY public ./public
+COPY src ./src
+RUN --mount=type=cache,target=/app/.next/cache \
+    pnpm build
 
 FROM base AS runner
 WORKDIR /app
