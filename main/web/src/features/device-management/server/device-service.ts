@@ -126,6 +126,16 @@ export async function listDevices(
 	};
 }
 
+// ---- 存在の確認（/devices/[id] の画面で、なければ not-found を出すため） ----
+
+export async function deviceExists(id: string): Promise<boolean> {
+	const row = await prisma.device.findUnique({
+		where: { id },
+		select: { id: true },
+	});
+	return row !== null;
+}
+
 // ---- 詳細（GET /api/devices/[id]） ----
 
 export async function getDeviceDetail(id: string): Promise<DeviceDetail> {

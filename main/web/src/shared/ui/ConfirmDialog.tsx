@@ -41,7 +41,9 @@ export function ConfirmDialog({
 					<button
 						type="button"
 						onClick={onClose}
-						className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition"
+						// 実行中は押せなくする（結果がわからないまま閉じないようにするため）
+						disabled={busy}
+						className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition disabled:opacity-50"
 					>
 						キャンセル
 					</button>
