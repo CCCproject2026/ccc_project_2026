@@ -36,8 +36,17 @@ export function ElderManagementPage() {
 	const [limit] = useState(20);
 	const [statusFilter, setStatusFilter] = useState<ElderStatus>("ACTIVE");
 	const [searchInput, setSearchInput] = useState("");
-	const [searchQuery, setSearchQuery] = useState("");
-	const debouncedSearch = useDebouncedValue(searchQuery, 300);
+	// 入力しながら検索する（search-as-you-type）。300ms 入力を止めたら検索する
+	const debouncedSearch = useDebouncedValue(searchInput, 300);
+
+	// 検索語が変わったら1ページ目に戻す（render 中の state 調整）。
+	// クエリはデバウンス後に適用されるので、適用された時点でのみ page を戻す。
+	// 件数が減ってページが無効になる場合は下の clampPage が補正する。
+	const [appliedQuery, setAppliedQuery] = useState(debouncedSearch);
+	if (appliedQuery !== debouncedSearch) {
+		setAppliedQuery(debouncedSearch);
+		setPage(1);
+	}
 
 	const [openAddModal, setOpenAddModal] = useState(false);
 	const [editingElder, setEditingElder] = useState<ElderRow | null>(null);
@@ -119,15 +128,8 @@ export function ElderManagementPage() {
 		updateMutation.mutate({ id, data: { status: "ACTIVE" } });
 	};
 
-	const handleSearch = (e: React.FormEvent) => {
-		e.preventDefault();
-		setSearchQuery(searchInput);
-		setPage(1);
-	};
-
 	const handleReset = () => {
 		setSearchInput("");
-		setSearchQuery("");
 		setPage(1);
 	};
 
@@ -191,10 +193,8 @@ export function ElderManagementPage() {
 						);
 					})}
 				</div>
-				<form
-					onSubmit={handleSearch}
-					className="flex flex-wrap items-center gap-3 p-4"
-				>
+				{/* 検索ボタンはなく、入力を止めたら自動で検索する */}
+				<div className="flex flex-wrap items-center gap-3 p-4">
 					<div className="relative flex-1 basis-40 min-w-[12rem]">
 						<HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
 						<input
@@ -205,12 +205,6 @@ export function ElderManagementPage() {
 							className="w-full h-10 pl-10 pr-4 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
 						/>
 					</div>
-					<button
-						type="submit"
-						className="h-10 px-4 shrink-0 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-700 transition-colors"
-					>
-						検索
-					</button>
 					{searchInput && (
 						<button
 							type="button"
@@ -220,7 +214,7 @@ export function ElderManagementPage() {
 							クリア
 						</button>
 					)}
-				</form>
+				</div>
 			</div>
 
 			<div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

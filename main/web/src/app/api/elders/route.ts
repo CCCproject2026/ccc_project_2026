@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkNurseAuth } from "@/features/elder-management/server/elder-auth";
 import {
 	createElder,
 	listElders,
 } from "@/features/elder-management/server/elder-service";
-import { ApiError } from "@/shared/lib/api-error";
-import { requireStaff } from "@/shared/lib/auth";
+import { errorResponse } from "@/shared/lib/api-error";
+import { requireRole, requireStaff } from "@/shared/lib/auth";
 import {
 	type ElderStatus,
 	elderCreateSchema,
@@ -36,28 +35,14 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json(result);
 	} catch (error) {
 		// requireStaff の 401（未ログイン）・403（ACTIVE でない）
-		if (error instanceof ApiError) {
-			return NextResponse.json(
-				{ error: error.message },
-				{ status: error.status },
-			);
-		}
-		console.error("GET /api/elders error:", error);
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 },
-		);
+		return errorResponse(error);
 	}
 }
 
 export async function POST(request: NextRequest) {
 	try {
-		const authResult = await checkNurseAuth();
-		if ("error" in authResult)
-			return NextResponse.json(
-				{ error: authResult.error },
-				{ status: authResult.status },
-			);
+		// 登録は看護師（管理者）だけ。未ログインは 401、ACTIVE でない・ロール違いは 403
+		await requireRole("NURSE");
 
 		const body = await request.json();
 		const parsed = elderCreateSchema.safeParse(body);
@@ -72,10 +57,6 @@ export async function POST(request: NextRequest) {
 
 		return NextResponse.json(elder, { status: 201 });
 	} catch (error) {
-		console.error("POST /api/elders error:", error);
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 },
-		);
+		return errorResponse(error);
 	}
 }

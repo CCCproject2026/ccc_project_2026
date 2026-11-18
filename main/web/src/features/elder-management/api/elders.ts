@@ -12,10 +12,18 @@ import {
 
 const API_BASE = "/api/elders";
 
+// errorResponse は { code, message }、それ以外のハンドラーは { error } を返す。
+// どちらでも表示できるように message を先に、error を後に見る。
+async function readErrorMessage(res: Response): Promise<string> {
+	const body = await res
+		.json()
+		.catch(() => ({ message: "Unknown error", error: "Unknown error" }));
+	return body.message || body.error || `HTTP ${res.status}`;
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
 	if (!res.ok) {
-		const err = await res.json().catch(() => ({ error: "Unknown error" }));
-		throw new Error(err.error || `HTTP ${res.status}`);
+		throw new Error(await readErrorMessage(res));
 	}
 	return res.json();
 }
@@ -60,6 +68,6 @@ export const elderApi = {
 		const body = await res.json().catch(() => null);
 		// 再認証が必要な場合は Clerk のヒントをそのまま返し、useReverification に委ねる。
 		if (isReverificationHint(body)) return body;
-		throw new Error(body?.error || `HTTP ${res.status}`);
+		throw new Error(body?.message || body?.error || `HTTP ${res.status}`);
 	},
 };

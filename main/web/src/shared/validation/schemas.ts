@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { todayInJapan } from "@/shared/lib/date";
 
 // =============================================================
 // 入力スキーマ（フォーム・API Route Handler で共有）
@@ -66,10 +67,13 @@ function calculateAge(birth: Date, today: Date): number {
 	return age;
 }
 
-// ローカルの「今日」を UTC 0時の Date として返す（生年月日と日付単位で比較するため）。
+// 日本時間の「今日」を UTC 0時の Date として返す（生年月日と日付単位で比較するため）。
+// 基準は shared/lib/date の todayInJapan() に統一する。
+// サーバーのローカル時刻（UTC）で計算すると、Docker では JST 00:00〜09:00 の間に
+// 「今日生まれ」が未来日として誤って弾かれるため。
 function todayAsCalendarDate(): Date {
-	const now = new Date();
-	return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+	const [year, month, day] = todayInJapan().split("-").map(Number);
+	return new Date(Date.UTC(year, month - 1, day));
 }
 
 const dateOfBirthSchema = z
