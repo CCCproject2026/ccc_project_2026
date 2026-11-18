@@ -63,7 +63,7 @@ export function ElderManagementPage() {
 		q: debouncedSearch.trim() || undefined,
 	};
 
-	const { data, isLoading, error } = useElders(params);
+	const { data, isLoading, error, refetch } = useElders(params);
 	const elders = data?.data ?? [];
 	const total = data?.total ?? 0;
 	const summary = data?.summary ?? { total: 0, active: 0, inactive: 0 };
@@ -296,6 +296,9 @@ export function ElderManagementPage() {
 					onDelete={handleDelete}
 					onReactivate={handleReactivate}
 					loading={isLoading}
+					error={error}
+					onRetry={() => refetch()}
+					searchQuery={debouncedSearch}
 					status={statusFilter}
 				/>
 			</div>

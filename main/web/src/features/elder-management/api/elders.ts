@@ -24,10 +24,14 @@ async function request(
 	}
 }
 
-// API のエラー本文は { code, message } 形式。message を優先し、無ければ code を使う。
+// 高齢者 API のエラー本文は既存契約として { error: string } 形式。
+// 移行期や共通エラーも考慮し、error または message または code を順に参照する。
 function apiErrorMessage(body: unknown, status: number): string {
 	if (body && typeof body === "object") {
 		const record = body as Record<string, unknown>;
+		if (typeof record.error === "string" && record.error !== "") {
+			return record.error;
+		}
 		if (typeof record.message === "string" && record.message !== "") {
 			return record.message;
 		}

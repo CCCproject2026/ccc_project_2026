@@ -25,6 +25,13 @@ export function Modal({
 }: ModalProps) {
 	const titleId = useId();
 	const dialogRef = useRef<HTMLDivElement>(null);
+	const closeDisabledRef = useRef(closeDisabled);
+
+	// closeDisabled は ref で保持し、フォーカス管理 effect の依存配列から外す。
+	// これにより busy の切り替え時に cleanup が走って背後へフォーカスが戻るのを防ぐ。
+	useEffect(() => {
+		closeDisabledRef.current = closeDisabled;
+	}, [closeDisabled]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -41,12 +48,14 @@ export function Modal({
 				),
 			);
 
-		focusables()[0]?.focus();
+		// フォーカス可能な要素が無ければダイアログ本体へフォーカスしてモーダル内に留める
+		const initialTarget = focusables()[0] ?? dialog;
+		initialTarget.focus();
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
 				e.preventDefault();
-				if (!closeDisabled) {
+				if (!closeDisabledRef.current) {
 					onClose();
 				}
 				return;
@@ -55,7 +64,12 @@ export function Modal({
 			if (e.key !== "Tab") return;
 
 			const items = focusables();
-			if (items.length === 0) return;
+			if (items.length === 0) {
+				// busy 中などでフォーカス可能要素が 0 件のときは、Tab で背後に逃がさずダイアログに留める
+				e.preventDefault();
+				dialog.focus();
+				return;
+			}
 
 			const first = items[0];
 			const last = items[items.length - 1];
@@ -75,7 +89,7 @@ export function Modal({
 			document.removeEventListener("keydown", handleKeyDown);
 			previouslyFocused?.focus();
 		};
-	}, [open, onClose, closeDisabled]);
+	}, [open, onClose]);
 
 	if (!open) return null;
 
@@ -86,7 +100,8 @@ export function Modal({
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby={titleId}
-				className={`my-auto bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 w-full max-h-[calc(100vh-2rem)] flex flex-col ${maxWidthClass}`}
+				tabIndex={-1}
+				className={`my-auto bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 w-full max-h-[calc(100vh-2rem)] flex flex-col focus:outline-none ${maxWidthClass}`}
 			>
 				<div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
 					<h2 id={titleId} className="text-lg font-bold text-gray-900">
