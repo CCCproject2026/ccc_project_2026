@@ -5,13 +5,29 @@ import {
 	getElder,
 	updateElder,
 } from "@/features/elder-management/server/elder-service";
-import { errorResponse } from "@/shared/lib/api-error";
+import { ApiError } from "@/shared/lib/api-error";
 import { requireRole, requireStaff } from "@/shared/lib/auth";
 import { requiresReverification } from "@/shared/lib/reverification";
 import { elderUpdateSchema } from "@/shared/validation/schemas";
 
 interface RouteParams {
 	params: Promise<{ id: string }>;
+}
+
+// 高齢者 API は docs/agent-coding/skills/nextjs-frontend/SKILL.md:24 および
+// docs/agent-coding/investigation.md:62 の契約に従い、エラー本文は { error } 形式を維持する。
+function elderErrorResponse(operation: string, error: unknown) {
+	if (error instanceof ApiError) {
+		return NextResponse.json(
+			{ error: error.message },
+			{ status: error.status },
+		);
+	}
+	console.error(`${operation} error:`, error);
+	return NextResponse.json(
+		{ error: "Internal server error" },
+		{ status: 500 },
+	);
 }
 
 // 退所など影響の大きい操作の前に Clerk の再認証（reverification）を必須にする。
@@ -44,7 +60,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 		return NextResponse.json(elder);
 	} catch (error) {
 		// requireStaff の 401（未ログイン）・403（ACTIVE でない）
-		return errorResponse(error);
+		return elderErrorResponse("GET /api/elders/[id]", error);
 	}
 }
 
@@ -82,7 +98,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 		if ((error as { code?: string }).code === "P2025") {
 			return notFoundResponse();
 		}
-		return errorResponse(error);
+		return elderErrorResponse("PATCH /api/elders/[id]", error);
 	}
 }
 
@@ -104,6 +120,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 		if ((error as { code?: string }).code === "P2025") {
 			return notFoundResponse();
 		}
-		return errorResponse(error);
+		return elderErrorResponse("DELETE /api/elders/[id]", error);
 	}
 }

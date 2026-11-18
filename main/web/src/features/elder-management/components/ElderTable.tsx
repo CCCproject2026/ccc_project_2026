@@ -16,6 +16,9 @@ interface ElderTableProps {
 	onDelete: (id: string) => void;
 	onReactivate: (id: string) => void;
 	loading?: boolean;
+	error?: Error | null;
+	onRetry?: () => void;
+	searchQuery?: string;
 	status?: ElderStatus;
 	// 看護師だけが編集・退所・復帰できる（API は requireRole("NURSE")）。
 	// 介護士には使えないボタンを見せない。
@@ -28,6 +31,9 @@ export function ElderTable({
 	onDelete,
 	onReactivate,
 	loading,
+	error,
+	onRetry,
+	searchQuery,
 	status,
 	canManage,
 }: ElderTableProps) {
@@ -41,21 +47,48 @@ export function ElderTable({
 		);
 	}
 
+	if (error && elders.length === 0) {
+		return (
+			<div className="text-center py-12 px-6">
+				<p className="text-lg font-medium text-rose-600">
+					高齢者情報の取得に失敗しました
+				</p>
+				<p className="text-sm text-gray-500 mt-1">
+					{error.message || "通信環境やサーバーの状態を確認してください"}
+				</p>
+				{onRetry && (
+					<button
+						type="button"
+						onClick={onRetry}
+						className="mt-4 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition shadow-sm"
+					>
+						再試行する
+					</button>
+				)}
+			</div>
+		);
+	}
+
 	if (elders.length === 0) {
 		const isInactive = status === "INACTIVE";
+		const isSearching = !!searchQuery;
 		return (
 			<div className="text-center py-12 px-6 text-gray-500">
 				<p className="text-lg font-medium">
-					{isInactive
-						? "無効化された高齢者はいません"
-						: "高齢者が登録されていません"}
+					{isSearching
+						? "条件に一致する高齢者が見つかりません"
+						: isInactive
+							? "無効化された高齢者はいません"
+							: "高齢者が登録されていません"}
 				</p>
-				<p className="text-sm">
-					{isInactive
-						? "退所・無効化した高齢者がここに表示されます"
-						: canManage
-							? "「高齢者を追加」から登録してください"
-							: "新規登録は看護師（管理者）が行います"}
+				<p className="text-sm mt-1">
+					{isSearching
+						? "検索条件を変えて再度お試しください"
+						: isInactive
+							? "退所・無効化した高齢者がここに表示されます"
+							: canManage
+								? "「高齢者を追加」から登録してください"
+								: "新規登録は看護師（管理者）が行います"}
 				</p>
 			</div>
 		);
