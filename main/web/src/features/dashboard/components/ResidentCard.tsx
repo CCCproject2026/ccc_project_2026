@@ -74,36 +74,46 @@ export function ResidentCard({
 			)}
 
 			{/* Battery */}
-			{batteryLevel !== undefined && <div className="mt-3">
-				<div className="mb-1 flex items-center justify-between">
-					<span className="text-xs text-gray-500">バッテリー</span>
-					<span className="text-xs font-medium text-gray-700">
-						{batteryLevel}%
-					</span>
-				</div>
+			{batteryLevel !== undefined && (
+				<div className="mt-3">
+					<div className="mb-1 flex items-center justify-between">
+						<span className="text-xs text-gray-500">バッテリー</span>
+						<span className="text-xs font-medium text-gray-700">
+							{batteryLevel}%
+						</span>
+					</div>
 
-				<BatteryBar level={batteryLevel} />
-			</div>}
+					<BatteryBar level={batteryLevel} />
+				</div>
+			)}
 
 			{/* Statistics */}
-			{falls !== undefined && falseAlarms !== undefined && totalAlarms !== undefined && <div className="mt-4 border-t border-gray-100 pt-3">
-				<div className="grid grid-cols-3 gap-2 text-center">
-					<div>
-						<p className="text-lg font-bold text-red-600">{falls}</p>
-						<p className="text-xs text-gray-500">転倒</p>
-					</div>
+			{falls !== undefined &&
+				falseAlarms !== undefined &&
+				totalAlarms !== undefined && (
+					<div className="mt-4 border-t border-gray-100 pt-3">
+						<div className="grid grid-cols-3 gap-2 text-center">
+							<div>
+								<p className="text-lg font-bold text-red-600">{falls}</p>
+								<p className="text-xs text-gray-500">転倒</p>
+							</div>
 
-					<div>
-						<p className="text-lg font-bold text-amber-600">{falseAlarms}</p>
-						<p className="text-xs text-gray-500">誤検知</p>
-					</div>
+							<div>
+								<p className="text-lg font-bold text-amber-600">
+									{falseAlarms}
+								</p>
+								<p className="text-xs text-gray-500">誤検知</p>
+							</div>
 
-					<div>
-						<p className="text-lg font-bold text-violet-600">{totalAlarms}</p>
-						<p className="text-xs text-gray-500">総アラーム</p>
+							<div>
+								<p className="text-lg font-bold text-violet-600">
+									{totalAlarms}
+								</p>
+								<p className="text-xs text-gray-500">総アラーム</p>
+							</div>
+						</div>
 					</div>
-				</div>
-			</div>}
+				)}
 		</article>
 	);
 }

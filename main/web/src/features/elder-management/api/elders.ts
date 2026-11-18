@@ -12,10 +12,24 @@ import {
 
 const API_BASE = "/api/elders";
 
+// API のエラー本文は { code, message } 形式。message を優先し、無ければ code を使う。
+function apiErrorMessage(body: unknown, status: number): string {
+	if (body && typeof body === "object") {
+		const record = body as Record<string, unknown>;
+		if (typeof record.message === "string" && record.message !== "") {
+			return record.message;
+		}
+		if (typeof record.code === "string" && record.code !== "") {
+			return record.code;
+		}
+	}
+	return `HTTP ${status}`;
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
 	if (!res.ok) {
-		const err = await res.json().catch(() => ({ error: "Unknown error" }));
-		throw new Error(err.error || `HTTP ${res.status}`);
+		const body = await res.json().catch(() => null);
+		throw new Error(apiErrorMessage(body, res.status));
 	}
 	return res.json();
 }
@@ -60,6 +74,6 @@ export const elderApi = {
 		const body = await res.json().catch(() => null);
 		// 再認証が必要な場合は Clerk のヒントをそのまま返し、useReverification に委ねる。
 		if (isReverificationHint(body)) return body;
-		throw new Error(body?.error || `HTTP ${res.status}`);
+		throw new Error(apiErrorMessage(body, res.status));
 	},
 };

@@ -19,6 +19,7 @@ export function ElderSummaryCards({ summary }: ElderSummaryCardsProps) {
 					</div>
 					<div className="bg-violet-100 p-3 rounded-lg">
 						<svg
+							aria-hidden="true"
 							className="w-6 h-6 text-violet-600"
 							fill="none"
 							stroke="currentColor"
@@ -45,6 +46,7 @@ export function ElderSummaryCards({ summary }: ElderSummaryCardsProps) {
 					</div>
 					<div className="bg-green-100 p-3 rounded-lg">
 						<svg
+							aria-hidden="true"
 							className="w-6 h-6 text-green-600"
 							fill="none"
 							stroke="currentColor"
@@ -71,6 +73,7 @@ export function ElderSummaryCards({ summary }: ElderSummaryCardsProps) {
 					</div>
 					<div className="bg-gray-100 p-3 rounded-lg">
 						<svg
+							aria-hidden="true"
 							className="w-6 h-6 text-gray-500"
 							fill="none"
 							stroke="currentColor"

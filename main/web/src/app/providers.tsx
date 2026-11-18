@@ -29,11 +29,14 @@ export function Providers({
 			}),
 	);
 
+	// 本番バンドルに Devtools を含めない（NODE_ENV はビルド時に置き換わる）
+	const showDevtools = process.env.NODE_ENV !== "production";
+
 	if (!clerkKey) {
 		return (
 			<QueryClientProvider client={queryClient}>
 				{children}
-				<ReactQueryDevtools initialIsOpen={false} />
+				{showDevtools && <ReactQueryDevtools initialIsOpen={false} />}
 			</QueryClientProvider>
 		);
 	}
@@ -48,7 +51,7 @@ export function Providers({
 		>
 			<QueryClientProvider client={queryClient}>
 				{children}
-				<ReactQueryDevtools initialIsOpen={false} />
+				{showDevtools && <ReactQueryDevtools initialIsOpen={false} />}
 			</QueryClientProvider>
 		</ClerkProvider>
 	);

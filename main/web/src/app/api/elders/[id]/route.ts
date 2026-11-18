@@ -1,13 +1,12 @@
 import { auth, reverificationErrorResponse } from "@clerk/nextjs/server";
 import { type NextRequest, NextResponse } from "next/server";
-import { checkNurseAuth } from "@/features/elder-management/server/elder-auth";
 import {
 	deactivateElder,
 	getElder,
 	updateElder,
 } from "@/features/elder-management/server/elder-service";
-import { ApiError } from "@/shared/lib/api-error";
-import { requireStaff } from "@/shared/lib/auth";
+import { ApiError, errorResponse, readJsonBody } from "@/shared/lib/api-error";
+import { requireRole, requireStaff } from "@/shared/lib/auth";
 import { requiresReverification } from "@/shared/lib/reverification";
 import { elderUpdateSchema } from "@/shared/validation/schemas";
 
@@ -35,42 +34,25 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 		const { id } = await params;
 		const elder = await getElder(id);
 		if (!elder) {
-			return NextResponse.json({ error: "Not found" }, { status: 404 });
+			throw new ApiError(404, "NOT_FOUND", "高齢者が見つかりません");
 		}
 		return NextResponse.json(elder);
 	} catch (error) {
-		// requireStaff の 401（未ログイン）・403（ACTIVE でない）
-		if (error instanceof ApiError) {
-			return NextResponse.json(
-				{ error: error.message },
-				{ status: error.status },
-			);
-		}
-		console.error("GET /api/elders/[id] error:", error);
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 },
-		);
+		return errorResponse(error);
 	}
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
 	try {
-		const authResult = await checkNurseAuth();
-		if ("error" in authResult)
-			return NextResponse.json(
-				{ error: authResult.error },
-				{ status: authResult.status },
-			);
+		await requireRole("NURSE");
 
 		const { id } = await params;
-		const body = await request.json();
+		const body = await readJsonBody(request);
 		const parsed = elderUpdateSchema.safeParse(body);
 		if (!parsed.success) {
-			return NextResponse.json(
-				{ error: "Validation failed", details: parsed.error.issues },
-				{ status: 400 },
-			);
+			throw new ApiError(400, "INVALID_INPUT", "入力内容が正しくありません", {
+				details: parsed.error.issues,
+			});
 		}
 
 		// 退所（INACTIVE への変更）は DELETE と同じ扱いにするため、更新経由でも再認証を必須にする。
@@ -81,33 +63,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 		const elder = await updateElder(id, parsed.data);
 		if (!elder) {
-			return NextResponse.json(
-				{ error: "No fields to update" },
-				{ status: 400 },
-			);
+			throw new ApiError(400, "INVALID_INPUT", "更新する項目がありません");
 		}
 
 		return NextResponse.json(elder);
 	} catch (error) {
-		console.error("PATCH /api/elders/[id] error:", error);
-		if ((error as { code?: string }).code === "P2025") {
-			return NextResponse.json({ error: "Not found" }, { status: 404 });
-		}
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 },
-		);
+		return errorResponse(error);
 	}
 }
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 	try {
-		const authResult = await checkNurseAuth();
-		if ("error" in authResult)
-			return NextResponse.json(
-				{ error: authResult.error },
-				{ status: authResult.status },
-			);
+		await requireRole("NURSE");
 
 		// 退所（無効化）は誤操作時の影響が大きいため、操作前に再認証を必須にする。
 		const reverification = await checkReverification();
@@ -119,13 +86,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
 		return new NextResponse(null, { status: 204 });
 	} catch (error) {
-		console.error("DELETE /api/elders/[id] error:", error);
-		if ((error as { code?: string }).code === "P2025") {
-			return NextResponse.json({ error: "Not found" }, { status: 404 });
-		}
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 },
-		);
+		return errorResponse(error);
 	}
 }

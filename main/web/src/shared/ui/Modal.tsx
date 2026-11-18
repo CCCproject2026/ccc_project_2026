@@ -82,7 +82,6 @@ export function Modal({
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby={titleId}
-				onClick={(e) => e.stopPropagation()}
 				className={`my-auto bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 w-full max-h-[calc(100vh-2rem)] flex flex-col ${maxWidthClass}`}
 			>
 				<div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
