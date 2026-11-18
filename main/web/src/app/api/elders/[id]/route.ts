@@ -5,7 +5,7 @@ import {
 	getElder,
 	updateElder,
 } from "@/features/elder-management/server/elder-service";
-import { ApiError } from "@/shared/lib/api-error";
+import { ApiError, readJsonBody } from "@/shared/lib/api-error";
 import { requireRole, requireStaff } from "@/shared/lib/auth";
 import { requiresReverification } from "@/shared/lib/reverification";
 import { elderUpdateSchema } from "@/shared/validation/schemas";
@@ -70,7 +70,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 		await requireRole("NURSE");
 
 		const { id } = await params;
-		const body = await request.json();
+		const body = await readJsonBody(request);
 		const parsed = elderUpdateSchema.safeParse(body);
 		if (!parsed.success) {
 			return NextResponse.json(

@@ -4,7 +4,7 @@ import {
 	createElder,
 	listElders,
 } from "@/features/elder-management/server/elder-service";
-import { ApiError } from "@/shared/lib/api-error";
+import { ApiError, readJsonBody } from "@/shared/lib/api-error";
 import { requireRole, requireStaff } from "@/shared/lib/auth";
 import {
 	type ElderStatus,
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 		// 登録は看護師（管理者）だけ。未ログインは 401、ACTIVE でない・ロール違いは 403
 		await requireRole("NURSE");
 
-		const body = await request.json();
+		const body = await readJsonBody(request);
 		const parsed = elderCreateSchema.safeParse(body);
 		if (!parsed.success) {
 			return NextResponse.json(
