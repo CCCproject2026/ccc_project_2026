@@ -39,6 +39,12 @@ const nextConfig = {
 					},
 					// MIME 嗅ぎ分け（content sniffing）による実行を防ぐ
 					{ key: "X-Content-Type-Options", value: "nosniff" },
+					// HTTPS でしか適用されない（HTTP 応答では UA が無視するため
+					// ローカル開発には影響しない）。サブドメインも HTTPS に強制する。
+					{
+						key: "Strict-Transport-Security",
+						value: "max-age=31536000; includeSubDomains",
+					},
 					{
 						key: "Content-Security-Policy-Report-Only",
 						value: contentSecurityPolicyReportOnly,
