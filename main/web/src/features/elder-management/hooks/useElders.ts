@@ -40,6 +40,8 @@ export function useDeleteElder() {
 		mutationFn: (id: string) => elderApi.delete(id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["elders"] });
+			// 退所では割当も終了するため、デバイス管理の一覧・詳細・選択肢も取り直す
+			queryClient.invalidateQueries({ queryKey: ["devices"] });
 		},
 	});
 }

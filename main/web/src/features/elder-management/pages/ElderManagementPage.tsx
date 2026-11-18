@@ -3,7 +3,14 @@
 import { useReverification } from "@clerk/nextjs";
 import { useState } from "react";
 import { HiOutlineMagnifyingGlass, HiOutlinePlus } from "react-icons/hi2";
+import { deviceApi } from "@/features/device-management/api/devices";
+import type { DeviceDetail } from "@/features/device-management/types/device.types";
+import { elderApi } from "@/features/elder-management/api/elders";
 import { AddElderModal } from "@/features/elder-management/components/AddElderModal";
+import {
+	ElderExitConfirmDialog,
+	type ElderExitTarget,
+} from "@/features/elder-management/components/ElderExitConfirmDialog";
 import { ElderSummaryCards } from "@/features/elder-management/components/ElderSummaryCards";
 import { ElderTable } from "@/features/elder-management/components/ElderTable";
 import { useDebouncedValue } from "@/features/elder-management/hooks/useDebouncedValue";
@@ -41,6 +48,9 @@ export function ElderManagementPage() {
 
 	const [openAddModal, setOpenAddModal] = useState(false);
 	const [editingElder, setEditingElder] = useState<ElderRow | null>(null);
+	const [exitTarget, setExitTarget] = useState<ElderExitTarget | null>(null);
+	const [preparingExit, setPreparingExit] = useState(false);
+	const [exitPrepareError, setExitPrepareError] = useState<string | null>(null);
 
 	const params: ElderListParams = {
 		page,
@@ -93,16 +103,40 @@ export function ElderManagementPage() {
 		}
 	};
 
+	// 退所の確認ダイアログを出す前に、入所者と割当中のデバイスを取り直す
+	// （一覧を表示した後に、他のスタッフが割当を変えているかもしれないため）
 	const handleDelete = async (id: string) => {
-		const elder = elders.find((e) => e.id === id);
-		if (
-			!window.confirm(
-				`${elder?.lastName} ${elder?.firstName} を退所・無効化しますか？`,
-			)
-		)
-			return;
+		// 取り直している間に、もう一度押されても何もしない
+		if (preparingExit) return;
+		setPreparingExit(true);
+		setExitPrepareError(null);
 		try {
-			await removeElder(id);
+			const elder = await elderApi.get(id);
+			let device: DeviceDetail | null = null;
+			let deviceUnknown = false;
+			if (elder.currentDeviceId !== null) {
+				try {
+					device = await deviceApi.get(elder.currentDeviceId);
+				} catch {
+					// デバイスの情報が取れなくても、退所はできる。割当が終了することだけは伝える
+					deviceUnknown = true;
+				}
+			}
+			setExitTarget({ elder, device, deviceUnknown });
+		} catch {
+			setExitPrepareError(
+				"入所者の情報を取得できませんでした。もう一度お試しください。",
+			);
+		} finally {
+			setPreparingExit(false);
+		}
+	};
+
+	const handleConfirmExit = async (target: ElderExitTarget) => {
+		// 先に確認ダイアログを閉じる（再認証が必要なときは、Clerk のモーダルが表示されるため）
+		setExitTarget(null);
+		try {
+			await removeElder(target.elder.id);
 		} catch {
 			// 再認証のキャンセル、または削除失敗。失敗時は下部のエラーバナー（deleteMutation.isError）で通知する。
 		}
@@ -271,6 +305,29 @@ export function ElderManagementPage() {
 				initialData={editingElder}
 				isEditing={!!editingElder}
 			/>
+
+			<ElderExitConfirmDialog
+				target={exitTarget}
+				onConfirm={handleConfirmExit}
+				onClose={() => setExitTarget(null)}
+			/>
+
+			{exitPrepareError !== null && (
+				<div
+					role="alert"
+					className="fixed bottom-20 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-sm flex items-start gap-3"
+				>
+					<span className="text-sm">{exitPrepareError}</span>
+					<button
+						type="button"
+						onClick={() => setExitPrepareError(null)}
+						aria-label="閉じる"
+						className="text-sm opacity-60 hover:opacity-100"
+					>
+						×
+					</button>
+				</div>
+			)}
 
 			{(error ||
 				createMutation.isError ||

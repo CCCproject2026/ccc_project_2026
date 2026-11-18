@@ -3,6 +3,7 @@ import {
 	Elder,
 	ElderListParams,
 	ElderListResponse,
+	ElderRow,
 	UpdateElderInput,
 } from "@/features/elder-management/types/elder.types";
 import {
@@ -31,9 +32,10 @@ export const elderApi = {
 		return handleResponse<ElderListResponse>(res);
 	},
 
-	get: async (id: string): Promise<Elder> => {
-		const res = await fetch(`${API_BASE}/${id}`);
-		return handleResponse<Elder>(res);
+	// GET /api/elders/[id] は、割当中のデバイス（currentDeviceId）も返す
+	get: async (id: string): Promise<ElderRow> => {
+		const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`);
+		return handleResponse<ElderRow>(res);
 	},
 
 	create: async (input: CreateElderInput): Promise<Elder> => {
