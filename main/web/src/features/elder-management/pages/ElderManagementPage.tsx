@@ -31,7 +31,14 @@ const ELDER_STATUS_TABS: { value: ElderStatus; label: string }[] = [
 	{ value: "INACTIVE", label: "無効化" },
 ];
 
-export function ElderManagementPage() {
+interface ElderManagementPageProps {
+	// 看護師だけが登録・編集・退所できる（API は requireRole("NURSE")）。
+	// 介護士は閲覧のみで、使えない操作は画面に出さない。
+	role: "NURSE" | "CAREGIVER";
+}
+
+export function ElderManagementPage({ role }: ElderManagementPageProps) {
+	const canManage = role === "NURSE";
 	const [page, setPage] = useState(1);
 	const [limit] = useState(20);
 	const [statusFilter, setStatusFilter] = useState<ElderStatus>("ACTIVE");
@@ -142,17 +149,19 @@ export function ElderManagementPage() {
 						在籍情報の登録・編集・ステータス管理
 					</p>
 				</div>
-				<button
-					type="button"
-					onClick={() => {
-						setEditingElder(null);
-						setOpenAddModal(true);
-					}}
-					className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors"
-				>
-					<HiOutlinePlus className="w-5 h-5" />
-					高齢者を追加
-				</button>
+				{canManage && (
+					<button
+						type="button"
+						onClick={() => {
+							setEditingElder(null);
+							setOpenAddModal(true);
+						}}
+						className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors"
+					>
+						<HiOutlinePlus className="w-5 h-5" />
+						高齢者を追加
+					</button>
+				)}
 			</div>
 
 			<ElderSummaryCards summary={summary} />
@@ -200,6 +209,7 @@ export function ElderManagementPage() {
 						<input
 							type="text"
 							placeholder="氏名・部屋番号で検索..."
+							aria-label="氏名・部屋番号で検索"
 							value={searchInput}
 							onChange={(e) => setSearchInput(e.target.value)}
 							className="w-full h-10 pl-10 pr-4 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
@@ -225,6 +235,7 @@ export function ElderManagementPage() {
 					onReactivate={handleReactivate}
 					loading={isLoading}
 					status={statusFilter}
+					canManage={canManage}
 				/>
 			</div>
 
