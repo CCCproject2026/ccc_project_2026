@@ -12,10 +12,7 @@
 		"rules": {
 			"preset": "recommended",
 			"a11y": {
-				"noSvgWithoutTitle": "off",
-				"useKeyWithClickEvents": "off",
-				"useMediaCaption": "off",
-				"useSemanticElements": "off"
+				"useMediaCaption": "off"
 			},
 			"performance": {
 				"noImgElement": "off"
