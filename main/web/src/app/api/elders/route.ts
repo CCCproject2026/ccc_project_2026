@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 			page: searchParams.get("page") || undefined,
 			limit: searchParams.get("limit") || undefined,
 			status: searchParams.get("status") || undefined,
-			q: searchParams.get("q") || undefined,
+			q: searchParams.get("q")?.trim() || undefined,
 		});
 
 		const result = await listElders({

@@ -10,6 +10,7 @@ interface ModalProps {
 	children: ReactNode;
 	footer?: ReactNode;
 	maxWidthClass?: string;
+	closeDisabled?: boolean;
 }
 
 export function Modal({
@@ -20,6 +21,7 @@ export function Modal({
 	footer,
 	// 注意: max-w-md は globals.css の --spacing-md(12px) になってしまうので、px で指定する
 	maxWidthClass = "max-w-[448px]",
+	closeDisabled = false,
 }: ModalProps) {
 	const titleId = useId();
 	const dialogRef = useRef<HTMLDivElement>(null);
@@ -44,7 +46,9 @@ export function Modal({
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
 				e.preventDefault();
-				onClose();
+				if (!closeDisabled) {
+					onClose();
+				}
 				return;
 			}
 
@@ -71,7 +75,7 @@ export function Modal({
 			document.removeEventListener("keydown", handleKeyDown);
 			previouslyFocused?.focus();
 		};
-	}, [open, onClose]);
+	}, [open, onClose, closeDisabled]);
 
 	if (!open) return null;
 
@@ -91,8 +95,9 @@ export function Modal({
 					<button
 						type="button"
 						onClick={onClose}
+						disabled={closeDisabled}
 						aria-label="閉じる"
-						className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+						className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400"
 					>
 						<X className="w-5 h-5" />
 					</button>

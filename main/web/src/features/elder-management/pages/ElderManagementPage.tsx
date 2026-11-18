@@ -53,16 +53,14 @@ export function ElderManagementPage() {
 	const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(
 		null,
 	);
-	// 閉じたエラーのメッセージを覚えておく。別のエラーに変わったら再表示する。
-	const [dismissedQueryError, setDismissedQueryError] = useState<string | null>(
-		null,
-	);
+	// 閉じたエラーの発生インスタンスを覚えておく。同一文言でも別のエラーが発生したら再表示する。
+	const [dismissedError, setDismissedError] = useState<Error | null>(null);
 
 	const params: ElderListParams = {
 		page,
 		limit,
 		status: statusFilter,
-		q: debouncedSearch || undefined,
+		q: debouncedSearch.trim() || undefined,
 	};
 
 	const { data, isLoading, error } = useElders(params);
@@ -102,12 +100,12 @@ export function ElderManagementPage() {
 		? (editingElder ? updateMutation : createMutation).error?.message
 		: undefined;
 	const queryErrorMessage =
-		error?.message && error.message !== dismissedQueryError
-			? error.message
-			: null;
+		error && error !== dismissedError ? error.message : null;
 	const pageErrorMessage =
 		deleteMutation.error?.message ??
-		(isFormOpen ? null : updateMutation.error?.message) ??
+		(isFormOpen
+			? null
+			: (updateMutation.error?.message ?? createMutation.error?.message)) ??
 		queryErrorMessage;
 
 	const bannerNotice: Notice | null = pageErrorMessage
@@ -119,7 +117,7 @@ export function ElderManagementPage() {
 		createMutation.reset();
 		updateMutation.reset();
 		deleteMutation.reset();
-		setDismissedQueryError(error?.message ?? null);
+		setDismissedError(error ?? null);
 	};
 
 	const handleAdd = async (data: CreateElderInput) => {
@@ -185,7 +183,7 @@ export function ElderManagementPage() {
 
 	const handleSearch = (e: React.FormEvent) => {
 		e.preventDefault();
-		setSearchQuery(searchInput);
+		setSearchQuery(searchInput.trim());
 		setPage(1);
 	};
 

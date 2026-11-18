@@ -12,6 +12,18 @@ import {
 
 const API_BASE = "/api/elders";
 
+// fetch 自体の reject（オフライン・DNS 失敗など）を拾い、利用者に分かりやすい日本語メッセージにする
+async function request(
+	input: RequestInfo | URL,
+	init?: RequestInit,
+): Promise<Response> {
+	try {
+		return await fetch(input, init);
+	} catch {
+		throw new Error("通信に失敗しました。ネットワークを確認してください");
+	}
+}
+
 // API のエラー本文は { code, message } 形式。message を優先し、無ければ code を使う。
 function apiErrorMessage(body: unknown, status: number): string {
 	if (body && typeof body === "object") {
@@ -41,17 +53,17 @@ export const elderApi = {
 		if (params.q) search.set("q", params.q);
 		if (params.page) search.set("page", String(params.page));
 		if (params.limit) search.set("limit", String(params.limit));
-		const res = await fetch(`${API_BASE}?${search.toString()}`);
+		const res = await request(`${API_BASE}?${search.toString()}`);
 		return handleResponse<ElderListResponse>(res);
 	},
 
 	get: async (id: string): Promise<Elder> => {
-		const res = await fetch(`${API_BASE}/${id}`);
+		const res = await request(`${API_BASE}/${id}`);
 		return handleResponse<Elder>(res);
 	},
 
 	create: async (input: CreateElderInput): Promise<Elder> => {
-		const res = await fetch(API_BASE, {
+		const res = await request(API_BASE, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(input),
@@ -60,7 +72,7 @@ export const elderApi = {
 	},
 
 	update: async (id: string, input: UpdateElderInput): Promise<Elder> => {
-		const res = await fetch(`${API_BASE}/${id}`, {
+		const res = await request(`${API_BASE}/${id}`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(input),
@@ -69,7 +81,7 @@ export const elderApi = {
 	},
 
 	delete: async (id: string): Promise<undefined | ReverificationHint> => {
-		const res = await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
+		const res = await request(`${API_BASE}/${id}`, { method: "DELETE" });
 		if (res.ok) return;
 		const body = await res.json().catch(() => null);
 		// 再認証が必要な場合は Clerk のヒントをそのまま返し、useReverification に委ねる。
