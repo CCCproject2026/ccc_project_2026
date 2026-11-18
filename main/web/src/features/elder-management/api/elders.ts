@@ -26,16 +26,26 @@ async function request(
 
 // 高齢者 API のエラー本文は既存契約として { error: string } 形式。
 // 移行期や共通エラーも考慮し、error または message または code を順に参照する。
-async function readErrorMessage(res: Response): Promise<string> {
-	const body = await res
-		.json()
-		.catch(() => ({ error: "Unknown error", message: "Unknown error" }));
-	return body.error || body.message || body.code || `HTTP ${res.status}`;
+function apiErrorMessage(body: unknown, status: number): string {
+	if (body && typeof body === "object") {
+		const record = body as Record<string, unknown>;
+		if (typeof record.error === "string" && record.error !== "") {
+			return record.error;
+		}
+		if (typeof record.message === "string" && record.message !== "") {
+			return record.message;
+		}
+		if (typeof record.code === "string" && record.code !== "") {
+			return record.code;
+		}
+	}
+	return `HTTP ${status}`;
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
 	if (!res.ok) {
-		throw new Error(await readErrorMessage(res));
+		const body = await res.json().catch(() => null);
+		throw new Error(apiErrorMessage(body, res.status));
 	}
 	return res.json();
 }
@@ -80,6 +90,6 @@ export const elderApi = {
 		const body = await res.json().catch(() => null);
 		// 再認証が必要な場合は Clerk のヒントをそのまま返し、useReverification に委ねる。
 		if (isReverificationHint(body)) return body;
-		throw new Error(body?.error || body?.message || `HTTP ${res.status}`);
+		throw new Error(apiErrorMessage(body, res.status));
 	},
 };
