@@ -31,6 +31,8 @@ import {
 	ElderStatus,
 	UpdateElderInput,
 } from "@/features/elder-management/types/elder.types";
+import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
+import { type Notice, NoticeBanner } from "@/shared/ui/NoticeBanner";
 
 // 一覧上部のナビゲーション。無効化（退所）した高齢者は通常の一覧から分けて表示する。
 const ELDER_STATUS_TABS: { value: ElderStatus; label: string }[] = [
@@ -48,18 +50,25 @@ export function ElderManagementPage() {
 
 	const [openAddModal, setOpenAddModal] = useState(false);
 	const [editingElder, setEditingElder] = useState<ElderRow | null>(null);
+	// 退所の確認（割当中のデバイスも表示する ElderExitConfirmDialog）
 	const [exitTarget, setExitTarget] = useState<ElderExitTarget | null>(null);
 	const [preparingExit, setPreparingExit] = useState(false);
 	const [exitPrepareError, setExitPrepareError] = useState<string | null>(null);
+	// 在籍に戻す確認の対象（高齢者の id）
+	const [reactivateTargetId, setReactivateTargetId] = useState<string | null>(
+		null,
+	);
+	// 閉じたエラーの発生インスタンスを覚えておく。同一文言でも別のエラーが発生したら再表示する。
+	const [dismissedError, setDismissedError] = useState<Error | null>(null);
 
 	const params: ElderListParams = {
 		page,
 		limit,
 		status: statusFilter,
-		q: debouncedSearch || undefined,
+		q: debouncedSearch.trim() || undefined,
 	};
 
-	const { data, isLoading, error } = useElders(params);
+	const { data, isLoading, error, refetch } = useElders(params);
 	const elders = data?.data ?? [];
 	const total = data?.total ?? 0;
 	const summary = data?.summary ?? { total: 0, active: 0, inactive: 0 };
@@ -84,12 +93,46 @@ export function ElderManagementPage() {
 		deleteMutation.mutateAsync(id),
 	);
 
+	const reactivateElder = reactivateTargetId
+		? elders.find((elder) => elder.id === reactivateTargetId)
+		: null;
+
+	// エラーの出しどころを分ける（表示するエラーの source of truth を 1 つに保つ）:
+	// - 追加・編集の失敗は、開いているフォームモーダルの中に出す
+	// - 一覧取得・退所・在籍に戻すの失敗は、ページ上部のバナーに出す
+	const isFormOpen = openAddModal || editingElder !== null;
+	const formErrorMessage = isFormOpen
+		? (editingElder ? updateMutation : createMutation).error?.message
+		: undefined;
+	const queryErrorMessage =
+		error && error !== dismissedError ? error.message : null;
+	const pageErrorMessage =
+		exitPrepareError ??
+		deleteMutation.error?.message ??
+		(isFormOpen
+			? null
+			: (updateMutation.error?.message ?? createMutation.error?.message)) ??
+		queryErrorMessage;
+
+	const bannerNotice: Notice | null = pageErrorMessage
+		? { type: "error", message: pageErrorMessage }
+		: null;
+
+	// バナーを閉じたら、その時点のエラーだけを消す（次に失敗したら再表示される）
+	const dismissNotice = () => {
+		createMutation.reset();
+		updateMutation.reset();
+		deleteMutation.reset();
+		setExitPrepareError(null);
+		setDismissedError(error ?? null);
+	};
+
 	const handleAdd = async (data: CreateElderInput) => {
 		try {
 			await createMutation.mutateAsync(data);
 			setOpenAddModal(false);
 		} catch {
-			alert("登録に失敗しました");
+			// 失敗時はモーダルを開いたまま、createMutation.error をモーダル内に表示する
 		}
 	};
 
@@ -99,8 +142,20 @@ export function ElderManagementPage() {
 			await updateMutation.mutateAsync({ id: editingElder.id, data });
 			setEditingElder(null);
 		} catch {
-			alert("更新に失敗しました");
+			// 失敗時はモーダルを開いたまま、updateMutation.error をモーダル内に表示する
 		}
+	};
+
+	const handleAddClick = () => {
+		// 前回の失敗メッセージを持ち越さない
+		createMutation.reset();
+		setEditingElder(null);
+		setOpenAddModal(true);
+	};
+
+	const handleEditClick = (elder: ElderRow) => {
+		updateMutation.reset();
+		setEditingElder(elder);
 	};
 
 	// 退所の確認ダイアログを出す前に、入所者と割当中のデバイスを取り直す
@@ -108,6 +163,9 @@ export function ElderManagementPage() {
 	const handleDelete = async (id: string) => {
 		// 取り直している間に、もう一度押されても何もしない
 		if (preparingExit) return;
+		// 前回の失敗メッセージを持ち越さない
+		deleteMutation.reset();
+		updateMutation.reset();
 		setPreparingExit(true);
 		setExitPrepareError(null);
 		try {
@@ -138,24 +196,34 @@ export function ElderManagementPage() {
 		try {
 			await removeElder(target.elder.id);
 		} catch {
-			// 再認証のキャンセル、または削除失敗。失敗時は下部のエラーバナー（deleteMutation.isError）で通知する。
+			// 再認証のキャンセル、または削除失敗。失敗時は上部のバナー（deleteMutation.error）で通知する。
 		}
 	};
 
 	const handleReactivate = (id: string) => {
-		const elder = elders.find((e) => e.id === id);
-		if (
-			!window.confirm(
-				`${elder?.lastName} ${elder?.firstName} を在籍に戻しますか？`,
-			)
-		)
-			return;
-		updateMutation.mutate({ id, data: { status: "ACTIVE" } });
+		updateMutation.reset();
+		deleteMutation.reset();
+		setReactivateTargetId(id);
+	};
+
+	const handleConfirmReactivate = async () => {
+		if (!reactivateTargetId) return;
+		try {
+			await updateMutation.mutateAsync({
+				id: reactivateTargetId,
+				data: { status: "ACTIVE" },
+			});
+		} catch {
+			// 失敗時はダイアログを閉じてバナーで通知する。
+		} finally {
+			// 処理が終わるまでダイアログを開いたままにして「処理中…」を出す
+			setReactivateTargetId(null);
+		}
 	};
 
 	const handleSearch = (e: React.FormEvent) => {
 		e.preventDefault();
-		setSearchQuery(searchInput);
+		setSearchQuery(searchInput.trim());
 		setPage(1);
 	};
 
@@ -176,10 +244,7 @@ export function ElderManagementPage() {
 				</div>
 				<button
 					type="button"
-					onClick={() => {
-						setEditingElder(null);
-						setOpenAddModal(true);
-					}}
+					onClick={handleAddClick}
 					className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors"
 				>
 					<HiOutlinePlus className="w-5 h-5" />
@@ -187,12 +252,16 @@ export function ElderManagementPage() {
 				</button>
 			</div>
 
+			{bannerNotice && (
+				<NoticeBanner notice={bannerNotice} onClose={dismissNotice} />
+			)}
+
 			<ElderSummaryCards summary={summary} />
 
 			<div className="bg-white rounded-xl shadow-sm border border-gray-100">
-				<div
+				{/* タブではなく一覧の絞り込みボタンなので、group + aria-pressed にする */}
+				<fieldset
 					className="flex gap-1 px-4 border-b border-gray-100"
-					role="tablist"
 					aria-label="高齢者のステータス"
 				>
 					{ELDER_STATUS_TABS.map((tab) => {
@@ -203,8 +272,7 @@ export function ElderManagementPage() {
 							<button
 								key={tab.value}
 								type="button"
-								role="tab"
-								aria-selected={isActive}
+								aria-pressed={isActive}
 								onClick={() => {
 									setStatusFilter(tab.value);
 									setPage(1);
@@ -224,14 +292,18 @@ export function ElderManagementPage() {
 							</button>
 						);
 					})}
-				</div>
+				</fieldset>
 				<form
 					onSubmit={handleSearch}
 					className="flex flex-wrap items-center gap-3 p-4"
 				>
 					<div className="relative flex-1 basis-40 min-w-[12rem]">
+						<label htmlFor="elder-search" className="sr-only">
+							氏名・部屋番号で検索
+						</label>
 						<HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
 						<input
+							id="elder-search"
 							type="text"
 							placeholder="氏名・部屋番号で検索..."
 							value={searchInput}
@@ -260,10 +332,13 @@ export function ElderManagementPage() {
 			<div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
 				<ElderTable
 					elders={elders}
-					onEdit={setEditingElder}
+					onEdit={handleEditClick}
 					onDelete={handleDelete}
 					onReactivate={handleReactivate}
 					loading={isLoading}
+					error={error}
+					onRetry={() => refetch()}
+					searchQuery={debouncedSearch}
 					status={statusFilter}
 				/>
 			</div>
@@ -300,49 +375,34 @@ export function ElderManagementPage() {
 				onClose={() => {
 					setOpenAddModal(false);
 					setEditingElder(null);
+					// 閉じたときに前回のエラーを持ち越さない
+					createMutation.reset();
+					updateMutation.reset();
 				}}
 				onSubmit={editingElder ? handleEdit : handleAdd}
 				initialData={editingElder}
 				isEditing={!!editingElder}
+				errorMessage={formErrorMessage}
 			/>
 
+			{/* 退所の確認。割当中のデバイスと、割当が終了することも表示する */}
 			<ElderExitConfirmDialog
 				target={exitTarget}
 				onConfirm={handleConfirmExit}
 				onClose={() => setExitTarget(null)}
 			/>
 
-			{exitPrepareError !== null && (
-				<div
-					role="alert"
-					className="fixed bottom-20 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-sm flex items-start gap-3"
-				>
-					<span className="text-sm">{exitPrepareError}</span>
-					<button
-						type="button"
-						onClick={() => setExitPrepareError(null)}
-						aria-label="閉じる"
-						className="text-sm opacity-60 hover:opacity-100"
-					>
-						×
-					</button>
-				</div>
-			)}
-
-			{(error ||
-				createMutation.isError ||
-				updateMutation.isError ||
-				deleteMutation.isError) && (
-				<div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-sm">
-					<span className="text-sm">
-						{error?.message ||
-							createMutation.error?.message ||
-							updateMutation.error?.message ||
-							deleteMutation.error?.message ||
-							"エラーが発生しました"}
-					</span>
-				</div>
-			)}
+			{/* 在籍に戻す確認 */}
+			<ConfirmDialog
+				open={reactivateTargetId !== null}
+				title="在籍に戻す"
+				confirmLabel="在籍に戻す"
+				busy={updateMutation.isPending}
+				onConfirm={handleConfirmReactivate}
+				onClose={() => setReactivateTargetId(null)}
+			>
+				{`${reactivateElder?.lastName ?? ""} ${reactivateElder?.firstName ?? ""} を在籍に戻しますか？`}
+			</ConfirmDialog>
 		</div>
 	);
 }

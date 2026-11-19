@@ -36,6 +36,7 @@ export function ConfirmDialog({
 			open={open}
 			onClose={onClose}
 			title={title}
+			closeDisabled={busy}
 			footer={
 				<>
 					<button
@@ -43,7 +44,7 @@ export function ConfirmDialog({
 						onClick={onClose}
 						// 実行中は押せなくする（結果がわからないまま閉じないようにするため）
 						disabled={busy}
-						className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition disabled:opacity-50"
+						className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						キャンセル
 					</button>
@@ -51,7 +52,7 @@ export function ConfirmDialog({
 						type="button"
 						onClick={onConfirm}
 						disabled={busy}
-						className={`px-5 py-2.5 text-white rounded-xl text-sm font-bold transition disabled:opacity-50 ${confirmClass}`}
+						className={`px-5 py-2.5 text-white rounded-xl text-sm font-bold transition disabled:opacity-50 disabled:cursor-not-allowed ${confirmClass}`}
 					>
 						{busy ? "処理中…" : confirmLabel}
 					</button>

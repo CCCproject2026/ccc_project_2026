@@ -1,7 +1,7 @@
 import "server-only";
 import { endAssignmentForElderExit } from "@/features/device-management/server/assignment-service";
 import { printDeviceOperation } from "@/features/device-management/server/audit";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/lib/prisma";
 import type {
 	CreateElderInput,
 	ElderStatus,

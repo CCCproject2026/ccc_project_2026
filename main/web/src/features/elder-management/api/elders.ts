@@ -13,10 +13,40 @@ import {
 
 const API_BASE = "/api/elders";
 
+// fetch 自体の reject（オフライン・DNS 失敗など）を拾い、利用者に分かりやすい日本語メッセージにする
+async function request(
+	input: RequestInfo | URL,
+	init?: RequestInit,
+): Promise<Response> {
+	try {
+		return await fetch(input, init);
+	} catch {
+		throw new Error("通信に失敗しました。ネットワークを確認してください");
+	}
+}
+
+// 高齢者 API のエラー本文は既存契約として { error: string } 形式。
+// 移行期や共通エラーも考慮し、error または message または code を順に参照する。
+function apiErrorMessage(body: unknown, status: number): string {
+	if (body && typeof body === "object") {
+		const record = body as Record<string, unknown>;
+		if (typeof record.error === "string" && record.error !== "") {
+			return record.error;
+		}
+		if (typeof record.message === "string" && record.message !== "") {
+			return record.message;
+		}
+		if (typeof record.code === "string" && record.code !== "") {
+			return record.code;
+		}
+	}
+	return `HTTP ${status}`;
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
 	if (!res.ok) {
-		const err = await res.json().catch(() => ({ error: "Unknown error" }));
-		throw new Error(err.error || `HTTP ${res.status}`);
+		const body = await res.json().catch(() => null);
+		throw new Error(apiErrorMessage(body, res.status));
 	}
 	return res.json();
 }
@@ -28,18 +58,18 @@ export const elderApi = {
 		if (params.q) search.set("q", params.q);
 		if (params.page) search.set("page", String(params.page));
 		if (params.limit) search.set("limit", String(params.limit));
-		const res = await fetch(`${API_BASE}?${search.toString()}`);
+		const res = await request(`${API_BASE}?${search.toString()}`);
 		return handleResponse<ElderListResponse>(res);
 	},
 
 	// GET /api/elders/[id] は、割当中のデバイス（currentDeviceId）も返す
 	get: async (id: string): Promise<ElderRow> => {
-		const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`);
+		const res = await request(`${API_BASE}/${encodeURIComponent(id)}`);
 		return handleResponse<ElderRow>(res);
 	},
 
 	create: async (input: CreateElderInput): Promise<Elder> => {
-		const res = await fetch(API_BASE, {
+		const res = await request(API_BASE, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(input),
@@ -48,7 +78,7 @@ export const elderApi = {
 	},
 
 	update: async (id: string, input: UpdateElderInput): Promise<Elder> => {
-		const res = await fetch(`${API_BASE}/${id}`, {
+		const res = await request(`${API_BASE}/${id}`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(input),
@@ -57,11 +87,11 @@ export const elderApi = {
 	},
 
 	delete: async (id: string): Promise<undefined | ReverificationHint> => {
-		const res = await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
+		const res = await request(`${API_BASE}/${id}`, { method: "DELETE" });
 		if (res.ok) return;
 		const body = await res.json().catch(() => null);
 		// 再認証が必要な場合は Clerk のヒントをそのまま返し、useReverification に委ねる。
 		if (isReverificationHint(body)) return body;
-		throw new Error(body?.error || `HTTP ${res.status}`);
+		throw new Error(apiErrorMessage(body, res.status));
 	},
 };
