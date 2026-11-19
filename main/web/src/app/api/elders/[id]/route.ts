@@ -1,5 +1,6 @@
 import { auth, reverificationErrorResponse } from "@clerk/nextjs/server";
 import { type NextRequest, NextResponse } from "next/server";
+import type { ExpectedExitAssignment } from "@/features/device-management/server/assignment-service";
 import {
 	deactivateElder,
 	getElder,
@@ -38,6 +39,41 @@ async function checkReverification(): Promise<Response | null> {
 	return null;
 }
 
+// 退所の確認ダイアログで見せた割当を、クエリ文字列から読む
+// - ?expectedAssignmentId=<割当の ID> : その割当を終了する前提で確認した
+// - ?expectedAssignmentId=none       : 割当がない前提で確認した
+// - 省略                             : 照合しない（この変更より前の画面との互換のため）
+// TODO: 古い画面が使われなくなったら、省略を 400 にして照合を必須にする。
+//       （省略できる間は、デプロイ前から開いたままのタブで照合されない）
+function parseExpectedAssignmentId(
+	request: NextRequest,
+): ExpectedExitAssignment {
+	const values = request.nextUrl.searchParams.getAll("expectedAssignmentId");
+	if (values.length === 0) {
+		return undefined;
+	}
+	// 2つ以上あると、どちらで照合するか曖昧なため 400 にする
+	if (values.length > 1) {
+		throw new ApiError(
+			400,
+			"INVALID_INPUT",
+			"expectedAssignmentId が複数指定されています",
+		);
+	}
+	const value = values[0];
+	if (value === "none") {
+		return null;
+	}
+	if (!/^[A-Za-z0-9_-]{1,64}$/.test(value)) {
+		throw new ApiError(
+			400,
+			"INVALID_INPUT",
+			"expectedAssignmentId の形式が正しくありません",
+		);
+	}
+	return value;
+}
+
 function notFoundResponse() {
 	return NextResponse.json({ error: "Not found" }, { status: 404 });
 }
@@ -62,7 +98,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
 	try {
-		await requireRole("NURSE");
+		// actor.id は退所で割当を終了したときの監査記録（操作者）に使う
+		const actor = await requireRole("NURSE");
 
 		const { id } = await params;
 		const body = await readJsonBody(request);
@@ -80,7 +117,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 			if (reverification) return reverification;
 		}
 
-		const elder = await updateElder(id, parsed.data);
+		const elder = await updateElder(id, parsed.data, actor.id);
 		if (!elder) {
 			return NextResponse.json(
 				{ error: "No fields to update" },
@@ -97,9 +134,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 	}
 }
 
-export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
 	try {
-		await requireRole("NURSE");
+		// actor.id は退所で割当を終了したときの監査記録（操作者）に使う
+		const actor = await requireRole("NURSE");
+		const expectedAssignmentId = parseExpectedAssignmentId(request);
 
 		// 退所（無効化）は誤操作時の影響が大きいため、操作前に再認証を必須にする。
 		const reverification = await checkReverification();
@@ -107,7 +146,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
 		const { id } = await params;
 
-		await deactivateElder(id);
+		// 確認した割当と今の割当が違えば 409（何も変更されない）
+		await deactivateElder(id, actor.id, expectedAssignmentId);
 
 		return new NextResponse(null, { status: 204 });
 	} catch (error) {

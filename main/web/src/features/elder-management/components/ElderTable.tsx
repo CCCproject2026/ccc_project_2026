@@ -20,6 +20,8 @@ interface ElderTableProps {
 	onRetry?: () => void;
 	searchQuery?: string;
 	status?: ElderStatus;
+	// true の間は「退所・在籍に戻す」ボタンを押せなくする（退所の準備中・送信中）
+	statusActionDisabled?: boolean;
 }
 
 export function ElderTable({
@@ -32,6 +34,7 @@ export function ElderTable({
 	onRetry,
 	searchQuery,
 	status,
+	statusActionDisabled,
 }: ElderTableProps) {
 	if (loading) {
 		return (
@@ -145,7 +148,8 @@ export function ElderTable({
 												? onDelete(elder.id)
 												: onReactivate(elder.id)
 										}
-										className={`p-2 rounded-lg transition-colors ${
+										disabled={statusActionDisabled}
+										className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
 											elder.status === "ACTIVE"
 												? "text-gray-500 hover:text-red-600 hover:bg-red-50"
 												: "text-gray-500 hover:text-green-600 hover:bg-green-50"

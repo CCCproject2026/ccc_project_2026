@@ -3,7 +3,17 @@
 import { useReverification } from "@clerk/nextjs";
 import { useState } from "react";
 import { HiOutlineMagnifyingGlass, HiOutlinePlus } from "react-icons/hi2";
+import { deviceApi } from "@/features/device-management/api/devices";
+import type { DeviceDetail } from "@/features/device-management/types/device.types";
+import {
+	elderApi,
+	isElderConflictError,
+} from "@/features/elder-management/api/elders";
 import { AddElderModal } from "@/features/elder-management/components/AddElderModal";
+import {
+	ElderExitConfirmDialog,
+	type ElderExitTarget,
+} from "@/features/elder-management/components/ElderExitConfirmDialog";
 import { ElderSummaryCards } from "@/features/elder-management/components/ElderSummaryCards";
 import { ElderTable } from "@/features/elder-management/components/ElderTable";
 import { useDebouncedValue } from "@/features/elder-management/hooks/useDebouncedValue";
@@ -33,13 +43,6 @@ const ELDER_STATUS_TABS: { value: ElderStatus; label: string }[] = [
 	{ value: "INACTIVE", label: "無効化" },
 ];
 
-type ConfirmAction = "deactivate" | "reactivate";
-
-interface ConfirmTarget {
-	id: string;
-	action: ConfirmAction;
-}
-
 export function ElderManagementPage() {
 	const [page, setPage] = useState(1);
 	const [limit] = useState(20);
@@ -50,7 +53,12 @@ export function ElderManagementPage() {
 
 	const [openAddModal, setOpenAddModal] = useState(false);
 	const [editingElder, setEditingElder] = useState<ElderRow | null>(null);
-	const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(
+	// 退所の確認（割当中のデバイスも表示する ElderExitConfirmDialog）
+	const [exitTarget, setExitTarget] = useState<ElderExitTarget | null>(null);
+	const [preparingExit, setPreparingExit] = useState(false);
+	const [exitPrepareError, setExitPrepareError] = useState<string | null>(null);
+	// 在籍に戻す確認の対象（高齢者の id）
+	const [reactivateTargetId, setReactivateTargetId] = useState<string | null>(
 		null,
 	);
 	// 閉じたエラーの発生インスタンスを覚えておく。同一文言でも別のエラーが発生したら再表示する。
@@ -84,12 +92,14 @@ export function ElderManagementPage() {
 
 	// 退所（無効化）は影響が大きいため、実行前に Clerk の再認証（reverification）を必須にする。
 	// 再認証が必要な場合、useReverification がモーダルを表示し、成功後に DELETE を自動で再試行する。
-	const removeElder = useReverification((id: string) =>
-		deleteMutation.mutateAsync(id),
+	// expectedAssignmentId は確認ダイアログで見せた割当。再認証の後の再試行でも同じ値が送られる
+	const removeElder = useReverification(
+		(id: string, expectedAssignmentId: string | null) =>
+			deleteMutation.mutateAsync({ id, expectedAssignmentId }),
 	);
 
-	const confirmElder = confirmTarget
-		? elders.find((elder) => elder.id === confirmTarget.id)
+	const reactivateElder = reactivateTargetId
+		? elders.find((elder) => elder.id === reactivateTargetId)
 		: null;
 
 	// エラーの出しどころを分ける（表示するエラーの source of truth を 1 つに保つ）:
@@ -101,8 +111,15 @@ export function ElderManagementPage() {
 		: undefined;
 	const queryErrorMessage =
 		error && error !== dismissedError ? error.message : null;
+	// 退所の 409（割当が変わっていた）はバナーに出さない。
+	// 確認ダイアログを最新の情報で開き直し、その中で知らせるため
+	let deleteErrorMessage: string | undefined;
+	if (deleteMutation.error && !isElderConflictError(deleteMutation.error)) {
+		deleteErrorMessage = deleteMutation.error.message;
+	}
 	const pageErrorMessage =
-		deleteMutation.error?.message ??
+		exitPrepareError ??
+		deleteErrorMessage ??
 		(isFormOpen
 			? null
 			: (updateMutation.error?.message ?? createMutation.error?.message)) ??
@@ -117,6 +134,7 @@ export function ElderManagementPage() {
 		createMutation.reset();
 		updateMutation.reset();
 		deleteMutation.reset();
+		setExitPrepareError(null);
 		setDismissedError(error ?? null);
 	};
 
@@ -151,33 +169,92 @@ export function ElderManagementPage() {
 		setEditingElder(elder);
 	};
 
-	const handleDelete = (id: string) => {
+	// 退所の確認ダイアログを出す前に、入所者と割当中のデバイスを取り直す
+	// （一覧を表示した後に、他のスタッフが割当を変えているかもしれないため）
+	// assignmentChanged は、確定時に割当が変わっていて開き直すときに true にする
+	const openExitDialog = async (id: string, assignmentChanged: boolean) => {
+		// 取り直している間に、もう一度押されても何もしない
+		if (preparingExit) return;
+		// 前回の失敗メッセージを持ち越さない
 		deleteMutation.reset();
 		updateMutation.reset();
-		setConfirmTarget({ id, action: "deactivate" });
+		setPreparingExit(true);
+		setExitPrepareError(null);
+		try {
+			const elder = await elderApi.get(id);
+			// 別のスタッフが先に退所させていた。もう一度退所させないように、ダイアログは出さない
+			if (elder.status !== "ACTIVE") {
+				setExitPrepareError(
+					`${elder.lastName} ${elder.firstName} は、既に退所・無効化されています。一覧を最新の状態にしました。`,
+				);
+				refetch();
+				return;
+			}
+			let device: DeviceDetail | null = null;
+			let deviceUnknown = false;
+			if (elder.currentDeviceId !== null) {
+				try {
+					device = await deviceApi.get(elder.currentDeviceId);
+				} catch {
+					// デバイスの情報が取れなくても、退所はできる。割当が終了することだけは伝える
+					deviceUnknown = true;
+				}
+			}
+			setExitTarget({ elder, device, deviceUnknown, assignmentChanged });
+		} catch {
+			// 409 の後の開き直しで失敗したときは、退所が実行されていないことも伝える
+			if (assignmentChanged) {
+				setExitPrepareError(
+					"デバイスの割当が変更されたため、退所は実行していません。入所者の情報を取得できなかったため、もう一度お試しください。",
+				);
+			} else {
+				setExitPrepareError(
+					"入所者の情報を取得できませんでした。もう一度お試しください。",
+				);
+			}
+		} finally {
+			setPreparingExit(false);
+		}
+	};
+
+	// 一覧の「退所」ボタン
+	const handleDelete = (id: string) => openExitDialog(id, false);
+
+	const handleConfirmExit = async (target: ElderExitTarget) => {
+		// 先に確認ダイアログを閉じる（再認証が必要なときは、Clerk のモーダルが表示されるため）
+		setExitTarget(null);
+		try {
+			// 確認ダイアログで見せた割当を送る。サーバーが今の割当と照合する
+			await removeElder(target.elder.id, target.elder.currentAssignmentId);
+		} catch (error) {
+			if (isElderConflictError(error)) {
+				// 確認した後に割当が変わっていた（409）。何も変更されていないので、
+				// 最新の情報でダイアログを開き直し、もう一度確認してもらう
+				await openExitDialog(target.elder.id, true);
+				return;
+			}
+			// 再認証のキャンセル、またはその他の失敗。失敗時は上部のバナー（deleteMutation.error）で通知する。
+		}
 	};
 
 	const handleReactivate = (id: string) => {
 		updateMutation.reset();
 		deleteMutation.reset();
-		setConfirmTarget({ id, action: "reactivate" });
+		setReactivateTargetId(id);
 	};
 
-	const handleConfirm = async () => {
-		if (!confirmTarget) return;
-		const { id, action } = confirmTarget;
-
+	const handleConfirmReactivate = async () => {
+		if (!reactivateTargetId) return;
 		try {
-			if (action === "deactivate") {
-				await removeElder(id);
-			} else {
-				await updateMutation.mutateAsync({ id, data: { status: "ACTIVE" } });
-			}
+			await updateMutation.mutateAsync({
+				id: reactivateTargetId,
+				data: { status: "ACTIVE" },
+			});
 		} catch {
-			// 再認証のキャンセル、または失敗。ダイアログを閉じてバナーで通知する。
+			// 失敗時はダイアログを閉じてバナーで通知する。
 		} finally {
 			// 処理が終わるまでダイアログを開いたままにして「処理中…」を出す
-			setConfirmTarget(null);
+			setReactivateTargetId(null);
 		}
 	};
 
@@ -300,6 +377,9 @@ export function ElderManagementPage() {
 					onRetry={() => refetch()}
 					searchQuery={debouncedSearch}
 					status={statusFilter}
+					// 退所の準備中・送信中は、別の行の退所を押せなくする
+					// （409 で開き直すダイアログが、別の入所者のものと入れ替わらないように）
+					statusActionDisabled={preparingExit || deleteMutation.isPending}
 				/>
 			</div>
 
@@ -345,26 +425,23 @@ export function ElderManagementPage() {
 				errorMessage={formErrorMessage}
 			/>
 
+			{/* 退所の確認。割当中のデバイスと、割当が終了することも表示する */}
+			<ElderExitConfirmDialog
+				target={exitTarget}
+				onConfirm={handleConfirmExit}
+				onClose={() => setExitTarget(null)}
+			/>
+
+			{/* 在籍に戻す確認 */}
 			<ConfirmDialog
-				open={confirmTarget !== null}
-				title={
-					confirmTarget?.action === "reactivate" ? "在籍に戻す" : "退所・無効化"
-				}
-				confirmLabel={
-					confirmTarget?.action === "reactivate"
-						? "在籍に戻す"
-						: "退所・無効化する"
-				}
-				danger={confirmTarget?.action !== "reactivate"}
-				busy={deleteMutation.isPending || updateMutation.isPending}
-				onConfirm={handleConfirm}
-				onClose={() => setConfirmTarget(null)}
+				open={reactivateTargetId !== null}
+				title="在籍に戻す"
+				confirmLabel="在籍に戻す"
+				busy={updateMutation.isPending}
+				onConfirm={handleConfirmReactivate}
+				onClose={() => setReactivateTargetId(null)}
 			>
-				{`${confirmElder?.lastName ?? ""} ${confirmElder?.firstName ?? ""} を${
-					confirmTarget?.action === "reactivate"
-						? "在籍に戻しますか？"
-						: "退所・無効化しますか？"
-				}`}
+				{`${reactivateElder?.lastName ?? ""} ${reactivateElder?.firstName ?? ""} を在籍に戻しますか？`}
 			</ConfirmDialog>
 		</div>
 	);

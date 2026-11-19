@@ -1,4 +1,11 @@
 import "server-only";
+import {
+	type ExpectedExitAssignment,
+	endAssignmentForElderExit,
+	lockForElderExit,
+} from "@/features/device-management/server/assignment-service";
+import { printDeviceOperation } from "@/features/device-management/server/audit";
+import { runDeviceTransaction } from "@/features/device-management/server/device-db";
 import { prisma } from "@/shared/lib/prisma";
 import type {
 	CreateElderInput,
@@ -108,7 +115,7 @@ export async function getElder(id: string) {
 			updatedAt: true,
 			deviceAssignments: {
 				where: { unassignedAt: null },
-				select: { deviceId: true },
+				select: { id: true, deviceId: true },
 				take: 1,
 			},
 		},
@@ -118,14 +125,46 @@ export async function getElder(id: string) {
 		return null;
 	}
 
+	// デバイスの ID と割当の ID は、同じ問い合わせで読んだ同じ割当の値にする
+	const currentAssignment = elder.deviceAssignments[0] ?? null;
 	return {
 		...elder,
-		currentDeviceId: elder.deviceAssignments[0]?.deviceId ?? null,
+		currentDeviceId: currentAssignment?.deviceId ?? null,
+		// 退所の確定時に、確認した割当と同じかを照合するために使う
+		currentAssignmentId: currentAssignment?.id ?? null,
 		deviceAssignments: undefined,
 	};
 }
 
-export async function updateElder(id: string, input: UpdateElderInput) {
+// 退所（INACTIVE への変更）では、status の更新と有効な割当の終了を
+// 1つのトランザクションで行う（詳細設計 03 の4章・6章）。
+// デバイス管理と同じ runDeviceTransaction を使うので、ロック待ちが長いときは
+// 500 ではなく 503（「混み合っているため…」）になる
+async function exitElder(
+	id: string,
+	data: Record<string, unknown>,
+	actorId: string,
+	expectedAssignmentId: ExpectedExitAssignment,
+) {
+	const { elder, log } = await runDeviceTransaction(async (tx) => {
+		// 1. 割当中のデバイス → Elder 行の順にロックし、確認した割当と照合する
+		//    違えば 409（まだ何も変更していない）。入所者がいなければ 404
+		const active = await lockForElderExit(tx, id, expectedAssignmentId);
+		// 2. 入所者の status を更新する
+		const updated = await tx.elder.update({ where: { id }, data });
+		// 3. 有効な割当を終了し、監査記録を残す
+		const recorded = await endAssignmentForElderExit(tx, id, actorId, active);
+		return { elder: updated, log: recorded };
+	});
+	printDeviceOperation(log);
+	return elder;
+}
+
+export async function updateElder(
+	id: string,
+	input: UpdateElderInput,
+	actorId: string,
+) {
 	const { firstName, lastName, roomNumber, dateOfBirth, gender, status } =
 		input;
 
@@ -141,6 +180,12 @@ export async function updateElder(id: string, input: UpdateElderInput) {
 		return null;
 	}
 
+	// 退所を含む更新は、割当の終了と同じトランザクションで行う
+	// PATCH は確認ダイアログを通らない（画面からは使っていない）ため、割当の照合はしない
+	if (status === "INACTIVE") {
+		return exitElder(id, updateData, actorId, undefined);
+	}
+
 	const elder = await prisma.elder.update({
 		where: { id },
 		data: updateData,
@@ -149,9 +194,12 @@ export async function updateElder(id: string, input: UpdateElderInput) {
 	return elder;
 }
 
-export async function deactivateElder(id: string) {
-	await prisma.elder.update({
-		where: { id },
-		data: { status: "INACTIVE" },
-	});
+// 退所（DELETE /api/elders/[id]）
+// expectedAssignmentId は、確認ダイアログで見せた割当（ExpectedExitAssignment を参照）
+export async function deactivateElder(
+	id: string,
+	actorId: string,
+	expectedAssignmentId: ExpectedExitAssignment,
+) {
+	await exitElder(id, { status: "INACTIVE" }, actorId, expectedAssignmentId);
 }
