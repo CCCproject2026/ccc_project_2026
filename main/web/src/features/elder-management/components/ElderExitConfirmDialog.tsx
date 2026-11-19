@@ -2,7 +2,7 @@
 
 import { formatDeviceLabel } from "@/features/device-management/lib/device-format";
 import type { DeviceDetail } from "@/features/device-management/types/device.types";
-import type { ElderRow } from "@/features/elder-management/types/elder.types";
+import type { ElderDetail } from "@/features/elder-management/types/elder.types";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 
 // 退所（無効化）の確認ダイアログ（デバイス管理 詳細設計 03 の4章「操作前の確認」）
@@ -10,11 +10,14 @@ import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 
 // 退所の確認で表示する内容。直前に取り直した値を入れる
 export type ElderExitTarget = {
-	elder: ElderRow;
+	// currentAssignmentId を、確定時にサーバーへ送って照合する
+	elder: ElderDetail;
 	// 割当中のデバイス。割当がなければ null
 	device: DeviceDetail | null;
 	// 割当はあるが、デバイスの情報を取得できなかった
 	deviceUnknown: boolean;
+	// 確定しようとしたら割当が変わっていたため、最新の情報で開き直した
+	assignmentChanged: boolean;
 };
 
 // デバイス管理の確認ダイアログと同じ注意文（本 Task ではサーバーがアラートを判定しない）
@@ -35,7 +38,7 @@ export function ElderExitConfirmDialog({
 	if (target === null) {
 		return null;
 	}
-	const { elder, device, deviceUnknown } = target;
+	const { elder, device, deviceUnknown, assignmentChanged } = target;
 
 	return (
 		<ConfirmDialog
@@ -46,6 +49,14 @@ export function ElderExitConfirmDialog({
 			onConfirm={() => onConfirm(target)}
 			onClose={onClose}
 		>
+			{assignmentChanged && (
+				<p
+					role="alert"
+					className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 font-medium text-rose-700"
+				>
+					確認中にデバイスの割当が変更されたため、退所は実行していません。最新の内容を確認してから、もう一度実行してください。
+				</p>
+			)}
 			<p>
 				{elder.lastName} {elder.firstName}（部屋 {elder.roomNumber}
 				）を退所・無効化しますか？

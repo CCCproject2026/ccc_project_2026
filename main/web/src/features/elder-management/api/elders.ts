@@ -1,9 +1,9 @@
 import {
 	CreateElderInput,
 	Elder,
+	ElderDetail,
 	ElderListParams,
 	ElderListResponse,
-	ElderRow,
 	UpdateElderInput,
 } from "@/features/elder-management/types/elder.types";
 import {
@@ -43,10 +43,26 @@ function apiErrorMessage(body: unknown, status: number): string {
 	return `HTTP ${status}`;
 }
 
+// HTTP のステータスも持つエラー。画面で 409（競合）だけ扱いを変えるために使う
+export class ElderApiError extends Error {
+	constructor(
+		readonly status: number,
+		message: string,
+	) {
+		super(message);
+		this.name = "ElderApiError";
+	}
+}
+
+// 退所の確定時に、確認した割当が変わっていた（409）かどうか
+export function isElderConflictError(error: unknown): boolean {
+	return error instanceof ElderApiError && error.status === 409;
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
 	if (!res.ok) {
 		const body = await res.json().catch(() => null);
-		throw new Error(apiErrorMessage(body, res.status));
+		throw new ElderApiError(res.status, apiErrorMessage(body, res.status));
 	}
 	return res.json();
 }
@@ -62,10 +78,10 @@ export const elderApi = {
 		return handleResponse<ElderListResponse>(res);
 	},
 
-	// GET /api/elders/[id] は、割当中のデバイス（currentDeviceId）も返す
-	get: async (id: string): Promise<ElderRow> => {
+	// GET /api/elders/[id] は、割当中のデバイス（currentDeviceId）と割当の ID（currentAssignmentId）も返す
+	get: async (id: string): Promise<ElderDetail> => {
 		const res = await request(`${API_BASE}/${encodeURIComponent(id)}`);
-		return handleResponse<ElderRow>(res);
+		return handleResponse<ElderDetail>(res);
 	},
 
 	create: async (input: CreateElderInput): Promise<Elder> => {
@@ -86,12 +102,22 @@ export const elderApi = {
 		return handleResponse<Elder>(res);
 	},
 
-	delete: async (id: string): Promise<undefined | ReverificationHint> => {
-		const res = await request(`${API_BASE}/${id}`, { method: "DELETE" });
+	// 退所。expectedAssignmentId は確認ダイアログで見せた割当の ID（割当がなければ null）。
+	// サーバーは今の割当と照合し、違えば 409 を返して何も変更しない
+	delete: async (
+		id: string,
+		expectedAssignmentId: string | null,
+	): Promise<undefined | ReverificationHint> => {
+		const search = new URLSearchParams();
+		search.set("expectedAssignmentId", expectedAssignmentId ?? "none");
+		const res = await request(
+			`${API_BASE}/${encodeURIComponent(id)}?${search.toString()}`,
+			{ method: "DELETE" },
+		);
 		if (res.ok) return;
 		const body = await res.json().catch(() => null);
 		// 再認証が必要な場合は Clerk のヒントをそのまま返し、useReverification に委ねる。
 		if (isReverificationHint(body)) return body;
-		throw new Error(apiErrorMessage(body, res.status));
+		throw new ElderApiError(res.status, apiErrorMessage(body, res.status));
 	},
 };

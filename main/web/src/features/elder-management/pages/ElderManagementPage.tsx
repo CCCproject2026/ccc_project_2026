@@ -5,7 +5,10 @@ import { useState } from "react";
 import { HiOutlineMagnifyingGlass, HiOutlinePlus } from "react-icons/hi2";
 import { deviceApi } from "@/features/device-management/api/devices";
 import type { DeviceDetail } from "@/features/device-management/types/device.types";
-import { elderApi } from "@/features/elder-management/api/elders";
+import {
+	elderApi,
+	isElderConflictError,
+} from "@/features/elder-management/api/elders";
 import { AddElderModal } from "@/features/elder-management/components/AddElderModal";
 import {
 	ElderExitConfirmDialog,
@@ -89,8 +92,10 @@ export function ElderManagementPage() {
 
 	// 退所（無効化）は影響が大きいため、実行前に Clerk の再認証（reverification）を必須にする。
 	// 再認証が必要な場合、useReverification がモーダルを表示し、成功後に DELETE を自動で再試行する。
-	const removeElder = useReverification((id: string) =>
-		deleteMutation.mutateAsync(id),
+	// expectedAssignmentId は確認ダイアログで見せた割当。再認証の後の再試行でも同じ値が送られる
+	const removeElder = useReverification(
+		(id: string, expectedAssignmentId: string | null) =>
+			deleteMutation.mutateAsync({ id, expectedAssignmentId }),
 	);
 
 	const reactivateElder = reactivateTargetId
@@ -106,9 +111,15 @@ export function ElderManagementPage() {
 		: undefined;
 	const queryErrorMessage =
 		error && error !== dismissedError ? error.message : null;
+	// 退所の 409（割当が変わっていた）はバナーに出さない。
+	// 確認ダイアログを最新の情報で開き直し、その中で知らせるため
+	let deleteErrorMessage: string | undefined;
+	if (deleteMutation.error && !isElderConflictError(deleteMutation.error)) {
+		deleteErrorMessage = deleteMutation.error.message;
+	}
 	const pageErrorMessage =
 		exitPrepareError ??
-		deleteMutation.error?.message ??
+		deleteErrorMessage ??
 		(isFormOpen
 			? null
 			: (updateMutation.error?.message ?? createMutation.error?.message)) ??
@@ -160,7 +171,8 @@ export function ElderManagementPage() {
 
 	// 退所の確認ダイアログを出す前に、入所者と割当中のデバイスを取り直す
 	// （一覧を表示した後に、他のスタッフが割当を変えているかもしれないため）
-	const handleDelete = async (id: string) => {
+	// assignmentChanged は、確定時に割当が変わっていて開き直すときに true にする
+	const openExitDialog = async (id: string, assignmentChanged: boolean) => {
 		// 取り直している間に、もう一度押されても何もしない
 		if (preparingExit) return;
 		// 前回の失敗メッセージを持ち越さない
@@ -170,6 +182,14 @@ export function ElderManagementPage() {
 		setExitPrepareError(null);
 		try {
 			const elder = await elderApi.get(id);
+			// 別のスタッフが先に退所させていた。もう一度退所させないように、ダイアログは出さない
+			if (elder.status !== "ACTIVE") {
+				setExitPrepareError(
+					`${elder.lastName} ${elder.firstName} は、既に退所・無効化されています。一覧を最新の状態にしました。`,
+				);
+				refetch();
+				return;
+			}
 			let device: DeviceDetail | null = null;
 			let deviceUnknown = false;
 			if (elder.currentDeviceId !== null) {
@@ -180,23 +200,40 @@ export function ElderManagementPage() {
 					deviceUnknown = true;
 				}
 			}
-			setExitTarget({ elder, device, deviceUnknown });
+			setExitTarget({ elder, device, deviceUnknown, assignmentChanged });
 		} catch {
-			setExitPrepareError(
-				"入所者の情報を取得できませんでした。もう一度お試しください。",
-			);
+			// 409 の後の開き直しで失敗したときは、退所が実行されていないことも伝える
+			if (assignmentChanged) {
+				setExitPrepareError(
+					"デバイスの割当が変更されたため、退所は実行していません。入所者の情報を取得できなかったため、もう一度お試しください。",
+				);
+			} else {
+				setExitPrepareError(
+					"入所者の情報を取得できませんでした。もう一度お試しください。",
+				);
+			}
 		} finally {
 			setPreparingExit(false);
 		}
 	};
 
+	// 一覧の「退所」ボタン
+	const handleDelete = (id: string) => openExitDialog(id, false);
+
 	const handleConfirmExit = async (target: ElderExitTarget) => {
 		// 先に確認ダイアログを閉じる（再認証が必要なときは、Clerk のモーダルが表示されるため）
 		setExitTarget(null);
 		try {
-			await removeElder(target.elder.id);
-		} catch {
-			// 再認証のキャンセル、または削除失敗。失敗時は上部のバナー（deleteMutation.error）で通知する。
+			// 確認ダイアログで見せた割当を送る。サーバーが今の割当と照合する
+			await removeElder(target.elder.id, target.elder.currentAssignmentId);
+		} catch (error) {
+			if (isElderConflictError(error)) {
+				// 確認した後に割当が変わっていた（409）。何も変更されていないので、
+				// 最新の情報でダイアログを開き直し、もう一度確認してもらう
+				await openExitDialog(target.elder.id, true);
+				return;
+			}
+			// 再認証のキャンセル、またはその他の失敗。失敗時は上部のバナー（deleteMutation.error）で通知する。
 		}
 	};
 
@@ -340,6 +377,9 @@ export function ElderManagementPage() {
 					onRetry={() => refetch()}
 					searchQuery={debouncedSearch}
 					status={statusFilter}
+					// 退所の準備中・送信中は、別の行の退所を押せなくする
+					// （409 で開き直すダイアログが、別の入所者のものと入れ替わらないように）
+					statusActionDisabled={preparingExit || deleteMutation.isPending}
 				/>
 			</div>
 

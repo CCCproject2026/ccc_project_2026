@@ -1,5 +1,5 @@
 import "server-only";
-import type { Prisma } from "@prisma/client";
+import type { DeviceAssignment, Prisma } from "@prisma/client";
 import { ApiError } from "@/shared/lib/api-error";
 import { notifyOps } from "@/shared/lib/logger";
 import { prisma } from "@/shared/lib/prisma";
@@ -35,8 +35,8 @@ import { getDeviceDetail } from "./device-service";
 // ロックの順番（デッドロック防止）
 //  1. Device 行を先、Elder 行を後にロックする
 //  2. 同じ種類の行を2つロックするときは、1つの SQL で id の昇順にロックする
-// 退所は Elder 行だけをロックして割当を終了するため、
-// Elder 行をロックした後に、有効な割当をもう一度読む（ロック後の読み直し）
+// 退所（lockForElderExit）も同じ順番で、割当中のデバイス → Elder 行の順にロックし、
+// ロックした後に有効な割当をもう一度読む（ロック後の読み直し）
 
 const ASSIGNMENT_CHANGED_MESSAGE =
 	"割当が変更されたため、実行できませんでした。最新の状態を確認してください";
@@ -363,15 +363,72 @@ export async function replaceDevice(
 }
 
 // ---- 退所による割当の終了 ----
-// 高齢者管理の退所処理から、同じトランザクションの中で呼ぶ。
-// 呼び出し元が Elder 行をロックしていること。終了した割当がなければ何も記録しない
+// 高齢者管理の退所処理から、runDeviceTransaction の中で次の順に呼ぶ。
+//  1. lockForElderExit         : ロックと照合（入所者の status を更新する前に呼ぶ）
+//  2. （高齢者管理）入所者の status を INACTIVE にする
+//  3. endAssignmentForElderExit : 割当の終了と監査記録
 
+// 退所の確定時に照合する「確認ダイアログで見せた割当」
+// - string    : その ID の割当が、今も有効な割当であること
+// - null      : 今も有効な割当がないこと
+// - undefined : 照合しない（確認ダイアログを通らない更新。PATCH で status を INACTIVE にする場合）
+export type ExpectedExitAssignment = string | null | undefined;
+
+// 退所のためのロックと照合。今の有効な割当を返す（なければ null）
+//
+// ロックの順番は、デバイス側の操作と同じ「Device → Elder」にそろえる。
+// 監査記録の INSERT は、外部キーを確かめるために Device 行にも暗黙のロック（FOR KEY SHARE）を取る。
+// もし Elder 行を先にロックすると、「Device 行をロックしてから Elder 行を待つ」操作
+// （解除・付け替え・故障交換）とお互いを待ち合い、デッドロックになる
+export async function lockForElderExit(
+	tx: Tx,
+	elderId: string,
+	expectedAssignmentId: ExpectedExitAssignment,
+): Promise<DeviceAssignment | null> {
+	// 1. ロックせずに今の割当を読み、そのデバイスを先にロックする
+	const beforeLock = await findActiveAssignmentOfElder(tx, elderId);
+	if (beforeLock !== null) {
+		await lockDevices(tx, [beforeLock.deviceId]);
+	}
+
+	// 2. Elder 行をロックする。割当を変える操作（割当・解除・付け替え・故障交換）は
+	//    どれも Elder 行をロックするので、これ以降は確定まで割当が変わらない
+	const lockedElders = await lockElders(tx, [elderId]);
+	if (!lockedElders.has(elderId)) {
+		// 高齢者 API の 404 と同じ本文（{ error: "Not found" }）になる
+		throw new ApiError(404, "NOT_FOUND", "Not found");
+	}
+
+	// 3. ロックした後に、割当を読み直す
+	const active = await findActiveAssignmentOfElder(tx, elderId);
+
+	// 1 と 2 の間に割当が変わると、ロックしたデバイスと別のデバイスの割当になっている。
+	// ロックしていないデバイスに触るとデッドロックになり得るため、競合として 409 にする
+	const lockedDeviceId = beforeLock?.deviceId ?? null;
+	const activeDeviceId = active?.deviceId ?? null;
+	if (activeDeviceId !== lockedDeviceId) {
+		throw invalidState("ASSIGNMENT_CHANGED", ASSIGNMENT_CHANGED_MESSAGE);
+	}
+
+	// 4. 確認ダイアログを表示した後に、別のスタッフが割当を変えていたら 409 にする
+	if (expectedAssignmentId !== undefined) {
+		const currentAssignmentId = active?.id ?? null;
+		if (currentAssignmentId !== expectedAssignmentId) {
+			throw invalidState("ASSIGNMENT_CHANGED", ASSIGNMENT_CHANGED_MESSAGE);
+		}
+	}
+
+	return active;
+}
+
+// 退所による割当の終了。active は lockForElderExit が返した割当
+// 割当がなければ何もせず、監査記録も残さない
 export async function endAssignmentForElderExit(
 	tx: Tx,
 	elderId: string,
 	actorId: string,
+	active: DeviceAssignment | null,
 ) {
-	const active = await findActiveAssignmentOfElder(tx, elderId);
 	if (active === null) {
 		return null;
 	}
