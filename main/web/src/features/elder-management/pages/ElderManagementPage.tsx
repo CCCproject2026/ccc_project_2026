@@ -40,13 +40,29 @@ interface ConfirmTarget {
 	action: ConfirmAction;
 }
 
-export function ElderManagementPage() {
+interface ElderManagementPageProps {
+	// 看護師だけが登録・編集・退所できる（API は requireRole("NURSE")）。
+	// 介護士は閲覧のみで、使えない操作は画面に出さない。
+	role: "NURSE" | "CAREGIVER";
+}
+
+export function ElderManagementPage({ role }: ElderManagementPageProps) {
+	const canManage = role === "NURSE";
 	const [page, setPage] = useState(1);
 	const [limit] = useState(20);
 	const [statusFilter, setStatusFilter] = useState<ElderStatus>("ACTIVE");
 	const [searchInput, setSearchInput] = useState("");
-	const [searchQuery, setSearchQuery] = useState("");
-	const debouncedSearch = useDebouncedValue(searchQuery, 300);
+	// 入力しながら検索する（search-as-you-type）。300ms 入力を止めたら検索する
+	const debouncedSearch = useDebouncedValue(searchInput, 300);
+
+	// 検索語が変わったら1ページ目に戻す（render 中の state 調整）。
+	// クエリはデバウンス後に適用されるので、適用された時点でのみ page を戻す。
+	// 件数が減ってページが無効になる場合は下の clampPage が補正する。
+	const [appliedQuery, setAppliedQuery] = useState(debouncedSearch);
+	if (appliedQuery !== debouncedSearch) {
+		setAppliedQuery(debouncedSearch);
+		setPage(1);
+	}
 
 	const [openAddModal, setOpenAddModal] = useState(false);
 	const [editingElder, setEditingElder] = useState<ElderRow | null>(null);
@@ -181,15 +197,9 @@ export function ElderManagementPage() {
 		}
 	};
 
-	const handleSearch = (e: React.FormEvent) => {
-		e.preventDefault();
-		setSearchQuery(searchInput.trim());
-		setPage(1);
-	};
 
 	const handleReset = () => {
 		setSearchInput("");
-		setSearchQuery("");
 		setPage(1);
 	};
 
@@ -202,14 +212,16 @@ export function ElderManagementPage() {
 						在籍情報の登録・編集・ステータス管理
 					</p>
 				</div>
-				<button
-					type="button"
-					onClick={handleAddClick}
-					className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors"
-				>
-					<HiOutlinePlus className="w-5 h-5" />
-					高齢者を追加
-				</button>
+				{canManage && (
+					<button
+						type="button"
+						onClick={handleAddClick}
+						className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors"
+					>
+						<HiOutlinePlus className="w-5 h-5" />
+						高齢者を追加
+					</button>
+				)}
 			</div>
 
 			{bannerNotice && (
@@ -253,8 +265,9 @@ export function ElderManagementPage() {
 						);
 					})}
 				</fieldset>
+				{/* 検索ボタンはなく、入力を止めたら自動で検索する */}
 				<form
-					onSubmit={handleSearch}
+					onSubmit={(e) => e.preventDefault()}
 					className="flex flex-wrap items-center gap-3 p-4"
 				>
 					<div className="relative flex-1 basis-40 min-w-[12rem]">
@@ -266,17 +279,12 @@ export function ElderManagementPage() {
 							id="elder-search"
 							type="text"
 							placeholder="氏名・部屋番号で検索..."
+							aria-label="氏名・部屋番号で検索"
 							value={searchInput}
 							onChange={(e) => setSearchInput(e.target.value)}
 							className="w-full h-10 pl-10 pr-4 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
 						/>
 					</div>
-					<button
-						type="submit"
-						className="h-10 px-4 shrink-0 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-700 transition-colors"
-					>
-						検索
-					</button>
 					{searchInput && (
 						<button
 							type="button"
@@ -300,6 +308,7 @@ export function ElderManagementPage() {
 					onRetry={() => refetch()}
 					searchQuery={debouncedSearch}
 					status={statusFilter}
+					canManage={canManage}
 				/>
 			</div>
 

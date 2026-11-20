@@ -24,7 +24,10 @@ function elderErrorResponse(operation: string, error: unknown) {
 		);
 	}
 	console.error(`${operation} error:`, error);
-	return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+	return NextResponse.json(
+		{ error: "Internal server error" },
+		{ status: 500 },
+	);
 }
 
 // 退所など影響の大きい操作の前に Clerk の再認証（reverification）を必須にする。
@@ -38,6 +41,7 @@ async function checkReverification(): Promise<Response | null> {
 	return null;
 }
 
+// Prisma の更新先が見つからなかった（P2025）。エラー本文は従来どおり 404 を返す。
 function notFoundResponse() {
 	return NextResponse.json({ error: "Not found" }, { status: 404 });
 }
@@ -62,6 +66,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
 	try {
+		// 更新は看護師（管理者）だけ。未ログインは 401、ACTIVE でない・ロール違いは 403
 		await requireRole("NURSE");
 
 		const { id } = await params;
@@ -99,6 +104,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 	try {
+		// 退所（無効化）は看護師（管理者）だけ。未ログインは 401、非 ACTIVE・ロール違いは 403
 		await requireRole("NURSE");
 
 		// 退所（無効化）は誤操作時の影響が大きいため、操作前に再認証を必須にする。
