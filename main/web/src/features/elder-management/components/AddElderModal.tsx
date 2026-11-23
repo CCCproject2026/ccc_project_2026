@@ -27,6 +27,8 @@ interface AddElderModalProps {
 	onSubmit: (data: ElderFormData) => void | Promise<void>;
 	initialData?: Elder | null;
 	isEditing?: boolean;
+	// 送信に失敗したときのメッセージ（モーダル内に表示する）
+	errorMessage?: string;
 }
 
 export const AddElderModal = ({
@@ -35,6 +37,7 @@ export const AddElderModal = ({
 	onSubmit,
 	initialData = null,
 	isEditing = false,
+	errorMessage,
 }: AddElderModalProps) => {
 	const {
 		register,
@@ -76,6 +79,14 @@ export const AddElderModal = ({
 			isSubmitting={isSubmitting}
 			submittingLabel="保存中..."
 		>
+			{errorMessage && (
+				<p
+					role="alert"
+					className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+				>
+					{errorMessage}
+				</p>
+			)}
 			<div className="grid grid-cols-2 gap-4">
 				<FormField
 					label="姓"

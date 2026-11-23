@@ -63,11 +63,20 @@ export function errorResponse(e: unknown) {
 			{ status: 400 },
 		);
 	}
-	if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-		return NextResponse.json(
-			{ code: "DUPLICATE", message: "既に登録されています" },
-			{ status: 409 },
-		);
+	if (e instanceof Prisma.PrismaClientKnownRequestError) {
+		if (e.code === "P2002") {
+			return NextResponse.json(
+				{ code: "DUPLICATE", message: "既に登録されています" },
+				{ status: 409 },
+			);
+		}
+		// 更新・削除の対象が見つからない（Prisma の P2025）
+		if (e.code === "P2025") {
+			return NextResponse.json(
+				{ code: "NOT_FOUND", message: "対象のデータが見つかりません" },
+				{ status: 404 },
+			);
+		}
 	}
 	// 個人情報を含む可能性があるため、メッセージ本文は出さない
 	console.error(

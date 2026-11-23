@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { todayInJapan } from "@/shared/lib/date";
 
 // =============================================================
 // 入力スキーマ（フォーム・API Route Handler で共有）
@@ -66,10 +67,13 @@ function calculateAge(birth: Date, today: Date): number {
 	return age;
 }
 
-// ローカルの「今日」を UTC 0時の Date として返す（生年月日と日付単位で比較するため）。
+// 日本時間の「今日」を UTC 0時の Date として返す（生年月日と日付単位で比較するため）。
+// 基準は shared/lib/date の todayInJapan() に統一する。
+// サーバーのローカル時刻（UTC）で計算すると、Docker では JST 00:00〜09:00 の間に
+// 「今日生まれ」が未来日として誤って弾かれるため。
 function todayAsCalendarDate(): Date {
-	const now = new Date();
-	return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+	const [year, month, day] = todayInJapan().split("-").map(Number);
+	return new Date(Date.UTC(year, month - 1, day));
 }
 
 const dateOfBirthSchema = z
@@ -111,6 +115,35 @@ export const elderCreateSchema = z.object({
 export const elderUpdateSchema = elderCreateSchema.partial().extend({
 	status: elderStatusSchema.optional(),
 });
+
+// ---- 高齢者一覧の検索クエリ（API Route Handler 用） ----
+// クエリ文字列はすべて文字列で届くため、数値は検証してから範囲内に補正する。
+// 数値でない値（例: page=abc）は 400 になり、Prisma に NaN が渡らない。
+// 範囲外の数値（page=0、limit=1000 など）は従来どおりクランプする。
+export const ELDER_LIST_MAX_LIMIT = 100;
+export const ELDER_LIST_DEFAULT_LIMIT = 20;
+
+const queryInt = (min: number, max: number, defaultValue: number) =>
+	z
+		.string()
+		.regex(/^\d+$/, "数値で指定してください")
+		.optional()
+		.transform((value) => {
+			const parsed = value === undefined ? defaultValue : Number(value);
+			return Math.min(max, Math.max(min, parsed));
+		});
+
+// page の上限は「skip が整数の範囲に収まる」ための安全弁。
+// 10000 ページ（limit=100 でも 100 万件目）を超える一覧は現実的でない。
+export const ELDER_LIST_MAX_PAGE = 10_000;
+
+export const elderListQuerySchema = z.object({
+	page: queryInt(1, ELDER_LIST_MAX_PAGE, 1),
+	limit: queryInt(1, ELDER_LIST_MAX_LIMIT, ELDER_LIST_DEFAULT_LIMIT),
+	status: elderStatusSchema.optional(),
+	q: z.string().trim().min(1).optional(),
+});
+export type ElderListQuery = z.infer<typeof elderListQuerySchema>;
 
 export type ElderFormData = z.infer<typeof elderCreateSchema>;
 export type CreateElderInput = z.infer<typeof elderCreateSchema>;

@@ -1,18 +1,33 @@
 import { auth, reverificationErrorResponse } from "@clerk/nextjs/server";
 import { type NextRequest, NextResponse } from "next/server";
-import { checkNurseAuth } from "@/features/elder-management/server/elder-auth";
 import {
 	deactivateElder,
 	getElder,
 	updateElder,
 } from "@/features/elder-management/server/elder-service";
-import { ApiError } from "@/shared/lib/api-error";
-import { requireStaff } from "@/shared/lib/auth";
+import { ApiError, readJsonBody } from "@/shared/lib/api-error";
+import { requireRole, requireStaff } from "@/shared/lib/auth";
 import { requiresReverification } from "@/shared/lib/reverification";
 import { elderUpdateSchema } from "@/shared/validation/schemas";
 
 interface RouteParams {
 	params: Promise<{ id: string }>;
+}
+
+// 高齢者 API は docs/agent-coding/skills/nextjs-frontend/SKILL.md:24 および
+// docs/agent-coding/investigation.md:62 の契約に従い、エラー本文は { error } 形式を維持する。
+function elderErrorResponse(operation: string, error: unknown) {
+	if (error instanceof ApiError) {
+		return NextResponse.json(
+			{ error: error.message },
+			{ status: error.status },
+		);
+	}
+	console.error(`${operation} error:`, error);
+	return NextResponse.json(
+		{ error: "Internal server error" },
+		{ status: 500 },
+	);
 }
 
 // 退所など影響の大きい操作の前に Clerk の再認証（reverification）を必須にする。
@@ -26,6 +41,11 @@ async function checkReverification(): Promise<Response | null> {
 	return null;
 }
 
+// Prisma の更新先が見つからなかった（P2025）。エラー本文は従来どおり 404 を返す。
+function notFoundResponse() {
+	return NextResponse.json({ error: "Not found" }, { status: 404 });
+}
+
 export async function GET(_request: NextRequest, { params }: RouteParams) {
 	try {
 		// DB 上で ACTIVE なスタッフだけ通す
@@ -35,36 +55,22 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 		const { id } = await params;
 		const elder = await getElder(id);
 		if (!elder) {
-			return NextResponse.json({ error: "Not found" }, { status: 404 });
+			return notFoundResponse();
 		}
 		return NextResponse.json(elder);
 	} catch (error) {
 		// requireStaff の 401（未ログイン）・403（ACTIVE でない）
-		if (error instanceof ApiError) {
-			return NextResponse.json(
-				{ error: error.message },
-				{ status: error.status },
-			);
-		}
-		console.error("GET /api/elders/[id] error:", error);
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 },
-		);
+		return elderErrorResponse("GET /api/elders/[id]", error);
 	}
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
 	try {
-		const authResult = await checkNurseAuth();
-		if ("error" in authResult)
-			return NextResponse.json(
-				{ error: authResult.error },
-				{ status: authResult.status },
-			);
+		// 更新は看護師（管理者）だけ。未ログインは 401、ACTIVE でない・ロール違いは 403
+		await requireRole("NURSE");
 
 		const { id } = await params;
-		const body = await request.json();
+		const body = await readJsonBody(request);
 		const parsed = elderUpdateSchema.safeParse(body);
 		if (!parsed.success) {
 			return NextResponse.json(
@@ -89,25 +95,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 		return NextResponse.json(elder);
 	} catch (error) {
-		console.error("PATCH /api/elders/[id] error:", error);
 		if ((error as { code?: string }).code === "P2025") {
-			return NextResponse.json({ error: "Not found" }, { status: 404 });
+			return notFoundResponse();
 		}
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 },
-		);
+		return elderErrorResponse("PATCH /api/elders/[id]", error);
 	}
 }
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 	try {
-		const authResult = await checkNurseAuth();
-		if ("error" in authResult)
-			return NextResponse.json(
-				{ error: authResult.error },
-				{ status: authResult.status },
-			);
+		// 退所（無効化）は看護師（管理者）だけ。未ログインは 401、非 ACTIVE・ロール違いは 403
+		await requireRole("NURSE");
 
 		// 退所（無効化）は誤操作時の影響が大きいため、操作前に再認証を必須にする。
 		const reverification = await checkReverification();
@@ -119,13 +117,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
 		return new NextResponse(null, { status: 204 });
 	} catch (error) {
-		console.error("DELETE /api/elders/[id] error:", error);
 		if ((error as { code?: string }).code === "P2025") {
-			return NextResponse.json({ error: "Not found" }, { status: 404 });
+			return notFoundResponse();
 		}
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 },
-		);
+		return elderErrorResponse("DELETE /api/elders/[id]", error);
 	}
 }

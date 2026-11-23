@@ -1,7 +1,10 @@
 import "./globals.css";
 import { Providers } from "./providers";
 
-export const dynamic = "force-dynamic";
+// ルート layout には force-dynamic を置かない。
+// 認証（auth() / getLoginUser()）や DB を読む画面は Next.js が動的と判定するので、
+// /login や /sign-up のような公開画面まで毎回レンダリングされるのを防ぐ。
+// ※ (authenticated) 配下は layout が auth() を、account-status は getLoginUser() を読む。
 
 export const metadata = {
 	title: "Elderly Fall Prevention",

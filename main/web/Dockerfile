@@ -20,7 +20,7 @@ RUN pnpm prisma generate --generator client
 FROM prisma-cli AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY next.config.mjs postcss.config.js next-env.d.ts eslint.config.mjs ./
+COPY next.config.mjs postcss.config.js next-env.d.ts eslint.config.mjs biome.json ./
 COPY public ./public
 COPY src ./src
 RUN --mount=type=cache,target=/app/.next/cache \
