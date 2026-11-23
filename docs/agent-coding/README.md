@@ -8,7 +8,7 @@
 
 1. リポジトリルートを開き、[共通AGENTS](../../AGENTS.md)、[調査](investigation.md)、[設計](design.md) を確認する。
 2. Python 3.11以上で `python3 scripts/agent-coding/sync.py --check`。生成済み通常ファイルをGit共有するので、利用者全員が生成する必要はない。
-3. 希望ツールを各自の組織承認済みアカウントで起動する。[ツール別読込テスト](tool-support.md) で指示・Skill・Agentを確認する。
+3. 希望ツールを各自の組織承認済みアカウントで起動する。ローカルLLMでは OpenCode と、Ollama／LM Studio／vLLMのいずれかを起動して `/models` からモデルを選ぶ。[ツール別読込テスト](tool-support.md) で指示・Skill・Agentを確認する。
 4. 機密ソース/利用者データの外部AI取扱規則と利用可能なモデル/権限を組織担当者に確認する。秘密値は共有ファイルへ入れない。
 
 ## 毎日の作業
@@ -19,6 +19,8 @@ Issueと受入条件を渡し、対象領域のSkill/Roleを選ぶ。既存 `doc
 - AI/IoT: `fastapi-ml-iot` / `python-ml-iot-specialist`。契約変更には `iot-data-contract`
 - レビュー: 別Agent/人間 + `code-review` / `senior-code-reviewer`
 - 検証・説明・機密境界: 必要に応じて `testing-and-verification`、`learning-oriented-explanation`、`security-and-privacy`
+
+OpenCodeでは既存の `AGENTS.md` と `.opencode/skills` / `.opencode/agents` が自動探索対象です。`/models` で `ollama/<実在するモデル名>`、`lmstudio/<実在するモデル名>`、または `vllm/<実在するモデル名>` を選びます。モデル名・対応context・tool callingは環境ごとに異なるため、共有設定に仮のモデル名を書きません。`senior-code-reviewer` は編集、shell、Web送信を拒否するread-only adapterです。
 
 ## 設定を変更する人へ
 

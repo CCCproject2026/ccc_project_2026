@@ -5,16 +5,16 @@
 ## 階層と単一の正本
 
 1. 常時指示: ルート `AGENTS.md`。安全性・Git・実装原則・日本語解説の共通規則。
-2. 薄い入口: Claude/Geminiの公式importとCopilotの明示読込指示。ツール仕様は [対応表](tool-support.md)。
-3. 手順: `docs/agent-coding/skills/<name>/SKILL.md` を正本とし、`.agents/skills`、`.claude/skills`、`.github/skills` に同一内容を生成する。
-4. 専門性: `docs/agent-coding/roles/*.md` に責務を集約。ネイティブAgentはこのRoleを明示読込する薄いadapter。
+2. 薄い入口: Claude/Geminiの公式importとCopilotの明示読込指示。OpenCodeは既存の `AGENTS.md` を読む。ツール仕様は [対応表](tool-support.md)。
+3. 手順: `docs/agent-coding/skills/<name>/SKILL.md` を正本とし、`.agents/skills`、`.claude/skills`、`.github/skills`、`.opencode/skills` に同一内容を生成する。
+4. 専門性: `docs/agent-coding/roles/*.md` に責務を集約。ネイティブAgentはこのRoleを明示読込する薄いadapter。OpenCode adapterはモデルを固定しないので、Ollama・LM Studio・vLLM等で選択したローカルモデルを利用できる。
 5. 詳細: 既存契約・設計・今回の調査/検証資料を必要時だけ読む。
 
 Skillsの名前/descriptionだけで選択でき、本文・参照資料は必要時に読むProgressive Disclosureを採用。7種類は対象が異なるため採用するが、毎Taskで全7件を起動する意味ではない。技術説明の必須8項目はAGENTSに保持するためSkillの自動選択に依存しない。
 
 ## 選択理由と代替
 
-全ツールに長い規則を手でコピーすると更新漏れが起きる。共通AGENTSと正本Skill/Roleに集約し、Skillコピーの一致を検査する。SymlinkはOS/checkout/クライアント差があるため使用しない。各ツールの探索パスに通常ファイルを配置する。生成先を手修正して正本との差を隠さない。
+全ツールに長い規則を手でコピーすると更新漏れが起きる。共通AGENTSと正本Skill/Roleに集約し、Skillコピーの一致を検査する。SymlinkはOS/checkout/クライアント差があるため使用しない。各ツールの探索パスに通常ファイルを配置する。生成先を手修正して正本との差を隠さない。ローカルLLMのruntime・モデル・endpoint・認証情報は個人/組織環境の責務であり、共有設定に固定しない。
 
 `python3 scripts/agent-coding/sync.py --write` で生成、`--check` で不足/不一致を検出する。既存の非管理ファイルは上書きせず停止する。正本変更の前後で差分をレビューする。生成済みファイルの古い版はGit差分で確認できる。
 
