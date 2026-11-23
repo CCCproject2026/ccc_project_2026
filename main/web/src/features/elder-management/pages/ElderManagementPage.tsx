@@ -43,13 +43,6 @@ const ELDER_STATUS_TABS: { value: ElderStatus; label: string }[] = [
 	{ value: "INACTIVE", label: "無効化" },
 ];
 
-type ConfirmAction = "deactivate" | "reactivate";
-
-interface ConfirmTarget {
-	id: string;
-	action: ConfirmAction;
-}
-
 interface ElderManagementPageProps {
 	// 看護師だけが登録・編集・退所できる（API は requireRole("NURSE")）。
 	// 介護士は閲覧のみで、使えない操作は画面に出さない。
@@ -281,7 +274,6 @@ export function ElderManagementPage({ role }: ElderManagementPageProps) {
 		}
 	};
 
-
 	const handleReset = () => {
 		setSearchInput("");
 		setPage(1);
@@ -393,6 +385,9 @@ export function ElderManagementPage({ role }: ElderManagementPageProps) {
 					searchQuery={debouncedSearch}
 					status={statusFilter}
 					canManage={canManage}
+					// 退所の準備中・送信中は、別の行の退所を押せなくする
+					// （409 で開き直すダイアログが、別の入所者のものと入れ替わらないように）
+					statusActionDisabled={preparingExit || deleteMutation.isPending}
 				/>
 			</div>
 
