@@ -9,6 +9,76 @@ import {
 
 const prisma = new PrismaClient();
 
+type SeedDevice = {
+	id: string;
+	deviceName: string;
+	deviceCode: string;
+	status: DeviceStatus; // 新しく作るときだけ使う（既存の行の status は変えない）
+};
+
+// seed のデバイスを作る、または名前とコードを更新する。
+//
+// deviceCode は一意。既存のDBでは、seed 以外の行がすでに同じコードを
+// 使っていることがある（例: 画面から ESP32-001 を登録した）。
+// そのまま書き換えると一意制約で seed が失敗し、docker compose の
+// migrate サービスが失敗して web-app も起動しなくなる。
+// そのため、コードがほかの行に使われているときは、コードの書き換えだけを飛ばす。
+async function upsertSeedDevice(device: SeedDevice) {
+	// このコードを今使っている行（なければ null）
+	const codeOwner = await prisma.device.findUnique({
+		where: { deviceCode: device.deviceCode },
+		select: { id: true },
+	});
+	let codeUsedByOther = false;
+	if (codeOwner !== null && codeOwner.id !== device.id) {
+		codeUsedByOther = true;
+	}
+
+	const existing = await prisma.device.findUnique({
+		where: { id: device.id },
+		select: { id: true },
+	});
+
+	// まだ行がない: 新しく作る
+	if (existing === null) {
+		if (codeUsedByOther) {
+			// コードなしでは作れない。割当などもこの行を使うので、ここで止める
+			throw new Error(
+				`${device.id} を作れません。deviceCode ${device.deviceCode} は別のデバイスが使っています。` +
+					"DBを作り直してください（pnpm prisma migrate reset）。",
+			);
+		}
+		return prisma.device.create({
+			data: {
+				id: device.id,
+				deviceName: device.deviceName,
+				deviceCode: device.deviceCode,
+				status: device.status,
+			},
+		});
+	}
+
+	// 行がある: コードがほかの行に使われていれば、名前だけを更新する
+	if (codeUsedByOther) {
+		console.warn(
+			`[seed] ${device.id} の deviceCode を ${device.deviceCode} に変更しませんでした。` +
+				"別のデバイスが使っています。",
+		);
+		return prisma.device.update({
+			where: { id: device.id },
+			data: { deviceName: device.deviceName },
+		});
+	}
+
+	return prisma.device.update({
+		where: { id: device.id },
+		data: {
+			deviceName: device.deviceName,
+			deviceCode: device.deviceCode,
+		},
+	});
+}
+
 async function main() {
 	// ----------------------------------------------------------------
 	// 1. ユーザー管理（スタッフ）
@@ -74,8 +144,9 @@ async function main() {
 	await prisma.user.upsert({
 		where: { id: "user_nurse_pending_001" },
 		update: {
-			firstName: "由紀",
-			lastName: "山本",
+			// create と同じ値にする（再実行で別人の名前に変わらないように）
+			firstName: "win htut",
+			lastName: "oo",
 			role: UserRole.NURSE,
 			status: UserStatus.PENDING,
 			clerkUserId: null,
@@ -99,6 +170,9 @@ async function main() {
 	// ----------------------------------------------------------------
 	// 2. 高齢者データ
 	//    age は保存せず dateOfBirth から表示時に算出する。
+	//    status は update に入れない。再実行したときに、画面で退所・在籍に
+	//    戻した状態を上書きして、割当と矛盾させないため
+	//    （例: 退所済みなのに有効な割当がある）。
 	// ----------------------------------------------------------------
 	const elderTaro = await prisma.elder.upsert({
 		where: { id: "elderly_001" },
@@ -106,7 +180,6 @@ async function main() {
 			firstName: "一郎",
 			lastName: "田中",
 			roomNumber: "301",
-			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_001",
@@ -125,7 +198,6 @@ async function main() {
 			firstName: "美咲",
 			lastName: "鈴木",
 			roomNumber: "302",
-			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_002",
@@ -144,7 +216,6 @@ async function main() {
 			firstName: "健二",
 			lastName: "小林",
 			roomNumber: "305",
-			status: ElderStatus.ACTIVE,
 		},
 		create: {
 			id: "elderly_003",
@@ -164,7 +235,6 @@ async function main() {
 			firstName: "恵子",
 			lastName: "渡辺",
 			roomNumber: "308",
-			status: ElderStatus.INACTIVE,
 		},
 		create: {
 			id: "elderly_004",
@@ -177,66 +247,72 @@ async function main() {
 		},
 	});
 
+	// 在籍中で、デバイスが未割当の入所者。
+	// デバイス管理の「割当」で候補（assignable-elders）に出ることを確認するため
+	await prisma.elder.upsert({
+		where: { id: "elderly_005" },
+		update: {
+			firstName: "和子",
+			lastName: "佐藤",
+			roomNumber: "310",
+		},
+		create: {
+			id: "elderly_005",
+			firstName: "和子",
+			lastName: "佐藤",
+			roomNumber: "310",
+			status: ElderStatus.ACTIVE,
+			dateOfBirth: new Date("1945-07-30T00:00:00.000Z"),
+			gender: "FEMALE",
+		},
+	});
+
 	// ----------------------------------------------------------------
 	// 3. IoTデバイス
 	//    deviceCode は一意。AI の ONLINE/OFFLINE とは別の概念で、
 	//    ここでは「利用中か、故障したか」のみを持つ。
+	//    deviceCode は「ESP32-001」の形式にする（DEVICE_CODE_PATTERN）。
+	//    この形式でないと、画面の編集で入力エラーになり、
+	//    AI Server の照会（by-code）でも未登録（404）として扱われる。
+	//    status は update に入れない（理由は高齢者と同じ。
+	//    例: 割当中のデバイスを INACTIVE に戻してしまう）。
 	// ----------------------------------------------------------------
-	const device1 = await prisma.device.upsert({
-		where: { id: "device_001" },
-		update: {
-			deviceName: "センサーA-001",
-			deviceCode: "B8:27:EB:11:22:01",
-			status: DeviceStatus.ACTIVE,
-		},
-		create: {
-			id: "device_001",
-			deviceName: "センサーA-001",
-			deviceCode: "B8:27:EB:11:22:01",
-			status: DeviceStatus.ACTIVE,
-		},
+	const device1 = await upsertSeedDevice({
+		id: "device_001",
+		deviceName: "センサーA-001",
+		deviceCode: "ESP32-001",
+		status: DeviceStatus.ACTIVE,
 	});
 
-	const device2 = await prisma.device.upsert({
-		where: { id: "device_002" },
-		update: {
-			deviceName: "センサーA-002",
-			deviceCode: "B8:27:EB:11:22:02",
-			status: DeviceStatus.ACTIVE,
-		},
-		create: {
-			id: "device_002",
-			deviceName: "センサーA-002",
-			deviceCode: "B8:27:EB:11:22:02",
-			status: DeviceStatus.ACTIVE,
-		},
+	const device2 = await upsertSeedDevice({
+		id: "device_002",
+		deviceName: "センサーA-002",
+		deviceCode: "ESP32-002",
+		status: DeviceStatus.ACTIVE,
 	});
 
-	const device3 = await prisma.device.upsert({
-		where: { id: "device_003" },
-		update: {
-			deviceName: "センサーA-003",
-			deviceCode: "B8:27:EB:11:22:03",
-			status: DeviceStatus.ACTIVE,
-		},
-		create: {
-			id: "device_003",
-			deviceName: "センサーA-003",
-			deviceCode: "B8:27:EB:11:22:03",
-			status: DeviceStatus.ACTIVE,
-		},
+	const device3 = await upsertSeedDevice({
+		id: "device_003",
+		deviceName: "センサーA-003",
+		deviceCode: "ESP32-003",
+		status: DeviceStatus.ACTIVE,
 	});
 
 	// 故障したデバイス。物理削除せず INACTIVE で管理する。
-	await prisma.device.upsert({
-		where: { id: "device_004" },
-		update: { status: DeviceStatus.INACTIVE },
-		create: {
-			id: "device_004",
-			deviceName: "センサーA-004",
-			deviceCode: "B8:27:EB:11:22:04",
-			status: DeviceStatus.INACTIVE,
-		},
+	await upsertSeedDevice({
+		id: "device_004",
+		deviceName: "センサーA-004",
+		deviceCode: "ESP32-004",
+		status: DeviceStatus.INACTIVE,
+	});
+
+	// 予備のデバイス（ACTIVE で未割当）。
+	// デバイス管理の「割当」と「故障交換」で、交換先に選べることを確認するため
+	await upsertSeedDevice({
+		id: "device_005",
+		deviceName: "センサーA-005",
+		deviceCode: "ESP32-005",
+		status: DeviceStatus.ACTIVE,
 	});
 
 	// ----------------------------------------------------------------
@@ -244,10 +320,18 @@ async function main() {
 	//    現在有効な割当は unassignedAt が NULL のレコード。
 	//    解除済みの割当も削除せず履歴として残す。
 	//    （同一 Elder/Device への有効な割当が重複しないこと）
+	//
+	//    update は空にする。画面で解除・付け替え・故障交換・退所をした後に
+	//    再実行しても、終わった割当を有効に戻さないため。
+	//    戻すと、同じデバイス・高齢者の有効な割当が2件になり、
+	//    DB の一意制約（device_assignment_active_*_idx）でシードが失敗する。
+	//
+	//    DeviceOperationLog（監査記録）はシードで作らない。
+	//    実際の操作の記録だけを残す表で、UPDATE・DELETE もトリガーで拒否される。
 	// ----------------------------------------------------------------
 	await prisma.deviceAssignment.upsert({
 		where: { id: "assign_001" },
-		update: { unassignedAt: null },
+		update: {},
 		create: {
 			id: "assign_001",
 			elderId: elderTaro.id,
@@ -259,7 +343,7 @@ async function main() {
 
 	await prisma.deviceAssignment.upsert({
 		where: { id: "assign_002" },
-		update: { unassignedAt: null },
+		update: {},
 		create: {
 			id: "assign_002",
 			elderId: elderMiyako.id,
@@ -271,7 +355,7 @@ async function main() {
 
 	await prisma.deviceAssignment.upsert({
 		where: { id: "assign_003" },
-		update: { unassignedAt: null },
+		update: {},
 		create: {
 			id: "assign_003",
 			elderId: elderKenji.id,
@@ -360,7 +444,8 @@ async function main() {
 			message: "未登録デバイスからのメッセージを受信しました。",
 			occurredAt: new Date("2026-06-18T09:12:00.000Z"),
 			receivedAt: new Date("2026-06-18T09:12:00.500Z"),
-			payload: { deviceId: "esp32-unknown-99", topic: "fall/esp32-unknown-99/data" },
+			// 形式は正しいが、Device に登録されていないコード
+			payload: { deviceCode: "ESP32-999", topic: "fall/ESP32-999/data" },
 		},
 	});
 

@@ -29,11 +29,7 @@ export function ResponseHistoryTable({ history }: ResponseHistoryTableProps) {
 		<div className="space-y-6">
 			{/* 【視認性改善】現在進行中のアラートがある場合、最上部に目立つ形で別枠表示 */}
 			{activeAlarms.length > 0 && (
-				<div
-					role="region"
-					className="space-y-3"
-					aria-label="現在発生中のアラート"
-				>
+				<section className="space-y-3" aria-label="現在発生中のアラート">
 					{activeAlarms.map((alarm) => (
 						<div
 							key={alarm.id}
@@ -47,7 +43,7 @@ export function ResponseHistoryTable({ history }: ResponseHistoryTableProps) {
 							</div>
 						</div>
 					))}
-				</div>
+				</section>
 			)}
 
 			{/*  過去の完了履歴一覧 */}
@@ -58,8 +54,7 @@ export function ResponseHistoryTable({ history }: ResponseHistoryTableProps) {
 			) : (
 				<>
 					{/* 【モバイル対応】スマホ・タブレット幅では横スクロールさせず、縦並びカードリストに切り替え */}
-					<div
-						role="region"
+					<section
 						className="block md:hidden space-y-4"
 						aria-label="過去の対応履歴（モバイル表示）"
 					>
@@ -97,7 +92,7 @@ export function ResponseHistoryTable({ history }: ResponseHistoryTableProps) {
 								</div>
 							</div>
 						))}
-					</div>
+					</section>
 
 					{/* ② 【PC・大画面用】セマンティックかつアクセシブルなデスクトップ用テーブル仕様 */}
 					<div className="hidden md:block overflow-hidden rounded-xl border border-gray-200">

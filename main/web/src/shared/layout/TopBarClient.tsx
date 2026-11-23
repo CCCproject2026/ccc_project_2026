@@ -18,7 +18,7 @@ const ROUTE_META: Record<string, { title: string; breadcrumb?: string }> = {
 		breadcrumb: "スタッフ管理",
 	},
 	"/devices": {
-		title: "デバイス接続ステータス",
+		title: "デバイス一覧",
 		breadcrumb: "デバイス管理",
 	},
 	"/profile": {
@@ -33,7 +33,11 @@ const ROUTE_META: Record<string, { title: string; breadcrumb?: string }> = {
 
 export function TopBarClient({ count }: { count: number }) {
 	const pathname = usePathname();
-	const meta = ROUTE_META[pathname] || { title: "転倒予防支援システム" };
+	let meta = ROUTE_META[pathname] || { title: "転倒予防支援システム" };
+	// デバイス詳細（/devices/[id]）は id が変わるため、前方一致で決める
+	if (pathname.startsWith("/devices/")) {
+		meta = { title: "デバイス詳細", breadcrumb: "デバイス管理" };
+	}
 
 	return (
 		<TopBar
