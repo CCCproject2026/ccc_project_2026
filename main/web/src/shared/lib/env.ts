@@ -13,6 +13,10 @@ const appUrlSchema = z
 
 const serverEnvSchema = z.object({
 	DATABASE_URL: z.string().min(1),
+	// Clerk の公開鍵。未設定のまま起動すると ClerkProvider が描画できず、
+	// Clerk フックを使う画面で原因の分かりにくい実行時エラーになる。
+	// クライアントへはビルド時に埋め込まれるため、起動時に欠落を検出して止める。
+	NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
 	CLERK_SECRET_KEY: z.string().min(1),
 	CLERK_WEBHOOK_SECRET: z.string().min(1),
 	DEVICE_API_TOKEN: z.string().regex(/^[A-Za-z0-9+/_=-]{32,}$/),

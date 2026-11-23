@@ -20,8 +20,9 @@ interface ElderTableProps {
 	onRetry?: () => void;
 	searchQuery?: string;
 	status?: ElderStatus;
-	// true の間は「退所・在籍に戻す」ボタンを押せなくする（退所の準備中・送信中）
-	statusActionDisabled?: boolean;
+	// 看護師だけが編集・退所・復帰できる（API は requireRole("NURSE")）。
+	// 介護士には使えないボタンを見せない。
+	canManage: boolean;
 }
 
 export function ElderTable({
@@ -34,7 +35,7 @@ export function ElderTable({
 	onRetry,
 	searchQuery,
 	status,
-	statusActionDisabled,
+	canManage,
 }: ElderTableProps) {
 	if (loading) {
 		return (
@@ -85,7 +86,9 @@ export function ElderTable({
 						? "検索条件を変えて再度お試しください"
 						: isInactive
 							? "退所・無効化した高齢者がここに表示されます"
-							: "「高齢者を追加」から登録してください"}
+							: canManage
+								? "「高齢者を追加」から登録してください"
+								: "新規登録は看護師（管理者）が行います"}
 				</p>
 			</div>
 		);
@@ -101,7 +104,9 @@ export function ElderTable({
 						<th className="py-4 px-6 font-medium">生年月日</th>
 						<th className="py-4 px-6 font-medium">性別</th>
 						<th className="py-4 px-6 font-medium">ステータス</th>
-						<th className="py-4 px-6 font-medium text-right">操作</th>
+						{canManage && (
+							<th className="py-4 px-6 font-medium text-right">操作</th>
+						)}
 					</tr>
 				</thead>
 				<tbody className="divide-y divide-gray-100">
@@ -130,43 +135,46 @@ export function ElderTable({
 									{elder.status === "ACTIVE" ? "在籍中" : "退所"}
 								</span>
 							</td>
-							<td className="py-4 px-6 text-right">
-								<div className="flex items-center justify-end gap-2">
-									<button
-										onClick={() => onEdit(elder)}
-										type="button"
-										className="p-2 text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-										title="編集"
-										aria-label={`${elder.lastName} ${elder.firstName} を編集`}
-									>
-										<HiOutlinePencil className="w-5 h-5" />
-									</button>
-									<button
-										type="button"
-										onClick={() =>
-											elder.status === "ACTIVE"
-												? onDelete(elder.id)
-												: onReactivate(elder.id)
-										}
-										disabled={statusActionDisabled}
-										className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-											elder.status === "ACTIVE"
-												? "text-gray-500 hover:text-red-600 hover:bg-red-50"
-												: "text-gray-500 hover:text-green-600 hover:bg-green-50"
-										}`}
-										title={
-											elder.status === "ACTIVE" ? "退所・無効化" : "在籍に戻す"
-										}
-										aria-label={`${elder.lastName} ${elder.firstName} を${elder.status === "ACTIVE" ? "退所・無効化" : "在籍に戻す"}`}
-									>
-										{elder.status === "ACTIVE" ? (
-											<HiOutlineTrash className="w-5 h-5" />
-										) : (
-											<HiOutlineArrowPath className="w-5 h-5" />
-										)}
-									</button>
-								</div>
-							</td>
+							{canManage && (
+								<td className="py-4 px-6 text-right">
+									<div className="flex items-center justify-end gap-2">
+										<button
+											onClick={() => onEdit(elder)}
+											type="button"
+											className="p-2 text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+											title="編集"
+											aria-label={`${elder.lastName} ${elder.firstName} を編集`}
+										>
+											<HiOutlinePencil className="w-5 h-5" />
+										</button>
+										<button
+											type="button"
+											onClick={() =>
+												elder.status === "ACTIVE"
+													? onDelete(elder.id)
+													: onReactivate(elder.id)
+											}
+											className={`p-2 rounded-lg transition-colors ${
+												elder.status === "ACTIVE"
+													? "text-gray-500 hover:text-red-600 hover:bg-red-50"
+													: "text-gray-500 hover:text-green-600 hover:bg-green-50"
+											}`}
+											title={
+												elder.status === "ACTIVE"
+													? "退所・無効化"
+													: "在籍に戻す"
+											}
+											aria-label={`${elder.lastName} ${elder.firstName} を${elder.status === "ACTIVE" ? "退所・無効化" : "在籍に戻す"}`}
+										>
+											{elder.status === "ACTIVE" ? (
+												<HiOutlineTrash className="w-5 h-5" />
+											) : (
+												<HiOutlineArrowPath className="w-5 h-5" />
+											)}
+										</button>
+									</div>
+								</td>
+							)}
 						</tr>
 					))}
 				</tbody>
