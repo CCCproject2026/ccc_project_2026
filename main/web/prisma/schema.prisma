@@ -57,6 +57,18 @@ enum DeviceStatus {
   INACTIVE // 故障・回収（過去データは保持）
 }
 
+// デバイス管理の操作の種類（DeviceOperationLog）。詳細設計 03 の10章
+enum DeviceOperationAction {
+  CREATE // 登録
+  UPDATE // 名前・コードの編集
+  CHANGE_STATUS // 状態変更
+  ASSIGN // 割当
+  UNASSIGN // 解除
+  TRANSFER // 付け替え
+  REPLACE // 故障交換
+  END_BY_ELDER_EXIT // 高齢者の退所による割当の終了
+}
+
 // ServerLog のログレベル。ONLINE / OFFLINE はAI側の接続状態であり、
 // DeviceStatus には含めない（詳細設計 §3）。
 enum ServerLogLevel {
@@ -88,6 +100,8 @@ model User {
 
   // このスタッフが作成した対応記録
   records ResponseRecord[]
+  // このスタッフが行ったデバイス管理の操作（Prisma 上の宣言だけで、列は増えない）
+  deviceOperationLogs DeviceOperationLog[]
 
   @@index([status])
   @@index([role, status])
@@ -127,7 +141,9 @@ model Device {
   createdAt    DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
 
-  assignments DeviceAssignment[]
+  assignments   DeviceAssignment[]
+  // このデバイスに対する操作の記録（Prisma 上の宣言だけで、列は増えない）
+  operationLogs DeviceOperationLog[]
 
   @@index([status])
 }
@@ -155,6 +171,38 @@ model DeviceAssignment {
   @@index([elderId, assignedAt])
   @@index([deviceId, assignedAt])
   @@index([unassignedAt])
+}
+
+// ==========================================
+// 4-2. DeviceOperationLog（デバイス管理の操作の監査記録）
+//
+// DeviceAssignment と Device には操作者の列がないため、
+// 誰がいつどの操作をしたかをここに残す（詳細設計 03 の10章）。
+// 業務データの更新と同じトランザクションで INSERT する。
+// 追加だけを行い、UPDATE・DELETE・TRUNCATE は migration のトリガーで拒否する。
+// 氏名・部屋番号・deviceName の値は保存しない（個人情報の最小化）。
+// ==========================================
+
+model DeviceOperationLog {
+  id                  String                @id @default(cuid())
+  occurredAt          DateTime              @default(now()) @db.Timestamptz(3)
+  actorId             String // 操作したスタッフ（User.id）。サーバーで設定する
+  action              DeviceOperationAction
+  deviceId            String // 操作の対象のデバイス（故障交換では旧デバイス）
+  newDeviceId         String? // 故障交換の新デバイス
+  elderId             String? // 割当の対象の高齢者（付け替えでは変更後の高齢者）
+  previousElderId     String? // 付け替えの変更前の高齢者
+  endedAssignmentId   String? // この操作で終了した割当
+  createdAssignmentId String? // この操作で作成した割当
+  before              Json? // 変更前の { status, deviceCode }
+  after               Json? // 変更後の { status, deviceCode, changedFields }
+
+  actor  User   @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([deviceId, occurredAt])
+  @@index([elderId, occurredAt])
+  @@index([actorId, occurredAt])
 }
 
 // ==========================================
