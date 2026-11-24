@@ -166,7 +166,6 @@ class DeviceManager:
         for code, entry in list(self.cache.items()):
             if now >= entry.expires_at:
                 del self.cache[code]
-                self.on_reset(code, "cache_expired")
 
     def resolve(self, code: str) -> str:
         self.expire()
@@ -203,12 +202,13 @@ class DeviceManager:
         self.retry_at = 0.0
         self.expire()
         if len(self.cache) >= CACHE_CAPACITY:
-            evicted, _ = self.cache.popitem(last=False)
-            self.on_reset(evicted, "cache_evicted")
+            self.cache.popitem(last=False)
         ttl = NEGATIVE_TTL if result.state == "NOT_FOUND" else POSITIVE_TTL
         self.cache[code] = CacheEntry(result.state, now + ttl)
-        # 新規/再登場のACTIVEも過去の連続区間を再使用しない。
-        self.on_reset(code, "device_state_refreshed")
+        # TTL切れは認可情報を再照会する契機であり、センサー時系列の欠落ではない。
+        # ACTIVEの再確認では既存Bufferを維持し、利用不可へ変わったときだけ破棄する。
+        if result.state != "ACTIVE":
+            self.on_reset(code, "device_not_active")
         logger.info("DEVICE_STATE_RESOLVED state=%s", result.state)
         return result.state
 

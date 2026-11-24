@@ -51,7 +51,7 @@
 
 TTLは検証済み応答の取得完了時からmonotonicで計測し、`now < expires_at` の間だけ有効。期限ちょうどは失効する。キャッシュhitでTTLを延長しない。コード変更・無効化は最長で残存TTLと進行中の要求時間の影響を受け、即時反映は保証しない。
 
-キャッシュは1プロセスRAM内、上限128件（positiveとnegativeの合計）。期限切れを先に除去し、なお満杯なら最終アクセスが最古のものを除去する。削除されたcodeのBufferも削除する。再登場やINACTIVE→ACTIVE復帰では新規100点から開始する。UNKNOWNのcodeを無制限に保存しない。
+キャッシュは1プロセスRAM内、上限128件（positiveとnegativeの合計）。期限切れを先に除去し、なお満杯なら最終アクセスが最古のものを除去する。TTL失効・LRU追い出し・ACTIVE再確認は認可情報の再照会であり、対象Bufferを削除しない。INACTIVE / NOT_FOUND / UNKNOWN / API障害で利用不可になった端末、またはINACTIVE→ACTIVE復帰では新規100点から開始する。UNKNOWNのcodeを無制限に保存しない。
 
 ## 障害・復旧の状態表
 
@@ -108,7 +108,7 @@ API要求は単一Workerで直列化し、MQTT callback・health handlerから�
 - Webの認証例外は `/api/devices/by-code/` の1セグメントだけ。検索handlerは認証を先に行い、コード形式違反・未登録は404、返却項目はcode/statusだけ。ClerkのCookieをサービス認証として使わない。
 - AIはWorker専用のasyncio RunnerとHTTPX clientを再利用し、HTTP待機中にMQTT状態lockを保持しない。要求前後に停止・購読・世代・連続性を照合する。Worker終了時にHTTP clientを閉じる。
 - HTTPX transportのretry=0、redirect追従なし、全体2秒、応答本文は最大64KiB。標準のCA/hostname検証を維持する。
-- Cache削除・失効・更新時はPipelineへreset通知を行う。Buffer本体は未実装なので、現時点の受け手はログ出力のみ。Bufferの削除処理を実装済みとは扱わない。
+- CacheのTTL失効・LRU追い出し・ACTIVE再確認は認可情報の再照会契機であり、センサー連続性を失わせないためPipelineへreset通知を行わない。INACTIVE / NOT_FOUND / UNKNOWN、API障害、認証停止、MQTT欠落時だけ対象（認証停止・MQTT欠落は全体）のBuffer resetを通知する。Bufferの削除処理を実装済みとは扱わない。
 - `/health/input` と `/health/ready` の `device_api` に設定有無・障害状態・認証停止・cache数・HTTP要求数・hit数・エラー数を表示する。スナップショットはWorkerの要求完了後に更新する。
 - OFFLINEの定期判定とWebへの通知は今回のAPI/Cache実装外。表は責務を定義する契約であり、動作実装済みを意味しない。
 
