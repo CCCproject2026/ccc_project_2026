@@ -67,8 +67,8 @@ class Settings:
             raise ValueError("MQTT_CA_FILEにはMQTT_TLS=trueが必要です")
         if self.window_size != 100:
             raise ValueError("WINDOW_SIZE: 100 のみ対応しています")
-        if not 1 <= self.window_step <= self.window_size:
-            raise ValueError("WINDOW_STEP: 1〜100 を指定してください")
+        if self.window_step not in (50, self.window_size):
+            raise ValueError("WINDOW_STEP: 50 または 100 を指定してください")
         if self.sampling_rate != 50.0:
             raise ValueError("SAMPLING_RATE: 50 のみ対応しています")
         if not isfinite(self.inference_threshold) or self.inference_threshold != 0.5:
