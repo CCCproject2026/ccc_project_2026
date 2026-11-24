@@ -90,6 +90,9 @@ docker-compose.override.yml
 !.agents/skills/*/
 .agents/skills/*/*
 !.agents/skills/*/SKILL.md
+# Skill正本が持つ参照資料も生成物として共有する。`.agents` 配下の他の個人設定は除外を維持する。
+!.agents/skills/*/references/
+!.agents/skills/*/references/**
 
 # Ignore IoT folder leftovers on non-IoT branches
 main/iot/*
