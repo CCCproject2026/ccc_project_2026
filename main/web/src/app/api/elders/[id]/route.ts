@@ -39,18 +39,20 @@ async function checkReverification(): Promise<Response | null> {
 	return null;
 }
 
-// 退所の確認ダイアログで見せた割当を、クエリ文字列から読む
+// 退所の確認ダイアログまたは連携元で確認した割当を、クエリ文字列から読む
 // - ?expectedAssignmentId=<割当の ID> : その割当を終了する前提で確認した
 // - ?expectedAssignmentId=none       : 割当がない前提で確認した
-// - 省略                             : 照合しない（この変更より前の画面との互換のため）
-// TODO: 古い画面が使われなくなったら、省略を 400 にして照合を必須にする。
-//       （省略できる間は、デプロイ前から開いたままのタブで照合されない）
+// - 省略                             : 400（退所では照合を必須にする）
 function parseExpectedAssignmentId(
 	request: NextRequest,
 ): ExpectedExitAssignment {
 	const values = request.nextUrl.searchParams.getAll("expectedAssignmentId");
 	if (values.length === 0) {
-		return undefined;
+		throw new ApiError(
+			400,
+			"INVALID_INPUT",
+			"expectedAssignmentId は退所時に必須です",
+		);
 	}
 	// 2つ以上あると、どちらで照合するか曖昧なため 400 にする
 	if (values.length > 1) {
@@ -117,6 +119,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 		if (requiresReverification(parsed.data)) {
 			const reverification = await checkReverification();
 			if (reverification) return reverification;
+			// PATCH の退所でも、確認した割当（または未割当）を必ず照合する。
+			// 同じ値を exitElder のトランザクションに渡すため、照合と更新の間に
+			// 別の割当が作られた場合は 409 になり、更新も監査記録もロールバックされる。
+			const expectedAssignmentId = parseExpectedAssignmentId(request);
+			const elder = await updateElder(
+				id,
+				parsed.data,
+				actor.id,
+				expectedAssignmentId,
+			);
+			if (!elder) {
+				return NextResponse.json(
+					{ error: "No fields to update" },
+					{ status: 400 },
+				);
+			}
+
+			return NextResponse.json(elder);
 		}
 
 		const elder = await updateElder(id, parsed.data, actor.id);
