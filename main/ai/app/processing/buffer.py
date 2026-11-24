@@ -1,6 +1,218 @@
-"""デバイス別の時系列 Buffer 管理（未実装）。
+"""単一Workerが所有する、デバイス別の連続時系列Buffer。
 
-SensorSample の連続区間を保持し、100 点・6 軸の immutable Window を返す。
-点数不足では Window を返さず、欠落や切断を跨いだ Window は生成しない。
-受信 Queue とは別に、単一 Pipeline Worker がこの状態を管理する。
+Window生成はAI-11、MQTT/Pipelineとの接続はAI-15の責務である。このモジュールは
+検証済みかつACTIVEな ``SensorSample`` の連続区間だけをRAMに保持する。
 """
+
+from __future__ import annotations
+
+from collections import deque
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from math import isfinite
+
+from app.domain.sensor import SensorSample
+
+WINDOW_SIZE = 100
+MAX_DEVICES = 128
+
+
+class BufferCapacityError(RuntimeError):
+    """新規デバイスのBufferを作成できない。"""
+
+
+class AppendOutcome(StrEnum):
+    """入力1点の受理結果。呼出側は安全な理由コードとしてだけ利用する。"""
+
+    ACCEPTED = "accepted"
+    DUPLICATE = "duplicate"
+    OUT_OF_ORDER = "out_of_order"
+    DISCONTINUITY = "discontinuity"
+    STALE = "stale"
+    FUTURE = "future"
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuityPolicy:
+    """担当者が合意した時刻境界を渡す。
+
+    数値は呼出側が明示して渡す。この層は未合意の値を推測せず、境界がないまま
+    連続性検査を無効化することも許可しない。
+    """
+
+    min_interval: timedelta
+    max_interval: timedelta
+    max_sample_age: timedelta
+    max_future_skew: timedelta
+    offline_after: timedelta
+
+    def __post_init__(self) -> None:
+        for value in (
+            self.min_interval,
+            self.max_interval,
+            self.max_sample_age,
+            self.max_future_skew,
+            self.offline_after,
+        ):
+            if value <= timedelta(0):
+                raise ValueError("continuity_policy")
+        if self.min_interval > self.max_interval:
+            raise ValueError("continuity_policy")
+
+
+@dataclass(slots=True)
+class _DeviceBuffer:
+    samples: deque[SensorSample]
+    generation: int
+    last_measured_at: datetime | None
+    last_active_monotonic: float
+
+
+class BufferManager:
+    """最大128デバイスの連続サンプルを保持する。
+
+    MQTT callbackから呼ばない。呼出しは単一Pipeline Workerに限定するため、このクラスは
+    lockを持たない。Bufferの各dequeは最大100点で、reset後のサンプルだけを保持する。
+    """
+
+    def __init__(
+        self,
+        *,
+        policy: ContinuityPolicy,
+        max_devices: int = MAX_DEVICES,
+    ) -> None:
+        if not 1 <= max_devices <= MAX_DEVICES:
+            raise ValueError("max_devices")
+        self.policy = policy
+        self.max_devices = max_devices
+        self._buffers: dict[str, _DeviceBuffer] = {}
+
+    def __len__(self) -> int:
+        return len(self._buffers)
+
+    def append(
+        self,
+        sample: SensorSample,
+        *,
+        generation: int,
+        now_monotonic: float,
+        now_utc: datetime,
+    ) -> AppendOutcome:
+        """連続性を満たす1点だけを保持する。
+
+        重複と逆行は点数を増やさない。逆行・時刻境界違反では既存区間を削除し、現在の点も
+        採用しない。間隔異常では既存区間を削除した後、現在の点を新しい区間の先頭にする。
+        """
+        self._validate_sample(sample, now_monotonic)
+        now_utc = self._validate_now_utc(now_utc)
+
+        state = self._buffers.get(sample.device_code)
+        if self._is_stale(sample, now_utc):
+            self.reset(sample.device_code, reason="stale")
+            return AppendOutcome.STALE
+        if self._is_future(sample, now_utc):
+            self.reset(sample.device_code, reason="future")
+            return AppendOutcome.FUTURE
+
+        if state is None:
+            state = self._create(sample.device_code, generation, now_monotonic)
+        elif state.generation != generation:
+            self._reset_state(state, generation, now_monotonic)
+
+        previous = state.last_measured_at
+        if previous is not None:
+            if sample.measured_at == previous:
+                return AppendOutcome.DUPLICATE
+            if sample.measured_at < previous:
+                self.reset(sample.device_code, reason="out_of_order")
+                return AppendOutcome.OUT_OF_ORDER
+            if self._has_interval_discontinuity(sample.measured_at - previous):
+                self._reset_state(state, generation, now_monotonic)
+                outcome = AppendOutcome.DISCONTINUITY
+            else:
+                outcome = AppendOutcome.ACCEPTED
+        else:
+            outcome = AppendOutcome.ACCEPTED
+
+        state.samples.append(sample)
+        state.last_measured_at = sample.measured_at
+        state.last_active_monotonic = now_monotonic
+        return outcome
+
+    def reset(self, device_code: str, *, reason: str) -> bool:
+        """指定デバイスの連続区間を破棄する。reasonは呼出側の安全なログ用。"""
+        del reason
+        return self._buffers.pop(device_code, None) is not None
+
+    def reset_all(self, *, reason: str) -> int:
+        """切断・Queue欠落などで全デバイスの連続区間を破棄する。"""
+        del reason
+        count = len(self._buffers)
+        self._buffers.clear()
+        return count
+
+    def expire(self, *, now_monotonic: float) -> tuple[str, ...]:
+        """OFFLINE期限を超えたデバイスを削除する。"""
+        if not isfinite(now_monotonic):
+            raise ValueError("now_monotonic")
+        expired = tuple(
+            code
+            for code, state in self._buffers.items()
+            if now_monotonic - state.last_active_monotonic
+            >= self.policy.offline_after.total_seconds()
+        )
+        for code in expired:
+            del self._buffers[code]
+        return expired
+
+    def _create(
+        self, device_code: str, generation: int, now_monotonic: float
+    ) -> _DeviceBuffer:
+        if len(self._buffers) >= self.max_devices:
+            raise BufferCapacityError("buffer_capacity")
+        state = _DeviceBuffer(
+            deque(maxlen=WINDOW_SIZE), generation, None, now_monotonic
+        )
+        self._buffers[device_code] = state
+        return state
+
+    @staticmethod
+    def _reset_state(
+        state: _DeviceBuffer, generation: int, now_monotonic: float
+    ) -> None:
+        state.samples.clear()
+        state.generation = generation
+        state.last_measured_at = None
+        state.last_active_monotonic = now_monotonic
+
+    def _validate_now_utc(self, now_utc: datetime) -> datetime:
+        if now_utc.tzinfo is None or now_utc.utcoffset() is None:
+            raise ValueError("now_utc")
+        return now_utc.astimezone(UTC)
+
+    def _is_stale(self, sample: SensorSample, now_utc: datetime) -> bool:
+        return sample.measured_at < now_utc - self.policy.max_sample_age
+
+    def _is_future(self, sample: SensorSample, now_utc: datetime) -> bool:
+        return sample.measured_at > now_utc + self.policy.max_future_skew
+
+    def _has_interval_discontinuity(self, interval: timedelta) -> bool:
+        return (
+            interval < self.policy.min_interval or interval > self.policy.max_interval
+        )
+
+    @staticmethod
+    def _validate_sample(sample: SensorSample, now_monotonic: float) -> None:
+        values = (*sample.accelerometer, *sample.gyroscope)
+        if (
+            not sample.device_code
+            or sample.measured_at.tzinfo is None
+            or sample.measured_at.utcoffset() is None
+            or not isfinite(now_monotonic)
+        ):
+            raise ValueError("sample")
+        if len(values) != 6 or not all(
+            type(value) in (int, float) and isfinite(value) for value in values
+        ):
+            raise ValueError("sample_values")
