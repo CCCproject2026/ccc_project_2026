@@ -129,6 +129,7 @@ Broker切断だけではliveを落とさず、inputを503にします。
 | `MQTT_TLS` | false。TLS利用時はtrue、通常port=8883 |
 | `MQTT_CA_FILE` | 空ならOS標準CA。指定時はTLS必須 |
 | `MQTT_USERNAME`, `MQTT_PASSWORD` | 空。認証利用時に設定 |
+| `OFFLINE_TIMEOUT_SECONDS` | 未設定ならOFFLINE削除を行わない。合意した正の秒数を設定すると、Workerが期限切れ連続Bufferを破棄する |
 | `DEVICE_API_URL` | WebのHTTPS origin。`/api`は含めない |
 | `DEVICE_API_TOKEN` | Webと共通の32文字以上の専用参照トークン |
 
