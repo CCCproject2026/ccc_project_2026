@@ -6,6 +6,7 @@ import {
 } from "@/features/device-management/server/assignment-service";
 import { printDeviceOperation } from "@/features/device-management/server/audit";
 import { runDeviceTransaction } from "@/features/device-management/server/device-db";
+import { ApiError } from "@/shared/lib/api-error";
 import { prisma } from "@/shared/lib/prisma";
 import type {
 	CreateElderInput,
@@ -164,6 +165,7 @@ export async function updateElder(
 	id: string,
 	input: UpdateElderInput,
 	actorId: string,
+	expectedAssignmentId?: ExpectedExitAssignment,
 ) {
 	const { firstName, lastName, roomNumber, dateOfBirth, gender, status } =
 		input;
@@ -180,10 +182,18 @@ export async function updateElder(
 		return null;
 	}
 
-	// 退所を含む更新は、割当の終了と同じトランザクションで行う
-	// PATCH は確認ダイアログを通らない（画面からは使っていない）ため、割当の照合はしない
+	// 退所を含む更新は、割当の終了と同じトランザクションで行う。
+	// Route Handler が expectedAssignmentId を必須にするが、サービスを直接使う経路でも
+	// 照合なしの退所に戻らないよう、ここでも拒否する。
 	if (status === "INACTIVE") {
-		return exitElder(id, updateData, actorId, undefined);
+		if (expectedAssignmentId === undefined) {
+			throw new ApiError(
+				400,
+				"INVALID_INPUT",
+				"expectedAssignmentId は退所時に必須です",
+			);
+		}
+		return exitElder(id, updateData, actorId, expectedAssignmentId);
 	}
 
 	const elder = await prisma.elder.update({
