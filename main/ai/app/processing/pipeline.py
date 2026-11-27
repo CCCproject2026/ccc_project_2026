@@ -1,6 +1,7 @@
 """受信Queueを処理する単一Worker。入力検証とDevice利用可否を担当する。"""
 
 import logging
+from datetime import UTC, datetime, timedelta
 from queue import Empty
 from threading import Event, Thread
 from time import monotonic
@@ -10,7 +11,11 @@ from app.core.config import Settings
 from app.domain.sensor import InvalidSensorBatch, SensorBatch
 from app.integrations.device import DeviceApiClient, DeviceManager
 from app.integrations.mqtt_client import MqttConnection, MqttSensorInput
-from app.processing.buffer import BufferCapacityError, BufferManager
+from app.processing.buffer import (
+    BufferCapacityError,
+    BufferManager,
+    ContinuityPolicy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +30,16 @@ class InputPipeline:
         self.accepted_samples = 0
         self.rejected_batches = 0
         # Bufferの状態もWorkerだけが変更する。推論・結果送信はAI-15以降で接続する。
+        # ContinuityPolicyの数値は開発用候補。担当者合意前に本番値として扱わない。
         self.buffer_manager = BufferManager(
-            step=settings.window_step,
-            offline_after_seconds=settings.offline_timeout_seconds,
+            policy=ContinuityPolicy(
+                min_interval=timedelta(milliseconds=1),
+                max_interval=timedelta(seconds=1),
+                max_sample_age=timedelta(seconds=60),
+                max_future_skew=timedelta(seconds=5),
+                offline_after=timedelta(seconds=30),
+            ),
+            window_step=settings.window_step,
         )
         self.device_manager = (
             DeviceManager(DeviceApiClient(settings), self._reset_device)
@@ -123,18 +135,23 @@ class InputPipeline:
         with self.connection.state_lock:
             self._ensure_current_batch(batch)
         windows = []
+        now_utc = datetime.now(UTC)
         try:
             for sample in batch.samples:
-                window = self.buffer_manager.append(
+                result = self.buffer_manager.append(
                     sample,
                     generation=batch.generation,
                     now_monotonic=monotonic(),
+                    now_utc=now_utc,
                 )
-                if window is not None:
-                    windows.append(window)
+                if result.window is not None:
+                    windows.append(result.window)
         except BufferCapacityError as error:
             # codeは生payloadに由来するため出力せず、安全な理由だけを返す。
             raise InvalidSensorBatch(str(error)) from None
+        except ValueError as error:
+            # decode通過後の境界値異常はWorkerを落とさず、安全な理由で拒否する。
+            raise InvalidSensorBatch("invalid_sample") from error
         with self.connection.state_lock:
             self._ensure_current_batch(batch)
             self.accepted_batches += 1
