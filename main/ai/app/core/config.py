@@ -34,6 +34,10 @@ class Settings:
     scaler_path: str = ""
     model_version: str = ""
     offline_timeout_seconds: float | None = None
+    buffer_min_gap_seconds: float | None = None
+    buffer_max_gap_seconds: float | None = None
+    buffer_max_sample_age_seconds: float | None = None
+    buffer_max_future_skew_seconds: float | None = None
 
     QUEUE_CAPACITY: ClassVar[int] = 16
     SHUTDOWN_TIMEOUT_SECONDS: ClassVar[float] = 5.0
@@ -76,11 +80,23 @@ class Settings:
             raise ValueError("INFERENCE_THRESHOLD: 0.5 のみ対応しています")
         if not 1 <= self.mqtt_port <= 65535:
             raise ValueError("MQTT_PORT: 1〜65535 を指定してください")
-        if self.offline_timeout_seconds is not None and (
-            not isfinite(self.offline_timeout_seconds)
-            or self.offline_timeout_seconds <= 0
+        for name, value in (
+            ("OFFLINE_TIMEOUT_SECONDS", self.offline_timeout_seconds),
+            ("BUFFER_MIN_GAP_SECONDS", self.buffer_min_gap_seconds),
+            ("BUFFER_MAX_GAP_SECONDS", self.buffer_max_gap_seconds),
+            ("BUFFER_MAX_SAMPLE_AGE_SECONDS", self.buffer_max_sample_age_seconds),
+            ("BUFFER_MAX_FUTURE_SKEW_SECONDS", self.buffer_max_future_skew_seconds),
         ):
-            raise ValueError("OFFLINE_TIMEOUT_SECONDS: 正の秒数を指定してください")
+            if value is not None and (not isfinite(value) or value <= 0):
+                raise ValueError(f"{name}: 正の秒数を指定してください")
+        if (
+            self.buffer_min_gap_seconds is not None
+            and self.buffer_max_gap_seconds is not None
+            and self.buffer_min_gap_seconds > self.buffer_max_gap_seconds
+        ):
+            raise ValueError(
+                "BUFFER_MIN_GAP_SECONDS: BUFFER_MAX_GAP_SECONDS以下にしてください"
+            )
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -96,12 +112,14 @@ class Settings:
         tls = source.get("MQTT_TLS", "false").lower()
         if tls not in ("true", "false"):
             raise ValueError("MQTT_TLS: true / false を指定してください")
-        offline_timeout = source.get("OFFLINE_TIMEOUT_SECONDS", "")
-        offline_timeout_seconds = (
-            None
-            if offline_timeout == ""
-            else number("OFFLINE_TIMEOUT_SECONDS", offline_timeout, float)
-        )
+
+        def optional_number(name: str, convert: type[Number]) -> Number | None:
+            value = source.get(name, "")
+            if value == "":
+                return None
+            return number(name, value, convert)
+
+        offline_timeout_seconds = optional_number("OFFLINE_TIMEOUT_SECONDS", float)
 
         return cls(
             window_size=number("WINDOW_SIZE", "100", int),
@@ -123,4 +141,12 @@ class Settings:
             scaler_path=source.get("SCALER_PATH", ""),
             model_version=source.get("MODEL_VERSION", ""),
             offline_timeout_seconds=offline_timeout_seconds,
+            buffer_min_gap_seconds=optional_number("BUFFER_MIN_GAP_SECONDS", float),
+            buffer_max_gap_seconds=optional_number("BUFFER_MAX_GAP_SECONDS", float),
+            buffer_max_sample_age_seconds=optional_number(
+                "BUFFER_MAX_SAMPLE_AGE_SECONDS", float
+            ),
+            buffer_max_future_skew_seconds=optional_number(
+                "BUFFER_MAX_FUTURE_SKEW_SECONDS", float
+            ),
         )

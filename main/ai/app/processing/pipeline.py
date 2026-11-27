@@ -1,6 +1,7 @@
 """受信Queueを処理する単一Worker。入力検証とDevice利用可否を担当する。"""
 
 import logging
+from datetime import UTC, datetime
 from queue import Empty
 from threading import Event, Thread
 from time import monotonic
@@ -25,9 +26,14 @@ class InputPipeline:
         self.accepted_samples = 0
         self.rejected_batches = 0
         # Bufferの状態もWorkerだけが変更する。推論・結果送信はAI-15以降で接続する。
+        # 時刻境界は未合意のため、明示設定された場合だけ有効化する。
         self.buffer_manager = BufferManager(
             step=settings.window_step,
             offline_after_seconds=settings.offline_timeout_seconds,
+            max_gap_seconds=settings.buffer_max_gap_seconds,
+            min_gap_seconds=settings.buffer_min_gap_seconds,
+            max_sample_age_seconds=settings.buffer_max_sample_age_seconds,
+            max_future_skew_seconds=settings.buffer_max_future_skew_seconds,
         )
         self.device_manager = (
             DeviceManager(DeviceApiClient(settings), self._reset_device)
@@ -123,12 +129,14 @@ class InputPipeline:
         with self.connection.state_lock:
             self._ensure_current_batch(batch)
         windows = []
+        now_utc = datetime.now(UTC)
         try:
             for sample in batch.samples:
                 window = self.buffer_manager.append(
                     sample,
                     generation=batch.generation,
                     now_monotonic=monotonic(),
+                    now_utc=now_utc,
                 )
                 if window is not None:
                     windows.append(window)
