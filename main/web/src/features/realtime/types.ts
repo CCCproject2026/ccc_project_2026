@@ -21,6 +21,10 @@ export type UnhandledAlert = {
 	lastDetectedAt: Date;
 	fallCount: number;
 	late: boolean; // R4 で古いと判定した（遅れて届いた）
+	// unhandled = 未対応、in_progress = 対応中（対応開始済み・記録が未完了）
+	// 記録を保存したアラートは一覧から外す
+	status: "unhandled" | "in_progress";
+	responseStartedAt: Date | null; // 「対応開始」を押した時刻
 };
 
 /** 機器の割当（サーバーから props で受け取る。日時は ISO 8601 の文字列） */

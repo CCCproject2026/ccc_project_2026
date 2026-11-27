@@ -38,6 +38,10 @@ export function TopBarClient({ count }: { count: number }) {
 	if (pathname.startsWith("/devices/")) {
 		meta = { title: "デバイス詳細", breadcrumb: "デバイス管理" };
 	}
+	// 入所者詳細（/dashboard/[id]）も同じく前方一致で決める
+	if (pathname.startsWith("/dashboard/")) {
+		meta = { title: "入所者詳細", breadcrumb: "ダッシュボード" };
+	}
 
 	return (
 		<TopBar

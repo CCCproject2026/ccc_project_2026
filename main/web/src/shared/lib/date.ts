@@ -46,6 +46,32 @@ export function formatJapaneseDate(value: Date): string {
 	return `${year}年${month}月${day}日`;
 }
 
+// 2つの日時の間の長さ。例: 1分未満、3分、1時間5分（対応記録の所要時間などに使う）
+export function formatDuration(start: Date, end: Date): string {
+	const minutes = Math.floor((end.getTime() - start.getTime()) / 60000);
+	if (minutes < 1) return "1分未満";
+	if (minutes < 60) return `${minutes}分`;
+	const hours = Math.floor(minutes / 60);
+	const rest = minutes % 60;
+	return rest === 0 ? `${hours}時間` : `${hours}時間${rest}分`;
+}
+
+// 日時を、日本時間の「2026/10/28 14:05」の形にする（表など、幅の狭い場所に表示する用）
+export function formatSlashDateTime(value: Date): string {
+	// "en-CA" + hourCycle h23 で "2026-10-28, 14:05" の形になる
+	const text = value.toLocaleString("en-CA", {
+		timeZone: "Asia/Tokyo",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hourCycle: "h23",
+	});
+	const [datePart, timePart] = text.split(", ");
+	return `${datePart.replaceAll("-", "/")} ${timePart}`;
+}
+
 // 日時（DB の Timestamptz など）を、日本時間の「2026年10月28日 14:05」の形にする（画面に表示する用）
 // サーバーは UTC で動くことが多いので、timeZone で日本時間を指定する
 export function formatJapaneseDateTime(value: Date): string {

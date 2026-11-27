@@ -18,6 +18,8 @@ const isPublicRoute = createRouteMatcher([
 	// 受信の接続情報 API も、handler の requireStaff で 401 / 403 を返す（理由は上と同じ）
 	// ここに route を増やすときは、必ず handler で requireStaff を呼ぶこと
 	"/api/realtime/(.*)",
+	// 対応記録 API も handler の requireStaff で 401 / 403 を返す（理由は上と同じ）
+	"/api/response-records",
 	// AI専用GETはhandlerでBearer認証する。その他のDevice APIは公開しない。
 	"/api/devices/by-code/([^/]+)",
 ]);

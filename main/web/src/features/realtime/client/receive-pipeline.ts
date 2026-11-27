@@ -126,9 +126,11 @@ export function receiveEvent(
 	// R6: detected_at の時点で有効な割当を探す。見つからなくても fall は捨てない
 	const elder = findElder(directory, event.deviceCode, event.detectedAt);
 
-	// R7: 同じ機器の未対応アラートがあれば、件数と検知時刻をまとめる
+	// R7: 同じ機器の「未対応」アラートがあれば、件数と検知時刻をまとめる
+	// 対応開始後に届いた fall は、別のアラートにする（Web基本設計「アラートと対応操作」）
 	const index = next.alerts.findIndex(
-		(alert) => alert.deviceCode === event.deviceCode,
+		(alert) =>
+			alert.deviceCode === event.deviceCode && alert.status === "unhandled",
 	);
 	if (index !== -1) {
 		const existing = next.alerts[index];
@@ -161,6 +163,8 @@ export function receiveEvent(
 		lastDetectedAt: event.detectedAt,
 		fallCount: 1,
 		late,
+		status: "unhandled",
+		responseStartedAt: null,
 	};
 	next = { ...next, alerts: sortAlerts([...next.alerts, alert]) };
 
@@ -169,6 +173,39 @@ export function receiveEvent(
 		return { state: next, outcome: "late", newAlert: null };
 	}
 	return { state: next, outcome: "new_alert", newAlert: alert };
+}
+
+/**
+ * 「対応開始」: 未対応 → 対応中にする。
+ * すでに対応中なら何もしない（最初に押した時刻を残す）。
+ */
+export function startResponse(
+	state: ReceiverState,
+	alertId: string,
+	now: Date,
+): ReceiverState {
+	const alerts = state.alerts.map((alert) => {
+		if (alert.alertId !== alertId || alert.status !== "unhandled") {
+			return alert;
+		}
+		return {
+			...alert,
+			status: "in_progress" as const,
+			responseStartedAt: now,
+		};
+	});
+	return { ...state, alerts };
+}
+
+/** 対応記録を保存できたアラートを一覧から外す */
+export function completeAlert(
+	state: ReceiverState,
+	alertId: string,
+): ReceiverState {
+	return {
+		...state,
+		alerts: state.alerts.filter((alert) => alert.alertId !== alertId),
+	};
 }
 
 // ===== 以下は receiveEvent の中だけで使う小さな関数 =====

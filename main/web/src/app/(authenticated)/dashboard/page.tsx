@@ -1,3 +1,4 @@
+import { AlarmSoundController } from "@/features/alarm/components/AlarmSoundController";
 import { dashboardPageNumber } from "@/features/dashboard/lib/resident-profile";
 import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
 import { FallAlertList } from "@/features/realtime/components/FallAlertList";
@@ -18,6 +19,7 @@ export default async function DashboardRoute({
 			<div className="flex flex-col gap-4 max-w-[1600px] mx-auto w-full">
 				{/* AI の判定結果の受信状態と、転倒の可能性（未対応）の一覧 */}
 				<ReceiverStatus />
+				<AlarmSoundController />
 				<FallAlertList />
 			</div>
 			{/* 統計カードや入居者一覧カードが入ったメインコンテンツ */}

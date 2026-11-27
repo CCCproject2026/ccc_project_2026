@@ -1,5 +1,11 @@
 import type { UserRole } from "@prisma/client";
-import { Cpu, LayoutDashboard, UserPlus, Users } from "lucide-react";
+import {
+	ClipboardList,
+	Cpu,
+	LayoutDashboard,
+	UserPlus,
+	Users,
+} from "lucide-react";
 import Link from "next/link";
 import { MobileSignOutButton } from "./MobileSignOutButton";
 import { SiberHeader } from "./SiberHeader";
@@ -49,6 +55,12 @@ export function Sidebar({ role, lastName, firstName }: SidebarProps) {
 							href="/elders"
 							label="高齢者管理"
 							icon={<UserPlus className="w-5 h-5" />}
+						/>
+						{/* 対応履歴は全員が見られる（Web基本設計「権限」） */}
+						<SidebarItem
+							href="/response"
+							label="対応履歴"
+							icon={<ClipboardList className="w-5 h-5" />}
 						/>
 					</nav>
 

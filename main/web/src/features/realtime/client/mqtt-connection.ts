@@ -126,11 +126,14 @@ export function startFallConnection(
 
 		setStatus({ kind: "connecting" });
 		// mqtt は大きいので、ブラウザで必要になったときだけ読み込む
-		const mqtt = await import("mqtt");
+		// 注意: ブラウザ用の mqtt（dist/mqtt.esm.js）は default export しか持たない。
+		// Node 用（build/index.js）は名前付きの connect を持つので、両方に対応する
+		const mqttModule = await import("mqtt");
 		if (stopped || myGeneration !== generation) return;
+		const connect = mqttModule.default?.connect ?? mqttModule.connect;
 
 		const { url, username, password } = result.credentials;
-		const newClient = mqtt.connect(url, {
+		const newClient = connect(url, {
 			protocolVersion: 4, // MQTT 3.1.1（AI 側と同じ）
 			clean: true, // 切断中の結果をためない
 			clientId: randomClientId(), // タブごとに違う ID（同じだと他のタブが切られる）

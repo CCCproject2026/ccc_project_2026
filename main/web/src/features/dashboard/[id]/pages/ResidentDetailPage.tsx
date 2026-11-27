@@ -1,13 +1,24 @@
-import { ChevronLeft, User } from "lucide-react";
+import { ArrowLeft, User } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DeviceStatusPanel } from "@/features/dashboard/[id]/components/DeviceStatusPanel";
+import { ResponseHistoryTable } from "@/features/dashboard/components/ResponseHistoryTable";
 import { residentAge } from "@/features/dashboard/lib/resident-profile";
-import { getDashboardResident } from "@/features/dashboard/server/dashboard-service";
-import { formatJapaneseDate } from "@/shared/lib/date";
+import {
+	getDashboardResident,
+	getResidentActivity,
+} from "@/features/dashboard/server/dashboard-service";
+import {
+	formatDuration,
+	formatJapaneseDate,
+	formatSlashDateTime,
+} from "@/shared/lib/date";
 
 export async function ResidentDetailPage({ id }: { id: string }) {
 	const resident = await getDashboardResident(id);
 	if (!resident) notFound();
+	const activity = await getResidentActivity(resident.id);
+
 	const residentDetail = {
 		name: `${resident.lastName} ${resident.firstName}`.trim() || "氏名未登録",
 		age: residentAge(resident.dateOfBirth),
@@ -15,29 +26,41 @@ export async function ResidentDetailPage({ id }: { id: string }) {
 		birthday: formatJapaneseDate(resident.dateOfBirth),
 	};
 
+	// DB の対応記録を、表に出す文字列にする
+	const history = activity.records.map((record) => ({
+		id: record.id,
+		startedAt: formatSlashDateTime(record.responseStartedAt),
+		completedAt: formatSlashDateTime(record.completedAt),
+		duration: formatDuration(record.responseStartedAt, record.completedAt),
+		isActualFall: record.isActualFall,
+		staff:
+			`${record.staff.lastName} ${record.staff.firstName}`.trim() ||
+			"氏名未登録",
+		memo: record.content,
+	}));
+	const totalCount = activity.fallCount + activity.falseAlarmCount;
+
 	return (
-		<>
-			{/* Back link */}
-			<div className="mb-4">
+		<div className="flex flex-col gap-6">
+			<div>
 				<Link
 					href="/dashboard"
-					className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+					className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
 				>
-					<ChevronLeft className="w-4 h-4" />
-					ダッシュボードに戻る
+					<ArrowLeft aria-hidden="true" className="w-4 h-4" />
+					一覧に戻る
 				</Link>
 			</div>
 
-			{/* 一覧と同じ DB の高齢者情報を表示する。 */}
-			<div className="grid grid-cols-1 gap-6 mb-6">
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				{/* 入所者情報 */}
 				<article className="bg-white rounded-xl border border-gray-200 p-6">
 					<h2 className="text-h3 font-semibold text-gray-800 mb-4 flex items-center gap-2">
-						<User className="w-4 h-4 text-primary" />
+						<User aria-hidden="true" className="w-4 h-4 text-primary" />
 						入所者情報
 					</h2>
-					<div className="flex items-center gap-3 mb-5">
-						<div className="w-12 h-12 rounded-full bg-primary-bg flex items-center justify-center text-primary-dark font-bold text-lg shrink-0">
+					<div className="flex items-center gap-4 mb-5">
+						<div className="w-16 h-16 rounded-2xl bg-primary-bg flex items-center justify-center text-primary-dark font-bold text-2xl shrink-0">
 							{residentDetail.name.charAt(0)}
 						</div>
 						<div>
@@ -47,29 +70,52 @@ export async function ResidentDetailPage({ id }: { id: string }) {
 							<p className="text-sm text-gray-400">{residentDetail.age}歳</p>
 						</div>
 					</div>
-					<div className="text-sm space-y-3 border-t border-gray-100 pt-4 mb-5">
+					<dl className="text-sm space-y-3 mb-5">
 						<div className="flex justify-between">
-							<span className="text-gray-500">居室番号</span>
-							<span className="text-gray-800 font-medium">
+							<dt className="text-gray-500">居室番号</dt>
+							<dd className="text-gray-800 font-semibold">
 								{residentDetail.room}
-							</span>
+							</dd>
 						</div>
 						<div className="flex justify-between">
-							<span className="text-gray-500">生年月日</span>
-							<span className="text-gray-800 font-medium">
+							<dt className="text-gray-500">生年月日</dt>
+							<dd className="text-gray-800 font-semibold">
 								{residentDetail.birthday}
-							</span>
+							</dd>
 						</div>
 						<div className="flex justify-between">
-							<span className="text-gray-500">年齢</span>
-							<span className="text-gray-800 font-medium">
+							<dt className="text-gray-500">年齢</dt>
+							<dd className="text-gray-800 font-semibold">
 								{residentDetail.age}歳
-							</span>
+							</dd>
 						</div>
-					</div>
+					</dl>
+
+					{/* 対応記録の件数（スタッフが記録した結果。AI の判定件数ではない） */}
+					<dl className="grid grid-cols-3 divide-x divide-gray-200 rounded-xl bg-gray-50 py-4 text-center">
+						<div>
+							<dd className="text-2xl font-bold text-alarm">
+								{activity.fallCount}
+							</dd>
+							<dt className="text-xs text-gray-500">転倒</dt>
+						</div>
+						<div>
+							<dd className="text-2xl font-bold text-gray-500">
+								{activity.falseAlarmCount}
+							</dd>
+							<dt className="text-xs text-gray-500">誤検知</dt>
+						</div>
+						<div>
+							<dd className="text-2xl font-bold text-primary">{totalCount}</dd>
+							<dt className="text-xs text-gray-500">合計</dt>
+						</div>
+					</dl>
 				</article>
+
+				<DeviceStatusPanel device={activity.device} />
 			</div>
-			{/* DB の入居者に無関係なモックの端末・対応履歴を紐づけない。別タスクで連携する。 */}
-		</>
+
+			<ResponseHistoryTable history={history} totalCount={totalCount} />
+		</div>
 	);
 }

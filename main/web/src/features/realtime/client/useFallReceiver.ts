@@ -2,7 +2,7 @@
 
 // 接続（mqtt-connection）と判定（receive-pipeline）をつなぎ、状態を持つ hook
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
 	ConnectionStatus,
 	DeviceAssignmentEntry,
@@ -12,15 +12,23 @@ import type {
 import { startFallConnection } from "./mqtt-connection";
 import { parseFallEvent } from "./parse-fall-event";
 import {
+	completeAlert as completeAlertInState,
 	createInitialState,
 	type ReceiverState,
 	receiveEvent,
 	recordDrop,
+	startResponse as startResponseInState,
 } from "./receive-pipeline";
 
 export type FallReceiver = {
 	connection: ConnectionStatus;
 	state: ReceiverState;
+	/** 新しいアラートの合図が出た回数。増えたらアラーム音を鳴らす（Server から関数を渡せないため数で知らせる） */
+	newAlertCount: number;
+	/** 「対応開始」: 未対応 → 対応中 */
+	startResponse: (alertId: string) => void;
+	/** 対応記録を保存できたら、一覧から外す */
+	completeAlert: (alertId: string) => void;
 };
 
 export function useFallReceiver(
@@ -32,6 +40,7 @@ export function useFallReceiver(
 		kind: "fetching_credentials",
 	});
 	const [state, setState] = useState<ReceiverState>(createInitialState);
+	const [newAlertCount, setNewAlertCount] = useState(0);
 
 	// MQTT のコールバックから最新の値を読むため、ref にも持つ。
 	// （useReducer だと、合図 onNewAlert を出すかどうかを同じ場所で決められないため）
@@ -85,6 +94,7 @@ export function useFallReceiver(
 				);
 				applyState(result.state);
 				if (result.newAlert !== null) {
+					setNewAlertCount((count) => count + 1);
 					onNewAlertRef.current?.(result.newAlert);
 				}
 			} catch {
@@ -102,5 +112,18 @@ export function useFallReceiver(
 		return () => connectionHandle.stop();
 	}, []);
 
-	return { connection, state };
+	// 画面の操作から状態を変える。stateRef と React の状態を一緒に更新する
+	const startResponse = useCallback((alertId: string) => {
+		const next = startResponseInState(stateRef.current, alertId, new Date());
+		stateRef.current = next;
+		setState(next);
+	}, []);
+
+	const completeAlert = useCallback((alertId: string) => {
+		const next = completeAlertInState(stateRef.current, alertId);
+		stateRef.current = next;
+		setState(next);
+	}, []);
+
+	return { connection, state, newAlertCount, startResponse, completeAlert };
 }
