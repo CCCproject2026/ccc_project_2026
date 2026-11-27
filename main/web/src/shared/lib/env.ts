@@ -26,6 +26,24 @@ const serverEnvSchema = z.object({
 	// 設定する場合は、URL の形でなければ起動を止める（壊れた招待リンクを送らないため）
 	// 空文字（APP_URL=）は「未設定」と同じ扱い（getSignUpUrl() と合わせる）
 	APP_URL: z.union([z.literal(""), appUrlSchema]).optional(),
+	// ブラウザが AI の判定結果を受け取る Broker（MQTT over WebSocket）の接続先
+	// 任意：未設定なら GET /api/realtime/credentials は 503 を返す（他の画面は使える）
+	// NEXT_PUBLIC_ にしない。ログイン中の ACTIVE なスタッフにだけ API で渡す
+	MQTT_BROWSER_WS_URL: z
+		.union([
+			z.literal(""),
+			z
+				.url("MQTT_BROWSER_WS_URL は URL の形式で指定してください")
+				.refine(
+					(value) => value.startsWith("ws://") || value.startsWith("wss://"),
+					"MQTT_BROWSER_WS_URL は ws:// または wss:// で始めてください",
+				),
+		])
+		.optional(),
+	// ブラウザ用の読み取り専用アカウント（fall/+/events の購読だけを ACL で許可する）
+	// 開発の匿名接続では空にする。Broker の管理者や AI・Device 用のものは入れない
+	MQTT_BROWSER_USERNAME: z.string().optional(),
+	MQTT_BROWSER_PASSWORD: z.string().optional(),
 	STAFF_TOKEN_SECRET: z
 		.string()
 		.refine(

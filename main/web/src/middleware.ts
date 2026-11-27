@@ -15,6 +15,9 @@ const isPublicRoute = createRouteMatcher([
 	// ここで auth.protect() を通すと、未ログインの API 呼び出しが 401 ではなく 404 になり、
 	// 画面で「ログインしてください」と案内できないため、middleware では止めない
 	"/api/staff(.*)",
+	// 受信の接続情報 API も、handler の requireStaff で 401 / 403 を返す（理由は上と同じ）
+	// ここに route を増やすときは、必ず handler で requireStaff を呼ぶこと
+	"/api/realtime/(.*)",
 	// AI専用GETはhandlerでBearer認証する。その他のDevice APIは公開しない。
 	"/api/devices/by-code/([^/]+)",
 ]);
