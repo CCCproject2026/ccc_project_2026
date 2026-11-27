@@ -30,10 +30,7 @@ function elderErrorResponse(operation: string, error: unknown) {
 		);
 	}
 	console.error(`${operation} error:`, error);
-	return NextResponse.json(
-		{ error: "Internal server error" },
-		{ status: 500 },
-	);
+	return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
 
 export async function GET(request: NextRequest) {

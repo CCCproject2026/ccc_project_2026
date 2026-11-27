@@ -371,8 +371,18 @@ export async function replaceDevice(
 // 退所の確定時に照合する「確認ダイアログで見せた割当」
 // - string    : その ID の割当が、今も有効な割当であること
 // - null      : 今も有効な割当がないこと
-// - undefined : 照合しない（確認ダイアログを通らない更新。PATCH で status を INACTIVE にする場合）
-export type ExpectedExitAssignment = string | null | undefined;
+export type ExpectedExitAssignment = string | null;
+
+// ロック後に読み直した割当が、退所を確認した時点の値と一致することを保証する。
+// この判定は Elder / DeviceAssignment / 監査記録を書き換える前に呼ぶ。
+export function assertExpectedExitAssignment(
+	expectedAssignmentId: ExpectedExitAssignment,
+	currentAssignmentId: string | null,
+) {
+	if (currentAssignmentId !== expectedAssignmentId) {
+		throw invalidState("ASSIGNMENT_CHANGED", ASSIGNMENT_CHANGED_MESSAGE);
+	}
+}
 
 // 退所のためのロックと照合。今の有効な割当を返す（なければ null）
 //
@@ -410,13 +420,9 @@ export async function lockForElderExit(
 		throw invalidState("ASSIGNMENT_CHANGED", ASSIGNMENT_CHANGED_MESSAGE);
 	}
 
-	// 4. 確認ダイアログを表示した後に、別のスタッフが割当を変えていたら 409 にする
-	if (expectedAssignmentId !== undefined) {
-		const currentAssignmentId = active?.id ?? null;
-		if (currentAssignmentId !== expectedAssignmentId) {
-			throw invalidState("ASSIGNMENT_CHANGED", ASSIGNMENT_CHANGED_MESSAGE);
-		}
-	}
+	// 4. 確認した後に、別のスタッフが割当を変えていたら 409 にする
+	const currentAssignmentId = active?.id ?? null;
+	assertExpectedExitAssignment(expectedAssignmentId, currentAssignmentId);
 
 	return active;
 }
