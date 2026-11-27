@@ -1,0 +1,53 @@
+name: Development Task
+description: 開発領域に合わせて空の設計書と実装計画を用意します。
+body:
+  - type: markdown
+    attributes:
+      value: "Task title はIssueのタイトル欄に記入してください。担当者はAssigneesにも設定してください。"
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: 目的、背景、対象範囲を記入してください。
+    validations:
+      required: true
+  - type: dropdown
+    id: development-area
+    attributes:
+      label: Development area
+      description: 複数領域・未確定の場合はOtherを選択してください。
+      options: [Web, AI Server, IoT, Other]
+    validations:
+      required: true
+  - type: input
+    id: priority
+    attributes:
+      label: Priority
+      description: チームで利用している優先度を記入してください。
+  - type: input
+    id: assignee
+    attributes:
+      label: Assignee
+      description: 担当者または未定と記入。実際の割当はAssigneesで設定してください。
+  - type: textarea
+    id: related-design
+    attributes:
+      label: Related design
+      description: 関連設計やLinear Taskへのリンクを記入してください。
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: 完了を確認できる条件を記入してください。
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: 先行Taskや他領域への依存関係を記入してください。
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: 制約や未決事項を記入してください。

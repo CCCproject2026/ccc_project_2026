@@ -1,8 +1,255 @@
-generator client {
-  provider = "prisma-client-js"
-}
+// =============================================================
+// データベース 詳細設計（Issue #126 / CCC-180）
+//
+// 基本設計  : docs/basic_design/database_basic.md
+// 詳細設計  : Issue #126 コメント（2026-09-23 v1.0）
+//
+// 方針:
+//  - 内部IDは cuid()、日時は timestamptz(3) で UTC 保存
+//  - 物理削除は行わない。User / Elder / Device は status で無効化する
+//  - 外部キーは RESTRICT。履歴データ(User, Elder)を消しても連鎖削除しない
+//  - Prismaで表現できない制約（部分一意インデックス・CHECK）は
+//    prisma/migrations/*/migration.sql で管理する
+// =============================================================
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ERD generator は devDependencies のみにあるため client だけを生成する
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "./ERD.md"
+}
+
+// ==========================================
+// Enum定義
+// ==========================================
+
+enum UserRole {
+  CAREGIVER // 介護士
+  NURSE // 看護師
+}
+
+enum UserStatus {
+  PENDING // 招待中（Clerk登録前）
+  ACTIVE // 登録完了（利用可能）
+  INACTIVE // 退職・利用終了（過去データは保持）
+}
+
+enum ElderStatus {
+  ACTIVE // 在籍中
+  INACTIVE // 逝去・退所（過去データは保持）
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum DeviceStatus {
+  ACTIVE // 利用中
+  INACTIVE // 故障・回収（過去データは保持）
+}
+
+// デバイス管理の操作の種類（DeviceOperationLog）。詳細設計 03 の10章
+enum DeviceOperationAction {
+  CREATE // 登録
+  UPDATE // 名前・コードの編集
+  CHANGE_STATUS // 状態変更
+  ASSIGN // 割当
+  UNASSIGN // 解除
+  TRANSFER // 付け替え
+  REPLACE // 故障交換
+  END_BY_ELDER_EXIT // 高齢者の退所による割当の終了
+}
+
+// ServerLog のログレベル。ONLINE / OFFLINE はAI側の接続状態であり、
+// DeviceStatus には含めない（詳細設計 §3）。
+enum ServerLogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+// ==========================================
+// 1. User（スタッフ）
+// ==========================================
+
+model User {
+  id           String     @id @default(cuid())
+  clerkUserId  String?    @unique // ClerkのユーザーID。招待中はNULL可
+  firstName    String
+  lastName     String
+  email        String     @unique
+  role         UserRole
+  startDate    DateTime   @db.Date // 利用開始日・入職日
+  endDate      DateTime?  @db.Date // 利用終了日・退職日
+  dateOfBirth  DateTime   @db.Date
+  nationality  String
+  gender      Gender
+  status       UserStatus @default(PENDING)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
+
+  // このスタッフが作成した対応記録
+  records ResponseRecord[]
+  // このスタッフが行ったデバイス管理の操作（Prisma 上の宣言だけで、列は増えない）
+  deviceOperationLogs DeviceOperationLog[]
+
+  @@index([status])
+  @@index([role, status])
+}
+
+// ==========================================
+// 2. Elder（高齢者）
+// ==========================================
+
+model Elder {
+  id          String      @id @default(cuid())
+  firstName   String
+  lastName    String
+  roomNumber  String // 駆けつけるための部屋番号
+  status      ElderStatus @default(ACTIVE)
+  dateOfBirth DateTime    @db.Date // 年齢は表示時に算出するため保存しない
+  gender      Gender
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  deviceAssignments DeviceAssignment[]
+  records           ResponseRecord[]
+
+  @@index([status])
+  @@index([lastName, firstName])
+}
+
+// ==========================================
+// 3. Device（IoTデバイス）
+// ==========================================
+
+model Device {
+  id           String       @id @default(cuid())
+  deviceCode   String       @unique // MACアドレス等。デバイス固有コード（Web側の serialCode に対応）
+  deviceName   String // 画面表示用
+  status       DeviceStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
+
+  assignments   DeviceAssignment[]
+  // このデバイスに対する操作の記録（Prisma 上の宣言だけで、列は増えない）
+  operationLogs DeviceOperationLog[]
+
+  @@index([status])
+}
+
+// ==========================================
+// 4. DeviceAssignment（高齢者とデバイスの割当履歴）
+//
+// 現在有効な割当は unassignedAt が NULL のレコード。
+// 解除後も削除せず、付け替えの履歴として残す。
+// 割当変更は旧割当の終了と新割当の作成を1トランザクションで行う。
+// ==========================================
+
+model DeviceAssignment {
+  id           String    @id @default(cuid())
+  elderId      String
+  deviceId     String
+  assignedAt   DateTime  @db.Timestamptz(3)
+  unassignedAt DateTime? @db.Timestamptz(3) // NULLは現在有効な割当
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
+
+  elder  Elder  @relation(fields: [elderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([elderId, assignedAt])
+  @@index([deviceId, assignedAt])
+  @@index([unassignedAt])
+}
+
+// ==========================================
+// 4-2. DeviceOperationLog（デバイス管理の操作の監査記録）
+//
+// DeviceAssignment と Device には操作者の列がないため、
+// 誰がいつどの操作をしたかをここに残す（詳細設計 03 の10章）。
+// 業務データの更新と同じトランザクションで INSERT する。
+// 追加だけを行い、UPDATE・DELETE・TRUNCATE は migration のトリガーで拒否する。
+// 氏名・部屋番号・deviceName の値は保存しない（個人情報の最小化）。
+// ==========================================
+
+model DeviceOperationLog {
+  id                  String                @id @default(cuid())
+  occurredAt          DateTime              @default(now()) @db.Timestamptz(3)
+  actorId             String // 操作したスタッフ（User.id）。サーバーで設定する
+  action              DeviceOperationAction
+  deviceId            String // 操作の対象のデバイス（故障交換では旧デバイス）
+  newDeviceId         String? // 故障交換の新デバイス
+  elderId             String? // 割当の対象の高齢者（付け替えでは変更後の高齢者）
+  previousElderId     String? // 付け替えの変更前の高齢者
+  endedAssignmentId   String? // この操作で終了した割当
+  createdAssignmentId String? // この操作で作成した割当
+  before              Json? // 変更前の { status, deviceCode }
+  after               Json? // 変更後の { status, deviceCode, changedFields }
+
+  actor  User   @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([deviceId, occurredAt])
+  @@index([elderId, occurredAt])
+  @@index([actorId, occurredAt])
+}
+
+// ==========================================
+// 5. ResponseRecord（対応記録）
+//
+// スタッフが現場対応完了後に作成する記録。
+// AI判定のMQTT受信だけでは作成しない。
+// deviceId は保持しない（対応対象は Elder であるため）。
+// ==========================================
+
+model ResponseRecord {
+  id                String   @id @default(cuid())
+  elderId           String
+  staffId           String // ログイン中のUserからサーバー側で設定する
+  content           String // 対応内容・メモ。空文字不可
+  isActualFall      Boolean // 実際の転倒だったか。false は誤検知
+  responseStartedAt DateTime @db.Timestamptz(3) // 対応開始
+  completedAt       DateTime @db.Timestamptz(3) // 記録完了。responseStartedAt 以降
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  elder Elder @relation(fields: [elderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staff User  @relation(fields: [staffId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([elderId, createdAt])
+  @@index([staffId, createdAt])
+  @@index([createdAt])
+}
+
+// ==========================================
+// 6. ServerLog（サーバーログ）
+//
+// AI Server / Log Worker の運用ログ。業務データとは関連付けない。
+// 転倒判定結果の履歴保存には使用しない。
+// ==========================================
+
+model ServerLog {
+  id         String          @id @default(cuid())
+  level      ServerLogLevel
+  source     String // ログ発生元（AI Server 等）
+  message    String
+  occurredAt DateTime        @db.Timestamptz(3) // ログ発生日時
+  receivedAt DateTime        @db.Timestamptz(3) // Log Worker受信日時
+  payload    Json? // 追加情報
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([source, occurredAt])
+  @@index([level, occurredAt])
+  @@index([createdAt])
 }

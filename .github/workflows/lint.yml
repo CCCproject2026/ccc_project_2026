@@ -1,0 +1,67 @@
+name: Lint All
+
+on:
+  push:
+  pull_request:
+
+# 同じブランチへの連続 push で同じチェックが重複して走らないようにする
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: main/web
+    # schema と migration のずれの確認（prisma migrate diff）に、シャドー DB として本物の Postgres が必要
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: main/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      # Prisma の schema と migration に矛盾がないことを確認する
+      - name: Validate Prisma schema
+        run: pnpm run prisma:validate
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+      # schema.prisma と migration がずれていないことを確認する
+      # （ずれると、DB とアプリの型が食い違い、Prisma の実行時エラーになる）
+      - name: Check Prisma schema and migrations are in sync
+        run: pnpm exec prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "postgresql://postgres:postgres@localhost:5432/postgres" --exit-code
+
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Ruff
+        run: pip install ruff
+      - name: Run Ruff
+        run: ruff check main/ai main/iot
+      - name: Check Python formatting
+        run: ruff format --check main/ai main/iot
