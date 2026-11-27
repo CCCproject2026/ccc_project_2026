@@ -2,6 +2,10 @@
 
 ## Overview
 
+チーム共通のAI Coding環境: [日本語利用ガイド](docs/agent-coding/README.md) · [現行実装の調査](docs/agent-coding/investigation.md) · [ツール別対応・検証](docs/agent-coding/tool-support.md)
+
+開発Taskの準備: [開発手順](docs/development/workflow.md) · [設計Template](docs/templates/README.md) · [自動化の構成・導入](docs/automation/README.md)
+
 This system detects falls and posture deterioration in elderly individuals in real time using IoT sensors and a deep learning CNN model. When a fall is detected, an instant alert is pushed to a nurse dashboard via WebSocket.
 The architecture is designed to **minimize processing overhead and communication latency** by connecting components directly:
 
@@ -86,7 +90,7 @@ The Raspberry Pi collects raw sensor values and sends them directly to the AI se
 - **Sensor:** MPU6050 — 3-axis accelerometer + gyroscope
 - **Data format:** 3 seconds of time-series data packed as a JSON array
 - **Protocol:** HTTP POST over Wi-Fi
-- **Endpoint:** `http://[AI_SERVER_IP]:8000/api/predict`
+- **Endpoint:** 開発用は `http://localhost:8000`（health のみ）。本番用ポートと外部 API は未確定。
 - **Benefit:** No image generation on the device → dramatically lower CPU load, memory usage, and battery consumption
 
 ### ② FastAPI (Image Conversion + CNN Inference)
@@ -107,13 +111,12 @@ After inference, FastAPI acts as a client and POSTs the result to the web applic
 - **Endpoint:** `http://localhost:3000/api/alert`
 - **Payload:**
 
-```json
 {
-  "status": "fallen",
-  "sensor_id": "belt_01",
-  "timestamp": "2026-05-23T21:15:00Z"
+isfall : 0 or 1,
+battery_per : 30.0,
+device_name : testDev_1,
+status : active
 }
-```
 
 ### ④ Next.js → Dashboard (Real-time Alert)
 
@@ -129,7 +132,7 @@ Next.js receives the alert and immediately broadcasts it to all connected browse
 
 | Layer | Technology
 
-| IoT Device | Raspberry Pi Zero pico + MPU6050
+| IoT Device | Raspberry Pi Zero 2W + MPU6050
 | AI Inference | FastAPI + PyTorch CNN + Matplotlib (in-memory)
 | Web Backend | Next.js API Routes + Socket.io
 | Web Frontend | Next.js (React) + Browser Audio API
@@ -177,7 +180,7 @@ elderly-fall-prevention-system/
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11+（AI Server）
 - Node.js 18+
 - Raspberry Pi Zero 2W + MPU6050
 
@@ -190,21 +193,47 @@ cd elderly-fall-prevention-system
 
 ### 2. AI Server
 
+リポジトリ直下から Docker Compose で起動します（現在は外部接続なしの起動骨格）。
+
 ```bash
-cd ai/server
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+docker compose up -d --build ai-server
 ```
+
+全体を `docker compose up -d --build` で起動する場合にも AI Server が含まれます。
+入口は `app.main:app` です。Compose は開発用に `8000:8000` を公開します。
+開発時は `http://localhost:8000` でアクセスできます。本番用ポートは未決定です。
+`/health/live` は起動後 200、`/health/ready` は実パイプライン未実装のため 503 を返します。
+Compose の healthcheck は live を使用します。
+ローカル起動・設定・各ファイルの役割は [AI Server README](main/ai/README.md) を参照してください。
 
 ### 3. Web App
 
 ```bash
-cd web
-npm install
-npm run dev
+cd main/web
+pnpm install
+pnpm dev
 ```
 
-### 4. IoT Device
+### 4. Database / Prisma
+
+This project uses PostgreSQL with Prisma.
+
+For local development, Prisma Studio and Prisma CLI connect to Docker PostgreSQL through `localhost:5433`.
+Inside Docker Compose, the `web-app` container connects to the same database through the internal service name `db:5432`.
+
+```bash
+docker compose up -d db
+cd main/web
+pnpm prisma:push
+pnpm prisma:generate
+pnpm prisma:seed
+pnpm prisma:erd
+pnpm prisma:studio
+```
+
+Prisma Studio is for browsing and editing records. `pnpm prisma:generate` updates Prisma Client, and `pnpm prisma:erd` updates the schema diagram at `main/web/prisma/ERD.svg`.
+
+### 5. IoT Device
 
 ```bash
 cd iot/raspberry_pi
@@ -251,3 +280,90 @@ Feature-based baseline tree was created under `elderly-fall-prevention-system/` 
 - `iot/raspberry_pi` and `iot/microbit` device scripts
 - `web/src/app` kept routing-thin and implementation colocation under `web/src/features/*`
 - `web/prisma/schema.prisma` initialized for PostgreSQL datasource
+
+---
+
+## Development Update (2026-06-04)
+
+Updated `.gitignore` so local/private/generated files are not pushed to GitHub:
+
+- `.env`, `.env.*`, `main/web/.env`, `main/web/.env.*`
+- `node_modules/`, `main/web/node_modules/`, `.pnpm-store/`
+- Next.js build/cache output such as `main/web/.next/`
+- Python cache and virtual environment folders
+- Jupyter checkpoints
+- AI datasets and model artifacts such as `main/ai/data/`, `main/ai/models/`, `*.pt`, `*.pth`, `*.onnx`
+- local DB files, editor files, `.DS_Store`, `.codex/`, `.agents/`
+
+The already-tracked `main/web/.next/` files were removed from Git tracking with `git rm --cached`, while keeping local files on disk.
+
+### Web Package Manager
+
+Confirmed that the Web app uses pnpm:
+
+- `main/web/package.json` has `packageManager: "pnpm@9.15.0"`
+- `main/web/pnpm-lock.yaml` is the only package lockfile
+- `main/web/Dockerfile` uses `pnpm install` and `pnpm dev`
+
+### Prisma / PostgreSQL Setup
+
+Configured Prisma and PostgreSQL for both local development and Docker:
+
+- `main/web/prisma/schema.prisma` now reads `DATABASE_URL` through `env("DATABASE_URL")`
+- `main/web/prisma.config.ts` loads `main/web/.env` explicitly and defines the seed command
+- `main/web/package.json` includes Prisma scripts:
+  - `pnpm prisma:push`
+  - `pnpm prisma:generate`
+  - `pnpm prisma:erd`
+  - `pnpm prisma:seed`
+  - `pnpm prisma:studio`
+  - `pnpm prisma:validate`
+- `docker-compose.yml` includes PostgreSQL service `db`
+- Docker PostgreSQL is exposed to the host on `localhost:5433`
+- Docker containers use the internal URL `db:5432`
+
+Reason for using `localhost:5433`: on the local machine, port `5432` may already be used by another PostgreSQL instance. Prisma Studio was failing because it was connecting to the wrong database. Moving the Docker PostgreSQL host port to `5433` avoids that conflict.
+
+### Current Database Models
+
+The current Prisma schema contains:
+
+- `User`: staff users such as nurses and caregivers
+- `Elderly`: monitored elderly residents
+- `Device`: IoT wearable devices linked 1:1 with elderly residents
+- `AlertHistory`: fall and false-alarm history, including resolved/unresolved status
+
+### Seed Data
+
+Implemented `main/web/prisma/seed.ts` with development data suitable for the current schema:
+
+- 2 users: one admin nurse and one caregiver
+- 4 elderly residents
+- 4 devices:
+  - active devices
+  - one maintenance device
+  - one inactive unassigned device
+- 3 alert histories:
+  - one unresolved fall alert
+  - one resolved fall alert
+  - one resolved false alarm
+
+Seed was verified with:
+
+```bash
+cd main/web
+pnpm prisma:seed
+```
+
+Verification result:
+
+```text
+User: 2
+Elderly: 4
+Device: 4
+AlertHistory: 3
+Device.findMany: OK
+```
+
+
+      

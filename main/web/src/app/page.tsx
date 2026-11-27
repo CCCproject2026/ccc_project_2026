@@ -1,3 +1,9 @@
+// src/app/page.tsx
+
+// app/page.tsx
+import { redirect } from "next/navigation";
+
 export default function HomePage() {
-  return <main>Landing page placeholder</main>;
+	// This instantly pushes the user to /dashboard automatically
+	redirect("/dashboard");
 }

@@ -1,0 +1,210 @@
+{
+  "manifest_version": 1,
+  "issue": "https://github.com/CCCproject2026/ccc_project_2026/issues/189",
+  "status": "received_pending_compatibility_confirmation",
+  "model_version": "sisfall-a7d4589b1542-8bc81b30acf3",
+  "receipt": {
+    "provider_code": "received_issue_comments",
+    "trained_model": "received_user_supplied_file",
+    "scaler": "received_user_supplied_file",
+    "known_io": "not_received"
+  },
+  "artifacts": {
+    "model": {
+      "filename": "best_1dcnn_pytorch.pth",
+      "path": "artifacts/sisfall_model/best_1dcnn_pytorch.pth",
+      "sha256": "a7d4589b1542302775eb6fe8734b39adb91e5da086985b000ca587d8d62f7c2f",
+      "format_from_provider_code": "pytorch_state_dict",
+      "format_verified_on_file": true,
+      "hash_source": "user_supplied_local_file",
+      "received_on": "2026-11-06",
+      "inspection": "zip_and_pickle_metadata_only_not_deserialized"
+    },
+    "scaler": {
+      "filename": "scaler.pkl",
+      "path": "artifacts/sisfall_model/scaler.pkl",
+      "sha256": "8bc81b30acf398e26d32b4ea03a09e65cf8b7386f4565211ae96914afd4bd513",
+      "format_from_provider_code": "joblib",
+      "class": "sklearn.preprocessing.StandardScaler",
+      "fitted_on": "training_windows_only",
+      "n_features_expected": 6,
+      "hash_source": "user_supplied_local_file",
+      "received_on": "2026-11-06",
+      "sklearn_version_in_file": "1.6.1"
+    },
+    "model_class": {
+      "path": "app/model_artifacts/conv1d.py",
+      "symbol": "Conv1DNet",
+      "sha256": "a4e2358c0007b52609661b352dff814463b4267267747a8dbeec7eed633cf68f"
+    },
+    "loader": {
+      "path": "app/model_artifacts/loader.py",
+      "symbol": "load_model",
+      "sha256": "450576efb2db2de7ce42cb66a1bbaee75098c8073f63032004c8fbea11c87755",
+      "origin": "project_cpu_adapter",
+      "map_location": "cpu",
+      "weights_only": true,
+      "strict": true,
+      "eval": true
+    }
+  },
+  "provider_sources": [
+    {
+      "path": "artifacts/provider/preprocessing.txt",
+      "sha256": "67ec967162042ba710ddbb1329566314f8c13cb4147818dfe6557094f240dba3",
+      "url": "https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630212905"
+    },
+    {
+      "path": "artifacts/provider/training.txt",
+      "sha256": "dfb4b01dc83f9bf4ecaf93eed3a4baa76b8c312f3b5d2f7574b7e9b7adf67e60",
+      "url": "https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630219944"
+    },
+    {
+      "path": "artifacts/provider/evaluation.txt",
+      "sha256": "15d7ca6aa699b9b8c28725bd99ff6283273a0d6fc17019965914f86e70752d59",
+      "url": "https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630224801"
+    }
+  ],
+  "input": {
+    "raw_window_shape": [
+      100,
+      6
+    ],
+    "sampling_rate_hz": 50,
+    "window_size": 100,
+    "step_size": 50,
+    "raw_dtype": "float32",
+    "feature_order": [
+      "ax",
+      "ay",
+      "az",
+      "gx",
+      "gy",
+      "gz"
+    ],
+    "feature_order_status": "project_mapping_pending_provider_confirmation",
+    "provider_columns": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "units_from_provider_code": [
+      "g",
+      "g",
+      "g",
+      "deg/s",
+      "deg/s",
+      "deg/s"
+    ],
+    "axis_orientation": null,
+    "scaler_input_shape": [
+      100,
+      6
+    ],
+    "tensor_layout": "NCL",
+    "tensor_shape": [
+      1,
+      6,
+      100
+    ],
+    "tensor_dtype": "float32"
+  },
+  "preprocessing": {
+    "training_source_rate_hz": 200,
+    "training_downsample": "mean_of_4_consecutive_rows",
+    "training_acceleration_multiplier": "(2 * 16) / (2 ** 13)",
+    "training_gyroscope_multiplier": "(2 * 2000) / (2 ** 16)",
+    "runtime": [
+      "physical_50hz_window",
+      "scaler.transform",
+      "astype_float32",
+      "transpose_to_6_100",
+      "add_batch_dimension"
+    ],
+    "fit_at_runtime": false,
+    "iot_unit_and_axis_compatibility": "unconfirmed"
+  },
+  "output": {
+    "shape": [
+      1,
+      1
+    ],
+    "kind": "binary_fall_logit",
+    "dtype_expected": "float32",
+    "labels": {
+      "0": "normal",
+      "1": "fall"
+    },
+    "fall_label": 1,
+    "fall_output_index": 0,
+    "class_axis": null,
+    "probability_transform": "sigmoid_once",
+    "threshold": 0.5,
+    "comparison": ">=",
+    "verified_on_weights": false
+  },
+  "runtime": {
+    "python": null,
+    "torch": null,
+    "numpy": null,
+    "scikit_learn": "1.6.1",
+    "joblib": null,
+    "training_device": "cuda:0 (serialized_tensor_location)",
+    "deployment_device_candidate": "cpu",
+    "cpu_compatibility_verified": false
+  },
+  "known_io": {
+    "path": null,
+    "sha256": null,
+    "template": "artifacts/fixtures/known_io.template.json",
+    "atol": null,
+    "rtol": null,
+    "reproduced": false,
+    "execution": "not_run_per_project_policy"
+  },
+  "blockers": [
+    "provider_known_input_scaled_output_logit_probability",
+    "provider_numerical_tolerances",
+    "compatible_runtime_versions",
+    "feature_order_and_iot_axis_confirmation",
+    "provider_confirmation_of_model_scaler_pair"
+  ],
+  "model_version_source": "local_artifact_pair_hash_identifier_not_provider_release",
+  "deployment_runtime": {
+    "status": "resolved_not_execution_verified",
+    "lockfile": "uv.lock",
+    "packages": [
+      {
+        "name": "joblib",
+        "version": "1.6.0"
+      },
+      {
+        "name": "numpy",
+        "version": "2.2.6"
+      },
+      {
+        "name": "scikit-learn",
+        "version": "1.6.1"
+      },
+      {
+        "name": "scipy",
+        "version": "1.17.1"
+      },
+      {
+        "name": "scipy",
+        "version": "1.18.1"
+      },
+      {
+        "name": "torch",
+        "version": "2.15.0"
+      },
+      {
+        "name": "torch",
+        "version": "2.15.0+cpu"
+      }
+    ]
+  }
+}

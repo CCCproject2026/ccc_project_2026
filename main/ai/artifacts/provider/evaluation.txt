@@ -1,0 +1,31 @@
+Source: https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630224801
+
+from sklearn.metrics import classification_report, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# 最良モデルをロード
+model.load_state_dict(torch.load("best_1dcnn_pytorch.pth"))
+model.eval()
+
+y_preds = []
+y_trues = []
+
+with torch.no_grad():
+    for inputs, labels in val_loader:
+        inputs = inputs.to(device)
+        outputs = model(inputs).squeeze(1)
+        preds = (torch.sigmoid(outputs) >= 0.5).float().cpu().numpy()
+        
+        y_preds.extend(preds)
+        y_trues.extend(labels.numpy())
+
+# レポート出力
+print("📊 詳細評価レポート:")
+print(classification_report(y_trues, y_preds, target_names=["日常(0)", "転倒(1)"]))
+
+# 混同行列の表示
+cm = confusion_matrix(y_trues, y_preds)
+print("混同行列:")
+print(cm)
+

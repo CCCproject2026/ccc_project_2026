@@ -1,0 +1,25 @@
+# Ignore files for AI service
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+artifacts/provider/
+artifacts/fixtures/
+env/
+.env
+.env.*
+!.env.example
+.DS_Store
+.git
+.gitignore
+.dockerignore
+*.md
+README*
+tests/
+scripts/
