@@ -1,6 +1,7 @@
 """受信Queueを処理する単一Worker。入力検証とDevice利用可否を担当する。"""
 
 import logging
+from datetime import UTC, datetime, timedelta
 from queue import Empty
 from threading import Event, Thread
 from time import monotonic
@@ -10,6 +11,11 @@ from app.core.config import Settings
 from app.domain.sensor import InvalidSensorBatch, SensorBatch
 from app.integrations.device import DeviceApiClient, DeviceManager
 from app.integrations.mqtt_client import MqttConnection, MqttSensorInput
+from app.processing.buffer import (
+    BufferCapacityError,
+    BufferManager,
+    ContinuityPolicy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +29,18 @@ class InputPipeline:
         self.accepted_batches = 0
         self.accepted_samples = 0
         self.rejected_batches = 0
+        # Bufferの状態もWorkerだけが変更する。推論・結果送信はAI-15以降で接続する。
+        # ContinuityPolicyの数値は開発用候補。担当者合意前に本番値として扱わない。
+        self.buffer_manager = BufferManager(
+            policy=ContinuityPolicy(
+                min_interval=timedelta(milliseconds=1),
+                max_interval=timedelta(seconds=1),
+                max_sample_age=timedelta(seconds=60),
+                max_future_skew=timedelta(seconds=5),
+                offline_after=timedelta(seconds=30),
+            ),
+            window_step=settings.window_step,
+        )
         self.device_manager = (
             DeviceManager(DeviceApiClient(settings), self._reset_device)
             if settings.device_api_url
@@ -85,11 +103,15 @@ class InputPipeline:
             }
 
     def _reset_device(self, code: str | None, reason: str) -> None:
-        # Bufferは未実装。接続時はここでcodeのBuffer（Noneなら全体）を削除する。
+        if code is None:
+            reset_count = self.buffer_manager.reset_all(reason=reason)
+        else:
+            reset_count = int(self.buffer_manager.reset(code, reason=reason))
         logger.info(
-            "DEVICE_CONTINUITY_RESET reason=%s scope=%s",
+            "DEVICE_CONTINUITY_RESET reason=%s scope=%s buffers=%d",
             reason,
             "all" if code is None else "device",
+            reset_count,
         )
 
     def _update_device_snapshot(self) -> None:
@@ -112,10 +134,32 @@ class InputPipeline:
         # decode中に切断や欠落が発生する場合があるため、受理の直前に再確認する。
         with self.connection.state_lock:
             self._ensure_current_batch(batch)
+        windows = []
+        now_utc = datetime.now(UTC)
+        try:
+            for sample in batch.samples:
+                result = self.buffer_manager.append(
+                    sample,
+                    generation=batch.generation,
+                    now_monotonic=monotonic(),
+                    now_utc=now_utc,
+                )
+                if result.window is not None:
+                    windows.append(result.window)
+        except BufferCapacityError as error:
+            # codeは生payloadに由来するため出力せず、安全な理由だけを返す。
+            raise InvalidSensorBatch(str(error)) from None
+        except ValueError as error:
+            # decode通過後の境界値異常はWorkerを落とさず、安全な理由で拒否する。
+            raise InvalidSensorBatch("invalid_sample") from error
+        with self.connection.state_lock:
+            self._ensure_current_batch(batch)
             self.accepted_batches += 1
             self.accepted_samples += len(batch.samples)
-        # 今回の終点。生payloadは保存・出力しない。推論成功とは区別する。
-        # Buffer実装時はここからACTIVEの検証済みbatchを引き渡す。
+        # 生成したWindowは次のAI-15で前処理・推論・送信へ接続する。
+        # この段階では受信成功と推論成功を混同しない。
+        for _window in windows:
+            logger.info("SENSOR_WINDOW_GENERATED samples=%d", len(_window.values))
         logger.info("SENSOR_BATCH_ACCEPTED samples=%d", len(batch.samples))
 
     def _ensure_current_batch(self, batch: SensorBatch) -> None:
@@ -134,11 +178,15 @@ class InputPipeline:
                 if self.device_manager is not None:
                     self.device_manager.expire()
                     self._update_device_snapshot()
+                expired = self.buffer_manager.expire(now_monotonic=monotonic())
+                if expired:
+                    logger.info("SENSOR_BUFFER_EXPIRED count=%d", len(expired))
                 # 同じlockで通知解除とQueue掃除を行い、新しい欠落通知を消さない。
                 with self.connection.state_lock:
                     if self.receiver.discontinuity.is_set():
                         self._discard_queue(reason="continuity_reset")
                         self.receiver.discontinuity.clear()
+                        self._reset_device(None, "continuity_reset")
                         logger.info("SENSOR_CONTINUITY_RESET")
                 try:
                     envelope = self.receiver.queue.get(timeout=0.2)
