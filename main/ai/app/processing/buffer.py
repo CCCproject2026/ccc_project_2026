@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from math import isfinite
 
 import numpy as np
@@ -14,6 +14,7 @@ from app.domain.sensor import SensorSample
 FEATURE_COUNT = 6
 WINDOW_SIZE = 100
 MAX_DEVICES = 128
+FLOAT32_MAX = float(np.finfo(np.float32).max)
 
 
 class BufferCapacityError(RuntimeError):
@@ -42,8 +43,8 @@ class _DeviceBuffer:
 class BufferManager:
     """100点WindowをStep境界で1回だけ生成する。
 
-    MQTT callbackからは呼ばず、InputPipelineの単一Workerだけが更新する。時刻間隔
-    の外部契約は未合意のため、gap上限は明示設定された場合だけ適用する。
+    MQTT callbackからは呼ばず、InputPipelineの単一Workerだけが更新する。時刻境界
+    の外部契約は未合意のため、gap/stale/future上限は明示設定された場合だけ適用する。
     """
 
     def __init__(
@@ -53,31 +54,57 @@ class BufferManager:
         max_devices: int = MAX_DEVICES,
         offline_after_seconds: float | None = None,
         max_gap_seconds: float | None = None,
+        min_gap_seconds: float | None = None,
+        max_sample_age_seconds: float | None = None,
+        max_future_skew_seconds: float | None = None,
     ) -> None:
         if not 1 <= step <= WINDOW_SIZE:
             raise ValueError("step")
-        if max_devices <= 0:
+        if not 1 <= max_devices <= MAX_DEVICES:
             raise ValueError("max_devices")
         for name, value in (
             ("offline_after_seconds", offline_after_seconds),
             ("max_gap_seconds", max_gap_seconds),
+            ("min_gap_seconds", min_gap_seconds),
+            ("max_sample_age_seconds", max_sample_age_seconds),
+            ("max_future_skew_seconds", max_future_skew_seconds),
         ):
             if value is not None and (not isfinite(value) or value <= 0):
                 raise ValueError(name)
+        if (
+            min_gap_seconds is not None
+            and max_gap_seconds is not None
+            and min_gap_seconds > max_gap_seconds
+        ):
+            raise ValueError("min_gap_seconds")
         self.step = step
         self.max_devices = max_devices
         self.offline_after_seconds = offline_after_seconds
         self.max_gap_seconds = max_gap_seconds
+        self.min_gap_seconds = min_gap_seconds
+        self.max_sample_age_seconds = max_sample_age_seconds
+        self.max_future_skew_seconds = max_future_skew_seconds
         self._buffers: dict[str, _DeviceBuffer] = {}
 
     def __len__(self) -> int:
         return len(self._buffers)
 
     def append(
-        self, sample: SensorSample, *, generation: int, now_monotonic: float
+        self,
+        sample: SensorSample,
+        *,
+        generation: int,
+        now_monotonic: float,
+        now_utc: datetime | None = None,
     ) -> SensorWindow | None:
         """追加し、100点/Step境界だけでimmutable Windowを返す。"""
         self._validate(sample, now_monotonic)
+        now_utc = self._normalize_now_utc(now_utc)
+
+        if self._is_stale(sample, now_utc) or self._is_future(sample, now_utc):
+            self.reset(sample.device_code, reason="time_bound")
+            return None
+
         state = self._buffers.get(sample.device_code)
         if state is None:
             if len(self._buffers) >= self.max_devices:
@@ -94,11 +121,7 @@ class BufferManager:
             if sample.measured_at < previous:
                 self._reset_state(state, generation, now_monotonic)
                 return None
-            if (
-                self.max_gap_seconds is not None
-                and (sample.measured_at - previous).total_seconds()
-                > self.max_gap_seconds
-            ):
+            if self._has_interval_discontinuity(sample.measured_at - previous):
                 self._reset_state(state, generation, now_monotonic)
 
         state.samples.append(sample)
@@ -155,16 +178,46 @@ class BufferManager:
         state.last_seen_monotonic = now_monotonic
 
     @staticmethod
+    def _normalize_now_utc(now_utc: datetime | None) -> datetime | None:
+        if now_utc is None:
+            return None
+        if now_utc.tzinfo is None or now_utc.utcoffset() is None:
+            raise ValueError("now_utc")
+        return now_utc.astimezone(UTC)
+
+    def _is_stale(self, sample: SensorSample, now_utc: datetime | None) -> bool:
+        if self.max_sample_age_seconds is None or now_utc is None:
+            return False
+        age = (now_utc - sample.measured_at).total_seconds()
+        return age > self.max_sample_age_seconds
+
+    def _is_future(self, sample: SensorSample, now_utc: datetime | None) -> bool:
+        if self.max_future_skew_seconds is None or now_utc is None:
+            return False
+        skew = (sample.measured_at - now_utc).total_seconds()
+        return skew > self.max_future_skew_seconds
+
+    def _has_interval_discontinuity(self, interval: timedelta) -> bool:
+        seconds = interval.total_seconds()
+        if self.min_gap_seconds is not None and seconds < self.min_gap_seconds:
+            return True
+        return self.max_gap_seconds is not None and seconds > self.max_gap_seconds
+
+    @staticmethod
     def _validate(sample: SensorSample, now_monotonic: float) -> None:
         values = (*sample.accelerometer, *sample.gyroscope)
         if (
             not sample.device_code
             or sample.measured_at.tzinfo is None
+            or sample.measured_at.utcoffset() is None
             or not isfinite(now_monotonic)
         ):
             raise ValueError("sample")
         if len(values) != FEATURE_COUNT or not all(
-            type(value) in (int, float) and isfinite(value) for value in values
+            type(value) in (int, float)
+            and abs(value) <= FLOAT32_MAX
+            and isfinite(value)
+            for value in values
         ):
             raise ValueError("sample_values")
 
