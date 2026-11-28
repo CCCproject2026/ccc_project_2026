@@ -4,13 +4,17 @@ import logging
 from queue import Empty
 from threading import Event, Thread
 from time import monotonic
+from typing import TYPE_CHECKING
 
 from app.application.sensor_input import SensorInputService
 from app.core.config import Settings
 from app.domain.sensor import InvalidSensorBatch, SensorBatch
 from app.integrations.device import DeviceApiClient, DeviceManager
 from app.integrations.mqtt_client import MqttConnection, MqttSensorInput
-from app.processing.buffer import BufferCapacityError, BufferManager
+from app.processing.buffer import BufferCapacityError, BufferManager, SensorWindow
+
+if TYPE_CHECKING:
+    from app.processing.inference import InferenceEngine
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +23,16 @@ WORKER_SHUTDOWN_RESERVE_SECONDS = 0.5
 
 
 class InputPipeline:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self, settings: Settings, inference: "InferenceEngine | None" = None
+    ) -> None:
         self.stop_requested = Event()
         self.accepted_batches = 0
         self.accepted_samples = 0
         self.rejected_batches = 0
-        # Bufferの状態もWorkerだけが変更する。推論・結果送信はAI-15以降で接続する。
+        # Bufferの状態もWorkerだけが変更する。
+        # 推論は受信と同じWorker内で直列実行する（結果送信は未接続・ログのみ）。
+        self.inference = inference
         self.buffer_manager = BufferManager(
             step=settings.window_step,
             offline_after_seconds=settings.offline_timeout_seconds,
@@ -139,11 +147,30 @@ class InputPipeline:
             self._ensure_current_batch(batch)
             self.accepted_batches += 1
             self.accepted_samples += len(batch.samples)
-        # 生成したWindowは次のAI-15で前処理・推論・送信へ接続する。
-        # この段階では受信成功と推論成功を混同しない。
-        for _window in windows:
-            logger.info("SENSOR_WINDOW_GENERATED samples=%d", len(_window.values))
+        # AI-15接続（結果送信は未実装のためログのみ）。
+        # 受信成功と推論成功は別ログで区別する: INFERENCE_FAILED でも受付は成功。
+        for window in windows:
+            logger.info("SENSOR_WINDOW_GENERATED samples=%d", len(window.values))
+            self._predict(window)
         logger.info("SENSOR_BATCH_ACCEPTED samples=%d", len(batch.samples))
+
+    def _predict(self, window: SensorWindow) -> None:
+        """Windowを推論へ渡す。推論の失敗で受付Workerを止めない。"""
+        if self.inference is None:
+            return
+        try:
+            prediction = self.inference.predict(window.values)
+        except Exception:
+            logger.exception("INFERENCE_FAILED")
+            return
+        logger.info(
+            "INFERENCE p_fall=%.4f result=%s model_version=%s window=%s..%s",
+            prediction.p_fall,
+            prediction.result,
+            prediction.model_version,
+            window.started_at.isoformat(),
+            window.ended_at.isoformat(),
+        )
 
     def _ensure_current_batch(self, batch: SensorBatch) -> None:
         """呼出元がstate_lockを持つ。HTTP待機前後の受付条件を共通化する。"""
