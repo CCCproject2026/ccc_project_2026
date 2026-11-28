@@ -34,6 +34,25 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: "no"
-  
+
+  mqtt-broker:
+    # Pinned to current eclipse-mosquitto:2 index digest for reproducible builds (resolved 2.1.2-alpine at pin time).
+    image: eclipse-mosquitto:2@sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98
+    container_name: ccc_mqtt_broker
+    ports:
+      # Bound to all interfaces so real ESP32 devices on the LAN/hotspot can connect
+      # (main's compose keeps 127.0.0.1; device testing needs 0.0.0.0).
+      - "0.0.0.0:1883:1883"       # devices + AI server
+      - "0.0.0.0:9001:9001"       # browser MQTT over WebSocket
+    volumes:
+      - ./main/broker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -p 1883 -t '$$SYS/broker/version' -C 1 -W 3 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  mqtt_data:
