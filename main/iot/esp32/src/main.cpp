@@ -62,12 +62,17 @@ static const float GYRO_DPS_CONV  = 180.0f / PI;       // × 57.2958
 
 // ── Batch buffer for MQTT publish ─────────────────────────────
 struct BatchSample {
-    unsigned long t;
+    unsigned long t;      // ms relative to batch start; first sample is 0
     float ax, ay, az;
     float gx, gy, gz;
 };
 static BatchSample batch[BATCH_SIZE];
 static int batchIndex = 0;
+
+// Batch start markers. The MQTT contract defines measured_at = ts_ms + t,
+// so ts_ms must be the first sample's wall clock and t must be relative.
+static unsigned long batchStartMillis   = 0;
+static struct timeval batchStartTv      = {0, 0};
 
 // ── Function Prototypes ───────────────────────────────────────
 bool    initMPU6050();
@@ -142,8 +147,15 @@ void loop() {
 
         // Add sample to batch buffer
         if (sensorData.valid) {
+            if (batchIndex == 0) {
+                // First sample of a new batch anchors both markers.
+                // batchStartMillis is taken from the sample's own timestamp
+                // so t[0] is exactly 0 (the validator requires this).
+                batchStartMillis = sensorData.timestamp;
+                gettimeofday(&batchStartTv, nullptr);
+            }
             batch[batchIndex] = {
-                sensorData.timestamp,
+                sensorData.timestamp - batchStartMillis,
                 sensorData.accel_x, sensorData.accel_y, sensorData.accel_z,
                 sensorData.gyro_x,  sensorData.gyro_y,  sensorData.gyro_z
             };
@@ -357,10 +369,11 @@ void publishToMqtt() {
     JsonDocument doc;
     doc["device_id"] = DEVICE_ID;
 
-    // Absolute wall-clock time (NTP). ts = ISO-8601 (local, ms precision),
-    // ts_ms = Unix epoch milliseconds. Falls back to null if time is unsynced.
-    struct timeval tv;
-    gettimeofday(&tv, nullptr);
+    // Absolute wall-clock time (NTP) of the batch START, so that
+    // measured_at = ts_ms + sample.t lands on the real sample instants.
+    // ts = ISO-8601 (local, ms precision), ts_ms = Unix epoch milliseconds.
+    // Falls back to null if time is unsynced.
+    const struct timeval tv = batchStartTv;
     if (tv.tv_sec > 1600000000L) {          // sanity: later than Sep 2020
         struct tm timeinfo;
         time_t secs = tv.tv_sec;
