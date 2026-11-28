@@ -11,7 +11,8 @@ interface SidebarItemProps {
 
 export function SidebarItem({ icon, label, href }: SidebarItemProps) {
 	const pathname = usePathname();
-	const isActive = pathname === href;
+	// 子ページ（例: /staff/invitations）を開いているときも、親のメニューを選択中にする
+	const isActive = pathname === href || pathname.startsWith(`${href}/`);
 	return (
 		<Link
 			href={href}

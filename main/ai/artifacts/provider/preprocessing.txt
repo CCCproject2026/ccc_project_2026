@@ -1,0 +1,149 @@
+Source: https://github.com/CCCproject2026/ccc_project_2026/issues/189#issuecomment-6630212905
+
+import os
+import gc
+import joblib
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import GroupShuffleSplit
+from sklearn.preprocessing import StandardScaler
+
+import torch
+from torch.utils.data import TensorDataset, DataLoader
+
+# ==========================================
+# 0. 初期設定
+# ==========================================
+target_file = "/kaggle/input/datasets/nvnikhil0001/sis-fall-original-dataset/SisFall_dataset"
+exclude_codes = ["D03", "D04", "D05", "D06", "D19"]
+
+# 物理単位変換定数を float32 で定義（メモリ節約）
+ADXL345_CONV = np.float32((2 * 16) / (2**13))  # g
+ITG3200_CONV = np.float32((2 * 2000) / (2**16)) # deg/s
+
+HZ_TARGET = 50 
+WINDOW_SEC = 2 
+WINDOW_SIZE = HZ_TARGET * WINDOW_SEC  # 100行 (2秒)
+STEP_SIZE = WINDOW_SIZE // 2          # 50行 (1秒) オーバーラップ
+
+
+# ==========================================
+# 1. ファイル一覧の取得 ＆ ファイル単位（Scope）の分割
+# ==========================================
+all_paths = []
+labels = []
+group_ids = []
+
+file_count = 0
+for dirname, _, filenames in os.walk(target_file):
+    for filename in filenames:
+        if not (filename.startswith("D") or filename.startswith("F")):
+            continue
+        if any(ex_code in filename for ex_code in exclude_codes):
+            continue
+        
+        full_path = os.path.join(dirname, filename)
+        all_paths.append(full_path)
+        labels.append(0 if filename.startswith("D") else 1)
+        group_ids.append(file_count)
+        file_count += 1
+
+all_paths = np.array(all_paths)
+labels = np.array(labels)
+group_ids = np.array(group_ids)
+
+# ファイル単位（Scope）で Train (80%) と Val (20%) に事前分割（データリーク防止）
+gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+train_idx, val_idx = next(gss.split(all_paths, labels, groups=group_ids))
+
+train_paths = all_paths[train_idx]
+val_paths   = all_paths[val_idx]
+
+print(f"📁 ファイルScope分離完了:")
+print(f"   - 訓練用ファイル数: {len(train_paths)} 件")
+print(f"   - 検証用ファイル数: {len(val_paths)} 件")
+
+
+# ==========================================
+# 2. メモリ最適化スライス関数
+# ==========================================
+def process_files_to_windows_light(file_paths):
+    X_list, y_list = [], []
+    for file_full_path in file_paths:
+        filename = os.path.basename(file_full_path)
+        label = 0 if filename.startswith("D") else 1
+            
+        try:
+            df = pd.read_csv(file_full_path, sep=',', header=None, on_bad_lines='skip')
+            df_clean = df.iloc[:, 0:6].apply(pd.to_numeric, errors='coerce').dropna()
+            if df_clean.empty:
+                continue
+
+            # float32 で計算（RAM消費半減）
+            data_arr = df_clean.values.astype(np.float32)
+            data_arr[:, 0:3] *= ADXL345_CONV
+            data_arr[:, 3:6] *= ITG3200_CONV
+
+            # 200Hz ➔ 50Hz ダウンサンプリング
+            n_rows = (data_arr.shape[0] // 4) * 4
+            if n_rows == 0:
+                continue
+            data_50hz = data_arr[:n_rows].reshape(-1, 4, 6).mean(axis=1)
+            
+            # 50% オーバーラップスライス
+            total_rows = data_50hz.shape[0]
+            for i in range(0, total_rows - WINDOW_SIZE + 1, STEP_SIZE):
+                window = data_50hz[i : i + WINDOW_SIZE, :]
+                if window.shape[0] == WINDOW_SIZE:
+                    X_list.append(window)
+                    y_list.append(label)
+                
+        except Exception:
+            continue
+            
+    return np.array(X_list, dtype=np.float32), np.array(y_list, dtype=np.int64)
+
+print("\n🔄 訓練データと検証データを抽出中...")
+X_tr_raw, y_tr = process_files_to_windows_light(train_paths)
+X_val_raw, y_val = process_files_to_windows_light(val_paths)
+
+gc.collect()  # メモリ解放
+
+
+# ==========================================
+# 3. データの標準化 ＆ PyTorch DataLoaderの作成
+# ==========================================
+N_tr, T, C = X_tr_raw.shape
+N_val, _, _ = X_val_raw.shape
+
+scaler = StandardScaler()
+
+# 🌟 fit は Train 側の Scope データのみに適用（データリーク防止）
+X_tr_scaled = scaler.fit_transform(X_tr_raw.reshape(-1, C)).reshape(N_tr, T, C).astype(np.float32)
+X_val_scaled = scaler.transform(X_val_raw.reshape(-1, C)).reshape(N_val, T, C).astype(np.float32)
+
+# 不要オブジェクトの破棄とメモリ解放
+del X_tr_raw, X_val_raw
+gc.collect()
+
+# PyTorch 用に (N, Length, Channels) ➔ (N, Channels, Length) に軸を変換
+X_tr_transposed  = np.transpose(X_tr_scaled, (0, 2, 1))
+X_val_transposed = np.transpose(X_val_scaled, (0, 2, 1))
+
+del X_tr_scaled, X_val_scaled
+gc.collect()
+
+# Dataset ＆ DataLoader の作成
+train_dataset = TensorDataset(torch.from_numpy(X_tr_transposed), torch.from_numpy(y_tr).float())
+val_dataset   = TensorDataset(torch.from_numpy(X_val_transposed), torch.from_numpy(y_val).float())
+
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+val_loader   = DataLoader(val_dataset, batch_size=32, shuffle=False)
+
+# スケーラーの保存
+joblib.dump(scaler, "scaler.pkl")
+
+print(f"\n✨ 前処理完了！DataLoaderが作成されました。")
+print(f"   - Train Batch数: {len(train_loader)}")
+print(f"   - Val Batch数:   {len(val_loader)}")
+

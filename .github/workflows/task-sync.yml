@@ -1,0 +1,55 @@
+name: Linear GitHub Task Sync
+
+on:
+  issues:
+    types: [opened]
+  schedule:
+    - cron: '7,17,27,37,47,57 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Shared by the task-preparation workflow to prevent duplicate bot comments.
+concurrency:
+  group: task-automation
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: vars.TASK_SYNC_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Sync tasks and prepare documents
+        id: sync
+        uses: actions/github-script@v7
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}
+          LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
+          TASK_SYNC_SINCE: ${{ vars.TASK_SYNC_SINCE }}
+        with:
+          retries: 0
+          script: |
+            const { generate } = require('./scripts/task-sync/run.cjs');
+            await generate({ github, context, core });
+      - uses: actions/upload-artifact@v4
+        if: steps.sync.outputs.count != '0'
+        with:
+          name: synced-task-designs
+          path: ${{ runner.temp }}/task-sync-designs/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Publish preparation links after artifact upload
+        if: steps.sync.outputs.count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { publish } = require('./scripts/task-sync/run.cjs');
+            await publish({ github, context });

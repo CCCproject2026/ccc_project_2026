@@ -2,6 +2,10 @@
 
 ## Overview
 
+チーム共通のAI Coding環境: [日本語利用ガイド](docs/agent-coding/README.md) · [現行実装の調査](docs/agent-coding/investigation.md) · [ツール別対応・検証](docs/agent-coding/tool-support.md)
+
+開発Taskの準備: [開発手順](docs/development/workflow.md) · [設計Template](docs/templates/README.md) · [自動化の構成・導入](docs/automation/README.md)
+
 This system detects falls and posture deterioration in elderly individuals in real time using IoT sensors and a deep learning CNN model. When a fall is detected, an instant alert is pushed to a nurse dashboard via WebSocket.
 The architecture is designed to **minimize processing overhead and communication latency** by connecting components directly:
 
@@ -86,7 +90,7 @@ The Raspberry Pi collects raw sensor values and sends them directly to the AI se
 - **Sensor:** MPU6050 — 3-axis accelerometer + gyroscope
 - **Data format:** 3 seconds of time-series data packed as a JSON array
 - **Protocol:** HTTP POST over Wi-Fi
-- **Endpoint:** `http://[AI_SERVER_IP]:8000/api/predict`
+- **Endpoint:** 開発用は `http://localhost:8000`（health のみ）。本番用ポートと外部 API は未確定。
 - **Benefit:** No image generation on the device → dramatically lower CPU load, memory usage, and battery consumption
 
 ### ② FastAPI (Image Conversion + CNN Inference)
@@ -108,9 +112,9 @@ After inference, FastAPI acts as a client and POSTs the result to the web applic
 - **Payload:**
 
 {
-isfall :  0   or    1, 
+isfall : 0 or 1,
 battery_per : 30.0,
-device_name :  testDev_1,
+device_name : testDev_1,
 status : active
 }
 
@@ -176,7 +180,7 @@ elderly-fall-prevention-system/
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11+（AI Server）
 - Node.js 18+
 - Raspberry Pi Zero 2W + MPU6050
 
@@ -189,11 +193,18 @@ cd elderly-fall-prevention-system
 
 ### 2. AI Server
 
+リポジトリ直下から Docker Compose で起動します（現在は外部接続なしの起動骨格）。
+
 ```bash
-cd ai/server
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+docker compose up -d --build ai-server
 ```
+
+全体を `docker compose up -d --build` で起動する場合にも AI Server が含まれます。
+入口は `app.main:app` です。Compose は開発用に `8000:8000` を公開します。
+開発時は `http://localhost:8000` でアクセスできます。本番用ポートは未決定です。
+`/health/live` は起動後 200、`/health/ready` は実パイプライン未実装のため 503 を返します。
+Compose の healthcheck は live を使用します。
+ローカル起動・設定・各ファイルの役割は [AI Server README](main/ai/README.md) を参照してください。
 
 ### 3. Web App
 
@@ -353,3 +364,6 @@ Device: 4
 AlertHistory: 3
 Device.findMany: OK
 ```
+
+
+      

@@ -1,0 +1,269 @@
+{
+  "source": "synthetic_contract_examples_not_live_responses",
+  "cases": [
+    {
+      "name": "200_active",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "device_code": "ESP32-001",
+          "status": "ACTIVE"
+        }
+      },
+      "expected": {
+        "state": "ACTIVE",
+        "ttl_seconds": 30
+      }
+    },
+    {
+      "name": "200_inactive",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "device_code": "ESP32-001",
+          "status": "INACTIVE"
+        }
+      },
+      "expected": {
+        "state": "INACTIVE",
+        "ttl_seconds": 30
+      }
+    },
+    {
+      "name": "200_maintenance",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "device_code": "ESP32-001",
+          "status": "MAINTENANCE"
+        }
+      },
+      "expected": {
+        "state": "INACTIVE",
+        "ttl_seconds": 30
+      }
+    },
+    {
+      "name": "404_not_found",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 404,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "code": "NOT_FOUND",
+          "message": "Device not found"
+        }
+      },
+      "expected": {
+        "state": "NOT_FOUND",
+        "ttl_seconds": 5
+      }
+    },
+    {
+      "name": "401",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 401,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "code": "UNAUTHENTICATED",
+          "message": "Access denied"
+        }
+      },
+      "expected": {
+        "state": "UNKNOWN",
+        "authentication_stopped": true,
+        "retry": false
+      }
+    },
+    {
+      "name": "403",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 403,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "code": "FORBIDDEN",
+          "message": "Access denied"
+        }
+      },
+      "expected": {
+        "state": "UNKNOWN",
+        "authentication_stopped": true,
+        "retry": false
+      }
+    },
+    {
+      "name": "429",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 429,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+          "Retry-After": "10"
+        },
+        "body": {
+          "code": "RATE_LIMITED",
+          "message": "Temporarily unavailable"
+        }
+      },
+      "expected": {
+        "state": "UNKNOWN",
+        "cooldown_seconds": 10
+      }
+    },
+    {
+      "name": "500",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 500,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "code": "INTERNAL",
+          "message": "Temporarily unavailable"
+        }
+      },
+      "expected": {
+        "state": "UNKNOWN",
+        "cooldown_seconds": 5
+      }
+    },
+    {
+      "name": "503",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 503,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "code": "TEMPORARILY_UNAVAILABLE",
+          "message": "Temporarily unavailable"
+        }
+      },
+      "expected": {
+        "state": "UNKNOWN",
+        "cooldown_seconds": 5
+      }
+    },
+    {
+      "name": "invalid_200_unknown_status",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "device_code": "ESP32-001",
+          "status": "ONLINE"
+        }
+      },
+      "expected": {
+        "state": "UNKNOWN",
+        "cache": false,
+        "cooldown_seconds": 5
+      }
+    },
+    {
+      "name": "invalid_200_code_mismatch",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "device_code": "ESP32-002",
+          "status": "ACTIVE"
+        }
+      },
+      "expected": {
+        "state": "UNKNOWN",
+        "cache": false,
+        "cooldown_seconds": 5
+      }
+    },
+    {
+      "name": "invalid_200_missing_status",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "device_code": "ESP32-001"
+        }
+      },
+      "expected": {
+        "state": "UNKNOWN",
+        "cache": false,
+        "cooldown_seconds": 5
+      }
+    },
+    {
+      "name": "invalid_404_body",
+      "request_device_code": "ESP32-001",
+      "response": {
+        "status": 404,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "message": "Route not found"
+        }
+      },
+      "expected": {
+        "state": "UNKNOWN",
+        "cache": false,
+        "cooldown_seconds": 5
+      }
+    },
+    {
+      "name": "request_timeout",
+      "request_device_code": "ESP32-001",
+      "transport_error": "total_deadline_exceeded",
+      "response": null,
+      "expected": {
+        "state": "UNKNOWN",
+        "cache": false,
+        "cooldown_seconds": 5,
+        "request_timeout_seconds": 2
+      }
+    }
+  ]
+}

@@ -1,28 +1,31 @@
-import { Cpu, LayoutDashboard, Users } from "lucide-react";
+import type { UserRole } from "@prisma/client";
+import { Cpu, LayoutDashboard, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
-import { mockAlarmData } from "@/features/dashboard/constants/mockDashboardData";
 import { MobileSignOutButton } from "./MobileSignOutButton";
 import { SiberHeader } from "./SiberHeader";
+import { SidebarAvatar } from "./SidebarAvatar";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarItem } from "./SidebarItem";
 
-const alarmCount = mockAlarmData.count ?? 0;
-export function Sidebar() {
+// ログイン中の人の情報（DB の User から渡す）
+interface SidebarProps {
+	role: UserRole;
+	lastName: string;
+	firstName: string;
+}
+
+export function Sidebar({ role, lastName, firstName }: SidebarProps) {
+	// スタッフ管理は NURSE だけが使えるので、NURSE のときだけメニューに出す
+	// （メニューを隠すだけでなく、ページと API でも NURSE かどうかチェックしている）
+	const canManageStaff = role === "NURSE";
+
 	return (
 		<>
 			<div className="hidden md:block w-64 h-screen shrink-0 bg-sidebar-bg">
 				<aside className="w-full h-full flex flex-col gap-2 p-4">
 					<SiberHeader />
 
-					{alarmCount > 0 && (
-						<button
-							type="button"
-							className="flex items-center gap-2 mt-2 px-4 py-3 rounded-xl bg-red-950/70 text-red-300 text-sm font-semibold hover:bg-red-900/70"
-						>
-							<span className="w-2 h-2 rounded-full bg-alarm animate-pulse" />
-							緊急アラーム {alarmCount}件
-						</button>
-					)}
+					{/* 実データ連携までは、架空の緊急アラームを表示しない。 */}
 					<nav className="flex flex-col gap-1 mt-4 flex-1">
 						<SidebarItem
 							href="/dashboard"
@@ -34,14 +37,26 @@ export function Sidebar() {
 							label="デバイス管理"
 							icon={<Cpu className="w-5 h-5" />}
 						/>
+						{canManageStaff && (
+							<SidebarItem
+								href="/staff"
+								label="スタッフ管理"
+								icon={<Users className="w-5 h-5" />}
+							/>
+						)}
+						{/* 高齢者管理は全員が見られる（登録・編集は NURSE だけ。API でチェックしている） */}
 						<SidebarItem
-							href="/staff"
-							label="スタッフ管理"
-							icon={<Users className="w-5 h-5" />}
+							href="/elders"
+							label="高齢者管理"
+							icon={<UserPlus className="w-5 h-5" />}
 						/>
 					</nav>
 
-					<SidebarFooter />
+					<SidebarFooter
+						role={role}
+						lastName={lastName}
+						firstName={firstName}
+					/>
 				</aside>
 			</div>
 
@@ -61,27 +76,34 @@ export function Sidebar() {
 				>
 					<Cpu className="w-5 h-5" />
 					<span>デバイス</span>
-					{alarmCount > 0 && (
-						<span className="absolute top-1 right-5 w-2 h-2 rounded-full bg-alarm animate-pulse" />
-					)}
 				</Link>
 
+				{canManageStaff && (
+					<Link
+						href="/staff"
+						className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors"
+					>
+						<Users className="w-5 h-5" />
+						<span>スタッフ</span>
+					</Link>
+				)}
 				<Link
-					href="/staff"
+					href="/elders"
 					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-20 text-center transition-colors"
 				>
-					<Users className="w-5 h-5" />
-					<span>スタッフ</span>
+					<UserPlus className="w-5 h-5" />
+					<span>高齢者</span>
 				</Link>
-				{/* 修正：ユーザー情報は、他のボタンと同じサイズで「マイページ」のように並べると、画面が崩れません */}
+				{/* マイページ（自分のスタッフ情報） */}
 				<Link
-					// href="/profile"  なったらいい　いまいち　dashboard　にいくようにしている
-					href="/dashboard"
+					href="/profile"
 					className="flex flex-col items-center gap-1 text-white/60 hover:text-white text-xs font-medium py-1 w-16 text-center transition-colors"
 				>
-					<div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center text-white text-[10px] font-bold">
-						田
-					</div>
+					<SidebarAvatar
+						initial={lastName.charAt(0) || firstName.charAt(0) || "?"}
+						name={`${lastName} ${firstName}`}
+						size="sm"
+					/>
 					<span>マイページ</span>
 				</Link>
 				<MobileSignOutButton />

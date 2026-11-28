@@ -9,6 +9,7 @@ main/web/.env
 main/web/.env.*
 main/web/prisma/.env
 main/web/prisma/.env.*
+!main/web/.env.example
 *.pem
 *.key
 *.crt
@@ -36,6 +37,7 @@ dist/
 main/web/dist/
 build/
 main/web/build/
+*.tsbuildinfo
 
 # Python caches and virtual environments
 __pycache__/
@@ -82,3 +84,28 @@ main/iot/esp32/src/config.h
 
 # PlatformIO build artifacts & downloaded libraries
 main/iot/esp32/.pio/
+
+# 共有する生成物だけは追跡し、個人設定・認証情報・セッション類は引き続き除外する。
+!.codex/
+.codex/*
+!.codex/agents/
+!.codex/agents/*.toml
+!.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/*/
+.agents/skills/*/*
+!.agents/skills/*/SKILL.md
+
+# Ignore IoT folder leftovers on non-IoT branches
+main/iot/*
+!main/iot/mock-data/
+main/iot/mock-data/*
+!main/iot/mock-data/generate_telemetry.py
+!main/iot/mock-data/publish_telemetry.py
+!main/iot/mock-data/README.md
+!main/iot/mock-data/telemetry-3min.jsonl
+
+# TypeScript incremental build info
+*.tsbuildinfo
